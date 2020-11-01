@@ -135,6 +135,8 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices
 	}
 	public class ExposureNotificationWebService : BaseWebService
 	{
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
 		public async Task<bool> PostSelvExposureKeys(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> temporaryExposureKeys)
 		{
 			SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO = new SelfDiagnosisSubmissionDTO(temporaryExposureKeys);
@@ -162,12 +164,19 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices
 			{
 				return JsonConvert.DeserializeObject<Xamarin.ExposureNotifications.Configuration>("{    'minimumRiskScore': 20,\n    'attenuationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'attenuationWeight': 50,\n    'daysSinceLastExposureScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'daysSinceLastExposureWeight': 50,\n    'durationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'durationWeight': 50,\n    'transmissionRiskScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'transmissionRiskWeight': 50,\n    'durationAtAttenuationThresholds': [\n        85,\n        170\n    ]\n}");
 			}
-			ApiResponse<Xamarin.ExposureNotifications.Configuration> apiResponse = await Get<Xamarin.ExposureNotifications.Configuration>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
+			ApiResponse<AttenuationBucketsConfigurationDTO> apiResponse = await Get<AttenuationBucketsConfigurationDTO>(Conf.URL_GET_EXPOSURE_CONFIGURATION + Conf.RELEASE_1_2_CONFIGURATION_QUERY_PARAM);
 			BaseWebService.HandleErrorsSilently(apiResponse);
 			LogUtils.SendAllLogs();
-			if (apiResponse.IsSuccessfull && apiResponse.Data != null)
+			if (apiResponse.IsSuccessfull && apiResponse.Data != null && apiResponse.Data.Configuration != null)
 			{
-				return apiResponse.Data;
+				if (apiResponse.Data.AttenuationBucketsParams != null)
+				{
+					_preferences.Set(PreferencesKeys.EXPOSURE_TIME_THRESHOLD, apiResponse.Data.AttenuationBucketsParams.ExposureTimeThreshold);
+					_preferences.Set(PreferencesKeys.LOW_ATTENUATION_DURATION_MULTIPLIER, apiResponse.Data.AttenuationBucketsParams.LowAttenuationBucketMultiplier);
+					_preferences.Set(PreferencesKeys.MIDDLE_ATTENUATION_DURATION_MULTIPLIER, apiResponse.Data.AttenuationBucketsParams.MiddleAttenuationBucketMultiplier);
+					_preferences.Set(PreferencesKeys.HIGH_ATTENUATION_DURATION_MULTIPLIER, apiResponse.Data.AttenuationBucketsParams.HighAttenuationBucketMultiplier);
+				}
+				return apiResponse.Data.Configuration;
 			}
 			return null;
 		}
@@ -378,6 +387,15 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			handler = new ExposureNotificationHandler();
 		}
 
+		private async Task<bool> CheckIfEnApiIsEnabledAndRunAction(Func<Task<bool>> action)
+		{
+			if (await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync())
+			{
+				return await action();
+			}
+			throw new Exception("EN API is disabled. Please enable it from main screen.");
+		}
+
 		internal static void UpdatePushKeysInfo(ApiResponse response, SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings)
 		{
 			PushKeysInfo = string.Format("StatusCode: {0}, Time (UTC): {1}\n\n", response.StatusCode, DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss"));
@@ -466,7 +484,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			bool processedAnyFiles = false;
 			try
 			{
-				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
+				await CheckIfEnApiIsEnabledAndRunAction(() => Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer());
 				return processedAnyFiles;
 			}
 			catch (Exception ex)
@@ -485,7 +503,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			DeveloperTools.ShouldSaveExposureInfo = true;
 			try
 			{
-				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
+				await CheckIfEnApiIsEnabledAndRunAction(() => Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer());
 				return processedAnyFiles;
 			}
 			catch (Exception ex)
@@ -1154,9 +1172,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	}
 	public class NotificationViewModel
 	{
-		public static string Title => "NOTIFICATION_HEADER".Translate();
+		public string Title = "NOTIFICATION_HEADER".Translate();
 
-		public static string Body => "NOTIFICATION_DESCRIPTION".Translate();
+		public string Body = "NOTIFICATION_DESCRIPTION".Translate();
 	}
 	public class QuestionnaireViewModel
 	{
@@ -2364,6 +2382,46 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 }
 namespace NDB.Covid19.Base.AppleGoogle.Models
 {
+	public class AttenuationBucketsConfigurationDTO
+	{
+		public Xamarin.ExposureNotifications.Configuration Configuration
+		{
+			get;
+			set;
+		}
+
+		public AttenuationBucketsParametersDTO AttenuationBucketsParams
+		{
+			get;
+			set;
+		}
+	}
+	public class AttenuationBucketsParametersDTO
+	{
+		public double ExposureTimeThreshold
+		{
+			get;
+			set;
+		}
+
+		public double LowAttenuationBucketMultiplier
+		{
+			get;
+			set;
+		}
+
+		public double MiddleAttenuationBucketMultiplier
+		{
+			get;
+			set;
+		}
+
+		public double HighAttenuationBucketMultiplier
+		{
+			get;
+			set;
+		}
+	}
 	public class PersonalDataModel
 	{
 		public string Covid19_smitte_start
@@ -4476,18 +4534,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 	{
 		private static readonly SecureStorageService _secureStorageService = ServiceLocator.Current.GetInstance<SecureStorageService>();
 
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
 		public static async Task GenerateMessageIfAppropriate(ExposureDetectionSummary summary, object messageSender)
 		{
-			if (summary.MatchedKeyCount != 0L && summary.HighestRiskScore >= 1 && (HasNotSavedASummaryYet() || SummaryIsWorseThanTheSavedSummary(summary)))
+			if (summary.MatchedKeyCount != 0L && summary.HighestRiskScore >= 1 && IsAttenuationDurationOverThreshold(summary))
 			{
-				if (summary.HighestRiskScore >= Conf.RISK_SCORE_THRESHOLD_FOR_HIGH_RISK)
-				{
-					await AlertAboutHighRiskIfAppropriate(messageSender);
-				}
-				else
-				{
-					AlertAboutMediumRiskIfAppropriate(messageSender);
-				}
+				await AlertAboutHighRiskIfAppropriate(messageSender);
 			}
 		}
 
@@ -4506,7 +4559,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 
 		private static async Task AlertAboutHighRiskIfAppropriate(object messageSender)
 		{
-			if (!HasAlertedAboutHighRiskToday() && !HasAlertedAboutMediumRiskToday())
+			if (!HasAlertedAboutHighRiskTodayOrYesterday())
 			{
 				await MessageUtils.CreateMessage(messageSender);
 				try
@@ -4520,9 +4573,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			}
 		}
 
-		private static bool HasAlertedAboutHighRiskToday()
+		private static bool HasAlertedAboutHighRiskTodayOrYesterday()
 		{
-			return UtcDateTimeToDenmarkDate(GetLastHighRiskAlertUtc()) == UtcDateTimeToDenmarkDate(DateTime.UtcNow);
+			return GetLastHighRiskAlertUtc().Date >= SystemTime.Now().Date.AddDays(-1.0);
 		}
 
 		private static DateTime GetLastHighRiskAlertUtc()
@@ -4542,6 +4595,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			}
 		}
 
+		[Obsolete]
 		private static void AlertAboutMediumRiskIfAppropriate(object messageSender)
 		{
 			if (!HasAlertedAboutMediumRiskToday())
@@ -4558,11 +4612,18 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			}
 		}
 
+		[Obsolete]
 		private static bool HasAlertedAboutMediumRiskToday()
 		{
-			return UtcDateTimeToDenmarkDate(GetLastMediumRiskAlertUtc()) == UtcDateTimeToDenmarkDate(DateTime.UtcNow);
+			DateTime lastMediumRiskAlertUtc = GetLastMediumRiskAlertUtc();
+			if (!(UtcDateTimeToDenmarkDate(lastMediumRiskAlertUtc) == UtcDateTimeToDenmarkDate(DateTime.UtcNow)))
+			{
+				return UtcDateTimeToDenmarkDate(lastMediumRiskAlertUtc) == UtcDateTimeToDenmarkDate(DateTime.UtcNow.AddDays(-1.0));
+			}
+			return true;
 		}
 
+		[Obsolete]
 		private static DateTime GetLastMediumRiskAlertUtc()
 		{
 			try
@@ -4616,9 +4677,19 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			return false;
 		}
 
+		[Obsolete]
 		private static DateTime UtcDateTimeToDenmarkDate(DateTime utcDateTime)
 		{
 			return utcDateTime.AddHours(2.0).Date;
+		}
+
+		public static bool IsAttenuationDurationOverThreshold(ExposureDetectionSummary summary)
+		{
+			double num = _preferences.Get(PreferencesKeys.EXPOSURE_TIME_THRESHOLD, Conf.EXPOSURE_TIME_THRESHOLD);
+			double num2 = _preferences.Get(PreferencesKeys.LOW_ATTENUATION_DURATION_MULTIPLIER, Conf.LOW_ATTENUATION_DURATION_MULTIPLIER);
+			double num3 = _preferences.Get(PreferencesKeys.MIDDLE_ATTENUATION_DURATION_MULTIPLIER, Conf.MIDDLE_ATTENUATION_DURATION_MULTIPLIER);
+			double num4 = _preferences.Get(PreferencesKeys.HIGH_ATTENUATION_DURATION_MULTIPLIER, Conf.HIGH_ATTENUATION_DURATION_MULTIPLIER);
+			return (double)summary.AttenuationDurations[0].Minutes * num2 + (double)summary.AttenuationDurations[1].Minutes * num3 + (double)summary.AttenuationDurations[2].Minutes * num4 >= num;
 		}
 	}
 	public abstract class ExposureDetectionSummaryJsonHelper
@@ -5124,6 +5195,14 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static readonly int RISK_SCORE_THRESHOLD_FOR_HIGH_RISK = 512;
 
+		public static readonly double LOW_ATTENUATION_DURATION_MULTIPLIER = 1.0;
+
+		public static readonly double MIDDLE_ATTENUATION_DURATION_MULTIPLIER = 0.5;
+
+		public static readonly double HIGH_ATTENUATION_DURATION_MULTIPLIER = 0.0;
+
+		public static readonly double EXPOSURE_TIME_THRESHOLD = 15.0;
+
 		public static readonly string[] SUPPORTED_REGIONS = new string[1]
 		{
 			"dk"
@@ -5160,6 +5239,8 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 		public static string URL_PUT_UPLOAD_DIAGNOSIS_KEYS => URL_PREFIX + "diagnostickeys";
 
 		public static string URL_GET_EXPOSURE_CONFIGURATION => URL_PREFIX + "diagnostickeys/exposureconfiguration";
+
+		public static string RELEASE_1_2_CONFIGURATION_QUERY_PARAM => "?r1_2=true";
 
 		public static string URL_GET_DIAGNOSIS_KEYS => URL_PREFIX + "diagnostickeys";
 
@@ -5220,5 +5301,13 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 		public static readonly DateTime DEFAULT_LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF = DateTime.UtcNow.AddDays(-123.0);
 
 		public static readonly DateTime DEFAULT_CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF = DateTime.UtcNow.Date;
+
+		public static readonly string EXPOSURE_TIME_THRESHOLD = "EXPOSURE_TIME_THRESHOLD";
+
+		public static readonly string LOW_ATTENUATION_DURATION_MULTIPLIER = "LOW_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string MIDDLE_ATTENUATION_DURATION_MULTIPLIER = "MIDDLE_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string HIGH_ATTENUATION_DURATION_MULTIPLIER = "HIGH_ATTENUATION_DURATION_MULTIPLIER";
 	}
 }

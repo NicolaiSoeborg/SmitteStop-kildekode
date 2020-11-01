@@ -17141,7 +17141,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			{
 				try
 				{
-					Task.Run(() => DoAsyncWork()).GetAwaiter().GetResult();
+					SetForegroundAsync(CreateForegroundInfo());
+					Task.Run((Func<Task>)DoAsyncWork).GetAwaiter().GetResult();
 					return Result.InvokeSuccess();
 				}
 				catch (System.Exception e)
@@ -17149,6 +17150,16 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 					LogUtils.LogException(LogSeverity.WARNING, e, "BackgroundFetchScheduler.BackgroundFetchWorker.DoWork: Failed to perform key background fetch. Retrying.");
 					return Result.InvokeRetry();
 				}
+			}
+
+			private ForegroundInfo CreateForegroundInfo()
+			{
+				NotificationViewModel notificationViewModel = new NotificationViewModel
+				{
+					Title = "NOTIFICATION_BACKGROUND_FETCH_HEADER".Translate(),
+					Body = "NOTIFICATION_BACKGROUND_FETCH_DESCRIPTION".Translate()
+				};
+				return new ForegroundInfo(617, new LocalNotificationsManager().CreateNotification(notificationViewModel));
 			}
 
 			private async Task DoAsyncWork()
@@ -17171,7 +17182,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			}
 		}
 
-		public static async void ScheduleBackgroundFetch()
+		public static void ScheduleBackgroundFetch()
 		{
 			PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(typeof(BackgroundFetchWorker), Conf.BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID);
 			builder.SetPeriodStartTime(TimeSpan.FromSeconds(1.0)).SetConstraints(new AndroidX.Work.Constraints.Builder().SetRequiredNetworkType(NetworkType.Connected).Build());
@@ -17432,20 +17443,28 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 					Description = string2
 				};
 				notificationChannel.SetShowBadge(showBadge: false);
-				NotificationManager notificationManager = (NotificationManager)CrossCurrentActivity.Current.Activity.GetSystemService("notification");
-				notificationManager.CreateNotificationChannel(notificationChannel);
+				((NotificationManager)CrossCurrentActivity.Current.Activity.GetSystemService("notification"))?.CreateNotificationChannel(notificationChannel);
 			}
 		}
 
-		public async void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds)
+		public void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds)
 		{
-			NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity);
+			CrossCurrentActivity.Current.Activity.RunOnUiThread(async delegate
+			{
+				NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity);
+				await Task.Delay(triggerInSeconds * 1000);
+				notificationManagerCompat.Notify(616, CreateNotification(notificationViewModel));
+			});
+		}
+
+		public Notification CreateNotification(NotificationViewModel notificationViewModel)
+		{
 			Intent nextIntent = new Intent(CrossCurrentActivity.Current.Activity, typeof(MessagesActivity));
 			TaskStackBuilder taskStackBuilder = TaskStackBuilder.Create(CrossCurrentActivity.Current.Activity);
 			taskStackBuilder.AddParentStack(Class.FromType(typeof(MessagesActivity)));
 			taskStackBuilder.AddNextIntent(nextIntent);
 			PendingIntent pendingIntent = taskStackBuilder.GetPendingIntent(0, 134217728);
-			NotificationCompat.Builder builder = new NotificationCompat.Builder(CrossCurrentActivity.Current.Activity, _channelId).SetAutoCancel(autoCancel: true).SetContentTitle(NotificationViewModel.Title).SetContentText(NotificationViewModel.Body)
+			NotificationCompat.Builder builder = new NotificationCompat.Builder(CrossCurrentActivity.Current.Activity, _channelId).SetAutoCancel(autoCancel: true).SetContentTitle(notificationViewModel.Title).SetContentText(notificationViewModel.Body)
 				.SetContentIntent(pendingIntent)
 				.SetVibrate(null)
 				.SetSound(null)
@@ -17459,8 +17478,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			{
 				builder.SetSmallIcon(2131165367);
 			}
-			await Task.Delay(triggerInSeconds * 1000);
-			notificationManagerCompat.Notify(616, builder.Build());
+			return builder.Build();
 		}
 	}
 	public static class WelcomePageTools
