@@ -28,6 +28,8 @@ using NDB.Covid19.PersistedData.SecureStorage;
 using NDB.Covid19.PersistedData.SQLite;
 using NDB.Covid19.SecureStorage;
 using NDB.Covid19.Utils;
+using NDB.Covid19.Utils.XamarinEssentials.Interfaces;
+using NDB.Covid19.Utils.XamarinEssentialss.Implementation;
 using NDB.Covid19.WebServices;
 using NDB.Covid19.WebServices.ErrorHandlers;
 using NDB.Covid19.WebServices.Utils;
@@ -60,6 +62,19 @@ namespace NDB.Covid19
 		{
 			unityContainer.RegisterSingleton<DeviceGuidService>(Array.Empty<InjectionMember>());
 			unityContainer.RegisterType<ILoggingManager, LoggingSQLiteManager>(Array.Empty<InjectionMember>());
+			XamarinEssentialsRegister(unityContainer);
+		}
+
+		private static void XamarinEssentialsRegister(UnityContainer unityContainer)
+		{
+			unityContainer.RegisterType<IConnectivity, ConnectivityImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IAppInfo, AppInfoImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IBrowser, BrowserImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IClipboard, ClipboardImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IDeviceInfo, DeviceInfoImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IFileSystem, FileSystemImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IPreferences, PreferencesImplementation>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IShare, ShareImplementation>(Array.Empty<InjectionMember>());
 		}
 	}
 	public static class ExceptionExtensions
@@ -67,6 +82,26 @@ namespace NDB.Covid19
 		public static bool ExposureNotificationApiNotAvailable(this Exception e)
 		{
 			return e.ToString().Contains("Android.Gms.Common.Apis.ApiException: 17");
+		}
+
+		public static bool UnsupportedApiCall(this Exception e)
+		{
+			return e.ToString().Contains("com.google.android.gms.common.api.UnsupportedApiCallException");
+		}
+
+		public static bool HandleExposureNotificationException(this Exception e, string className, string methodName)
+		{
+			if (e.ExposureNotificationApiNotAvailable())
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "className.methodName: EN API was not available");
+				return true;
+			}
+			if (e.UnsupportedApiCall())
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "className.methodName: EN API call is not supported");
+				return true;
+			}
+			return false;
 		}
 	}
 }
@@ -144,7 +179,7 @@ namespace NDB.Covid19.WebServices
 			}
 		}
 
-		public async Task<ApiResponse<Stream>> GetFileAsStreamAsync(string url)
+		public virtual async Task<ApiResponse<Stream>> GetFileAsStreamAsync(string url)
 		{
 			ApiResponse<Stream> result = new ApiResponse<Stream>(url);
 			try
@@ -363,7 +398,8 @@ namespace NDB.Covid19.WebServices.Utils
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/zip"));
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Authorization_Mobile", SharedConf.AuthorizationHeader);
-			if (DeviceInfo.Platform == DevicePlatform.Unknown)
+			IDeviceInfo instance = ServiceLocator.Current.GetInstance<IDeviceInfo>();
+			if (instance.Platform == DevicePlatform.Unknown)
 			{
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", "Unknown");
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", "Unknown");
@@ -371,22 +407,23 @@ namespace NDB.Covid19.WebServices.Utils
 			}
 			else
 			{
-				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", DeviceInfo.Manufacturer);
-				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", DeviceInfo.VersionString);
+				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", instance.Manufacturer);
+				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", instance.VersionString);
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OS", GetOS());
 			}
 			HttpClientAccessor.HttpClient.MaxResponseContentBufferSize = 3000000L;
-			HttpClientAccessor.HttpClient.Timeout = TimeSpan.FromSeconds(10.0);
+			HttpClientAccessor.HttpClient.Timeout = TimeSpan.FromSeconds(SharedConf.DEFAULT_TIMEOUT_SERVICECALLS_SECONDS);
 		}
 
 		private string GetOS()
 		{
 			string result = "Unknown";
-			if (DeviceInfo.Platform == DevicePlatform.Android)
+			IDeviceInfo instance = ServiceLocator.Current.GetInstance<IDeviceInfo>();
+			if (instance.Platform == DevicePlatform.Android)
 			{
 				result = ServiceLocator.Current.GetInstance<ApiDataHelper>().DeviceType;
 			}
-			else if (DeviceInfo.Platform == DevicePlatform.iOS)
+			else if (instance.Platform == DevicePlatform.iOS)
 			{
 				result = "IOS";
 			}
@@ -414,7 +451,7 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public bool CheckInternetConnection()
 		{
-			if (Connectivity.NetworkAccess == NetworkAccess.None)
+			if (ServiceLocator.Current.GetInstance<IConnectivity>().NetworkAccess == NetworkAccess.None)
 			{
 				return false;
 			}
@@ -423,7 +460,7 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public bool CheckInternetPoorConnection()
 		{
-			if (Connectivity.NetworkAccess == NetworkAccess.Local)
+			if (ServiceLocator.Current.GetInstance<IConnectivity>().NetworkAccess == NetworkAccess.Local)
 			{
 				return false;
 			}
@@ -478,7 +515,7 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 
 		public void HandleError(ApiResponse apiResponse)
 		{
-			LogUtils.LogApiError(LogSeverity.WARNING, apiResponse, IsSilent);
+			LogUtils.LogApiError(LogSeverity.WARNING, apiResponse, IsSilent, "", "Failed contact to server: Bad connection");
 			if (!IsSilent)
 			{
 				ShowErrorToUser();
@@ -569,7 +606,7 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 
 		public void HandleError(ApiResponse apiResponse)
 		{
-			LogUtils.LogApiError(LogSeverity.WARNING, apiResponse, IsSilent);
+			LogUtils.LogApiError(LogSeverity.WARNING, apiResponse, IsSilent, "", "Failed contact to server: No internet");
 			if (!IsSilent)
 			{
 				ShowErrorToUser();
@@ -683,7 +720,8 @@ namespace NDB.Covid19.ViewModels
 
 		public static string GetVersionInfo()
 		{
-			return $"V{AppInfo.VersionString} B{AppInfo.BuildString} A{SharedConf.APIVersion} {GetPartialUrlFromConf()} ";
+			IAppInfo instance = ServiceLocator.Current.GetInstance<IAppInfo>();
+			return $"V{instance.VersionString} B{instance.BuildString} A{SharedConf.APIVersion} {GetPartialUrlFromConf()} ";
 		}
 
 		public static string GetPartialUrlFromConf()
@@ -722,7 +760,7 @@ namespace NDB.Covid19.ViewModels
 
 		private static List<SettingItem> GetSettingsItemList()
 		{
-			return new List<SettingItem>
+			List<SettingItem> list = new List<SettingItem>
 			{
 				new SettingItem(SettingItemType.Intro),
 				new SettingItem(SettingItemType.HowItWorks),
@@ -730,6 +768,11 @@ namespace NDB.Covid19.ViewModels
 				new SettingItem(SettingItemType.Help),
 				new SettingItem(SettingItemType.About)
 			};
+			if (SharedConf.UseDeveloperTools)
+			{
+				list.Add(new SettingItem(SettingItemType.Debug));
+			}
+			return list;
 		}
 	}
 }
@@ -1061,9 +1104,9 @@ namespace NDB.Covid19.Utils
 			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
-		public static void LogApiError(LogSeverity severity, ApiResponse apiResponse, bool erroredSilently, string additionalInfo = "")
+		public static void LogApiError(LogSeverity severity, ApiResponse apiResponse, bool erroredSilently, string additionalInfo = "", string overwriteMessage = null)
 		{
-			string logMessage = apiResponse.ErrorLogMessage + (erroredSilently ? "(silent)" : "(error shown)");
+			string logMessage = (overwriteMessage ?? apiResponse.ErrorLogMessage) + (erroredSilently ? " (silent)" : " (error shown)");
 			LogDeviceDetails info = new LogDeviceDetails(severity, logMessage, additionalInfo);
 			LogApiDetails apiDetails = new LogApiDetails(apiResponse);
 			LogExceptionDetails e = null;
@@ -1457,6 +1500,1558 @@ namespace NDB.Covid19.Utils
 		public static readonly string KEY_MESSAGE_RECEIVED = "KEY_MESSAGE_RECEIVED";
 	}
 }
+namespace NDB.Covid19.Utils.XamarinEssentialss.Implementation
+{
+	public class AccelerometerImplementation : IEssentialsImplementation, IAccelerometer
+	{
+		bool IAccelerometer.IsMonitoring => Accelerometer.IsMonitoring;
+
+		event EventHandler<AccelerometerChangedEventArgs> IAccelerometer.ReadingChanged
+		{
+			add
+			{
+				Accelerometer.ReadingChanged += value;
+			}
+			remove
+			{
+				Accelerometer.ReadingChanged -= value;
+			}
+		}
+
+		event EventHandler IAccelerometer.ShakeDetected
+		{
+			add
+			{
+				Accelerometer.ShakeDetected += value;
+			}
+			remove
+			{
+				Accelerometer.ShakeDetected -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public AccelerometerImplementation()
+		{
+		}
+
+		void IAccelerometer.Start(SensorSpeed sensorSpeed)
+		{
+			Accelerometer.Start(sensorSpeed);
+		}
+
+		void IAccelerometer.Stop()
+		{
+			Accelerometer.Stop();
+		}
+	}
+	public class AppInfoImplementation : IEssentialsImplementation, IAppInfo
+	{
+		string IAppInfo.PackageName => AppInfo.PackageName;
+
+		string IAppInfo.Name => AppInfo.Name;
+
+		string IAppInfo.VersionString => AppInfo.VersionString;
+
+		Version IAppInfo.Version => AppInfo.Version;
+
+		string IAppInfo.BuildString => AppInfo.BuildString;
+
+		AppTheme IAppInfo.RequestedTheme => AppInfo.RequestedTheme;
+
+		[Preserve(Conditional = true)]
+		public AppInfoImplementation()
+		{
+		}
+
+		void IAppInfo.ShowSettingsUI()
+		{
+			AppInfo.ShowSettingsUI();
+		}
+	}
+	public class BarometerImplementation : IEssentialsImplementation, IBarometer
+	{
+		bool IBarometer.IsMonitoring => Barometer.IsMonitoring;
+
+		event EventHandler<BarometerChangedEventArgs> IBarometer.ReadingChanged
+		{
+			add
+			{
+				Barometer.ReadingChanged += value;
+			}
+			remove
+			{
+				Barometer.ReadingChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public BarometerImplementation()
+		{
+		}
+
+		void IBarometer.Start(SensorSpeed sensorSpeed)
+		{
+			Barometer.Start(sensorSpeed);
+		}
+
+		void IBarometer.Stop()
+		{
+			Barometer.Stop();
+		}
+	}
+	public class BatteryImplementation : IEssentialsImplementation, IBattery
+	{
+		double IBattery.ChargeLevel => Battery.ChargeLevel;
+
+		BatteryState IBattery.State => Battery.State;
+
+		BatteryPowerSource IBattery.PowerSource => Battery.PowerSource;
+
+		EnergySaverStatus IBattery.EnergySaverStatus => Battery.EnergySaverStatus;
+
+		event EventHandler<BatteryInfoChangedEventArgs> IBattery.BatteryInfoChanged
+		{
+			add
+			{
+				Battery.BatteryInfoChanged += value;
+			}
+			remove
+			{
+				Battery.BatteryInfoChanged -= value;
+			}
+		}
+
+		event EventHandler<EnergySaverStatusChangedEventArgs> IBattery.EnergySaverStatusChanged
+		{
+			add
+			{
+				Battery.EnergySaverStatusChanged += value;
+			}
+			remove
+			{
+				Battery.EnergySaverStatusChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public BatteryImplementation()
+		{
+		}
+	}
+	public class BrowserImplementation : IEssentialsImplementation, IBrowser
+	{
+		[Preserve(Conditional = true)]
+		public BrowserImplementation()
+		{
+		}
+
+		Task IBrowser.OpenAsync(string uri)
+		{
+			return Browser.OpenAsync(uri);
+		}
+
+		Task IBrowser.OpenAsync(string uri, BrowserLaunchMode launchMode)
+		{
+			return Browser.OpenAsync(uri, launchMode);
+		}
+
+		Task IBrowser.OpenAsync(string uri, BrowserLaunchOptions options)
+		{
+			return Browser.OpenAsync(uri, options);
+		}
+
+		Task IBrowser.OpenAsync(Uri uri)
+		{
+			return Browser.OpenAsync(uri);
+		}
+
+		Task IBrowser.OpenAsync(Uri uri, BrowserLaunchMode launchMode)
+		{
+			return Browser.OpenAsync(uri, launchMode);
+		}
+
+		Task<bool> IBrowser.OpenAsync(Uri uri, BrowserLaunchOptions options)
+		{
+			return Browser.OpenAsync(uri, options);
+		}
+	}
+	public class ClipboardImplementation : IEssentialsImplementation, IClipboard
+	{
+		bool IClipboard.HasText => Clipboard.HasText;
+
+		event EventHandler<EventArgs> IClipboard.ClipboardContentChanged
+		{
+			add
+			{
+				Clipboard.ClipboardContentChanged += value;
+			}
+			remove
+			{
+				Clipboard.ClipboardContentChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public ClipboardImplementation()
+		{
+		}
+
+		Task IClipboard.SetTextAsync(string text)
+		{
+			return Clipboard.SetTextAsync(text);
+		}
+
+		Task<string> IClipboard.GetTextAsync()
+		{
+			return Clipboard.GetTextAsync();
+		}
+	}
+	public class CompassImplementation : IEssentialsImplementation, ICompass
+	{
+		bool ICompass.IsMonitoring => Compass.IsMonitoring;
+
+		event EventHandler<CompassChangedEventArgs> ICompass.ReadingChanged
+		{
+			add
+			{
+				Compass.ReadingChanged += value;
+			}
+			remove
+			{
+				Compass.ReadingChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public CompassImplementation()
+		{
+		}
+
+		void ICompass.Start(SensorSpeed sensorSpeed)
+		{
+			Compass.Start(sensorSpeed);
+		}
+
+		void ICompass.Start(SensorSpeed sensorSpeed, bool applyLowPassFilter)
+		{
+			Compass.Start(sensorSpeed, applyLowPassFilter);
+		}
+
+		void ICompass.Stop()
+		{
+			Compass.Stop();
+		}
+	}
+	public class ConnectivityImplementation : IEssentialsImplementation, IConnectivity
+	{
+		NetworkAccess IConnectivity.NetworkAccess => Connectivity.NetworkAccess;
+
+		IEnumerable<ConnectionProfile> IConnectivity.ConnectionProfiles => Connectivity.ConnectionProfiles;
+
+		event EventHandler<ConnectivityChangedEventArgs> IConnectivity.ConnectivityChanged
+		{
+			add
+			{
+				Connectivity.ConnectivityChanged += value;
+			}
+			remove
+			{
+				Connectivity.ConnectivityChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public ConnectivityImplementation()
+		{
+		}
+	}
+	public class DeviceDisplayImplementation : IEssentialsImplementation, IDeviceDisplay
+	{
+		bool IDeviceDisplay.KeepScreenOn
+		{
+			get
+			{
+				return DeviceDisplay.KeepScreenOn;
+			}
+			set
+			{
+				DeviceDisplay.KeepScreenOn = value;
+			}
+		}
+
+		DisplayInfo IDeviceDisplay.MainDisplayInfo => DeviceDisplay.MainDisplayInfo;
+
+		event EventHandler<DisplayInfoChangedEventArgs> IDeviceDisplay.MainDisplayInfoChanged
+		{
+			add
+			{
+				DeviceDisplay.MainDisplayInfoChanged += value;
+			}
+			remove
+			{
+				DeviceDisplay.MainDisplayInfoChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public DeviceDisplayImplementation()
+		{
+		}
+	}
+	public class DeviceInfoImplementation : IEssentialsImplementation, IDeviceInfo
+	{
+		string IDeviceInfo.Model => DeviceInfo.Model;
+
+		string IDeviceInfo.Manufacturer => DeviceInfo.Manufacturer;
+
+		string IDeviceInfo.Name => DeviceInfo.Name;
+
+		string IDeviceInfo.VersionString => DeviceInfo.VersionString;
+
+		Version IDeviceInfo.Version => DeviceInfo.Version;
+
+		DevicePlatform IDeviceInfo.Platform => DeviceInfo.Platform;
+
+		DeviceIdiom IDeviceInfo.Idiom => DeviceInfo.Idiom;
+
+		DeviceType IDeviceInfo.DeviceType => DeviceInfo.DeviceType;
+
+		[Preserve(Conditional = true)]
+		public DeviceInfoImplementation()
+		{
+		}
+	}
+	public class EmailImplementation : IEssentialsImplementation, IEmail
+	{
+		[Preserve(Conditional = true)]
+		public EmailImplementation()
+		{
+		}
+
+		Task IEmail.ComposeAsync()
+		{
+			return Email.ComposeAsync();
+		}
+
+		Task IEmail.ComposeAsync(string subject, string body, params string[] to)
+		{
+			return Email.ComposeAsync(subject, body, to);
+		}
+
+		Task IEmail.ComposeAsync(EmailMessage message)
+		{
+			return Email.ComposeAsync(message);
+		}
+	}
+	public class FileSystemImplementation : IEssentialsImplementation, IFileSystem
+	{
+		string IFileSystem.CacheDirectory => FileSystem.CacheDirectory;
+
+		string IFileSystem.AppDataDirectory => FileSystem.AppDataDirectory;
+
+		[Preserve(Conditional = true)]
+		public FileSystemImplementation()
+		{
+		}
+
+		Task<Stream> IFileSystem.OpenAppPackageFileAsync(string filename)
+		{
+			return FileSystem.OpenAppPackageFileAsync(filename);
+		}
+	}
+	public class FlashlightImplementation : IEssentialsImplementation, IFlashlight
+	{
+		[Preserve(Conditional = true)]
+		public FlashlightImplementation()
+		{
+		}
+
+		Task IFlashlight.TurnOnAsync()
+		{
+			return Flashlight.TurnOnAsync();
+		}
+
+		Task IFlashlight.TurnOffAsync()
+		{
+			return Flashlight.TurnOffAsync();
+		}
+	}
+	public class GeocodingImplementation : IEssentialsImplementation, IGeocoding
+	{
+		[Preserve(Conditional = true)]
+		public GeocodingImplementation()
+		{
+		}
+
+		Task<IEnumerable<Placemark>> IGeocoding.GetPlacemarksAsync(Location location)
+		{
+			return Geocoding.GetPlacemarksAsync(location);
+		}
+
+		Task<IEnumerable<Placemark>> IGeocoding.GetPlacemarksAsync(double latitude, double longitude)
+		{
+			return Geocoding.GetPlacemarksAsync(latitude, longitude);
+		}
+
+		Task<IEnumerable<Location>> IGeocoding.GetLocationsAsync(string address)
+		{
+			return Geocoding.GetLocationsAsync(address);
+		}
+	}
+	public class GeolocationImplementation : IEssentialsImplementation, IGeolocation
+	{
+		[Preserve(Conditional = true)]
+		public GeolocationImplementation()
+		{
+		}
+
+		Task<Location> IGeolocation.GetLastKnownLocationAsync()
+		{
+			return Geolocation.GetLastKnownLocationAsync();
+		}
+
+		Task<Location> IGeolocation.GetLocationAsync()
+		{
+			return Geolocation.GetLocationAsync();
+		}
+
+		Task<Location> IGeolocation.GetLocationAsync(GeolocationRequest request)
+		{
+			return Geolocation.GetLocationAsync(request);
+		}
+
+		Task<Location> IGeolocation.GetLocationAsync(GeolocationRequest request, CancellationToken cancelToken)
+		{
+			return Geolocation.GetLocationAsync(request, cancelToken);
+		}
+	}
+	public class GyroscopeImplementation : IEssentialsImplementation, IGyroscope
+	{
+		bool IGyroscope.IsMonitoring => Gyroscope.IsMonitoring;
+
+		event EventHandler<GyroscopeChangedEventArgs> IGyroscope.ReadingChanged
+		{
+			add
+			{
+				Gyroscope.ReadingChanged += value;
+			}
+			remove
+			{
+				Gyroscope.ReadingChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public GyroscopeImplementation()
+		{
+		}
+
+		void IGyroscope.Start(SensorSpeed sensorSpeed)
+		{
+			Gyroscope.Start(sensorSpeed);
+		}
+
+		void IGyroscope.Stop()
+		{
+			Gyroscope.Stop();
+		}
+	}
+	public class LauncherImplementation : IEssentialsImplementation, ILauncher
+	{
+		[Preserve(Conditional = true)]
+		public LauncherImplementation()
+		{
+		}
+
+		Task<bool> ILauncher.CanOpenAsync(string uri)
+		{
+			return Launcher.CanOpenAsync(uri);
+		}
+
+		Task<bool> ILauncher.CanOpenAsync(Uri uri)
+		{
+			return Launcher.CanOpenAsync(uri);
+		}
+
+		Task ILauncher.OpenAsync(string uri)
+		{
+			return Launcher.OpenAsync(uri);
+		}
+
+		Task ILauncher.OpenAsync(Uri uri)
+		{
+			return Launcher.OpenAsync(uri);
+		}
+
+		Task ILauncher.OpenAsync(OpenFileRequest request)
+		{
+			return Launcher.OpenAsync(request);
+		}
+
+		Task<bool> ILauncher.TryOpenAsync(string uri)
+		{
+			return Launcher.TryOpenAsync(uri);
+		}
+
+		Task<bool> ILauncher.TryOpenAsync(Uri uri)
+		{
+			return Launcher.TryOpenAsync(uri);
+		}
+	}
+	public class MagnetometerImplementation : IEssentialsImplementation, IMagnetometer
+	{
+		bool IMagnetometer.IsMonitoring => Magnetometer.IsMonitoring;
+
+		event EventHandler<MagnetometerChangedEventArgs> IMagnetometer.ReadingChanged
+		{
+			add
+			{
+				Magnetometer.ReadingChanged += value;
+			}
+			remove
+			{
+				Magnetometer.ReadingChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public MagnetometerImplementation()
+		{
+		}
+
+		void IMagnetometer.Start(SensorSpeed sensorSpeed)
+		{
+			Magnetometer.Start(sensorSpeed);
+		}
+
+		void IMagnetometer.Stop()
+		{
+			Magnetometer.Stop();
+		}
+	}
+	public class MainThreadImplementation : IEssentialsImplementation, IMainThread
+	{
+		bool IMainThread.IsMainThread => MainThread.IsMainThread;
+
+		[Preserve(Conditional = true)]
+		public MainThreadImplementation()
+		{
+		}
+
+		void IMainThread.BeginInvokeOnMainThread(Action action)
+		{
+			MainThread.BeginInvokeOnMainThread(action);
+		}
+
+		Task IMainThread.InvokeOnMainThreadAsync(Action action)
+		{
+			return MainThread.InvokeOnMainThreadAsync(action);
+		}
+
+		Task<T> IMainThread.InvokeOnMainThreadAsync<T>(Func<T> func)
+		{
+			return MainThread.InvokeOnMainThreadAsync(func);
+		}
+
+		Task IMainThread.InvokeOnMainThreadAsync(Func<Task> funcTask)
+		{
+			return MainThread.InvokeOnMainThreadAsync(funcTask);
+		}
+
+		Task<T> IMainThread.InvokeOnMainThreadAsync<T>(Func<Task<T>> funcTask)
+		{
+			return MainThread.InvokeOnMainThreadAsync(funcTask);
+		}
+
+		Task<SynchronizationContext> IMainThread.GetMainThreadSynchronizationContextAsync()
+		{
+			return MainThread.GetMainThreadSynchronizationContextAsync();
+		}
+	}
+	public class MapImplementation : IEssentialsImplementation, IMap
+	{
+		[Preserve(Conditional = true)]
+		public MapImplementation()
+		{
+		}
+
+		Task IMap.OpenAsync(Location location)
+		{
+			return Map.OpenAsync(location);
+		}
+
+		Task IMap.OpenAsync(Location location, MapLaunchOptions options)
+		{
+			return Map.OpenAsync(location, options);
+		}
+
+		Task IMap.OpenAsync(double latitude, double longitude)
+		{
+			return Map.OpenAsync(latitude, longitude);
+		}
+
+		Task IMap.OpenAsync(double latitude, double longitude, MapLaunchOptions options)
+		{
+			return Map.OpenAsync(latitude, longitude, options);
+		}
+
+		Task IMap.OpenAsync(Placemark placemark)
+		{
+			return Map.OpenAsync(placemark);
+		}
+
+		Task IMap.OpenAsync(Placemark placemark, MapLaunchOptions options)
+		{
+			return Map.OpenAsync(placemark, options);
+		}
+	}
+	public class OrientationSensorImplementation : IEssentialsImplementation, IOrientationSensor
+	{
+		bool IOrientationSensor.IsMonitoring => OrientationSensor.IsMonitoring;
+
+		event EventHandler<OrientationSensorChangedEventArgs> IOrientationSensor.ReadingChanged
+		{
+			add
+			{
+				OrientationSensor.ReadingChanged += value;
+			}
+			remove
+			{
+				OrientationSensor.ReadingChanged -= value;
+			}
+		}
+
+		[Preserve(Conditional = true)]
+		public OrientationSensorImplementation()
+		{
+		}
+
+		void IOrientationSensor.Start(SensorSpeed sensorSpeed)
+		{
+			OrientationSensor.Start(sensorSpeed);
+		}
+
+		void IOrientationSensor.Stop()
+		{
+			OrientationSensor.Stop();
+		}
+	}
+	public class PermissionsImplementation : IEssentialsImplementation, IPermissions
+	{
+		[Preserve(Conditional = true)]
+		public PermissionsImplementation()
+		{
+		}
+
+		Task<PermissionStatus> IPermissions.CheckStatusAsync<TPermission>()
+		{
+			return Permissions.CheckStatusAsync<TPermission>();
+		}
+
+		Task<PermissionStatus> IPermissions.RequestAsync<TPermission>()
+		{
+			return Permissions.RequestAsync<TPermission>();
+		}
+	}
+	public class PhoneDialerImplementation : IEssentialsImplementation, IPhoneDialer
+	{
+		[Preserve(Conditional = true)]
+		public PhoneDialerImplementation()
+		{
+		}
+
+		void IPhoneDialer.Open(string number)
+		{
+			PhoneDialer.Open(number);
+		}
+	}
+	public class PreferencesImplementation : IEssentialsImplementation, IPreferences
+	{
+		[Preserve(Conditional = true)]
+		public PreferencesImplementation()
+		{
+		}
+
+		bool IPreferences.ContainsKey(string key)
+		{
+			return Preferences.ContainsKey(key);
+		}
+
+		void IPreferences.Remove(string key)
+		{
+			Preferences.Remove(key);
+		}
+
+		void IPreferences.Clear()
+		{
+			Preferences.Clear();
+		}
+
+		string IPreferences.Get(string key, string defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		bool IPreferences.Get(string key, bool defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		int IPreferences.Get(string key, int defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		double IPreferences.Get(string key, double defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		float IPreferences.Get(string key, float defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		long IPreferences.Get(string key, long defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		void IPreferences.Set(string key, string value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		void IPreferences.Set(string key, bool value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		void IPreferences.Set(string key, int value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		void IPreferences.Set(string key, double value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		void IPreferences.Set(string key, float value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		void IPreferences.Set(string key, long value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		bool IPreferences.ContainsKey(string key, string sharedName)
+		{
+			return Preferences.ContainsKey(key, sharedName);
+		}
+
+		void IPreferences.Remove(string key, string sharedName)
+		{
+			Preferences.Remove(key, sharedName);
+		}
+
+		void IPreferences.Clear(string sharedName)
+		{
+			Preferences.Clear(sharedName);
+		}
+
+		string IPreferences.Get(string key, string defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		bool IPreferences.Get(string key, bool defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		int IPreferences.Get(string key, int defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		double IPreferences.Get(string key, double defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		float IPreferences.Get(string key, float defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		long IPreferences.Get(string key, long defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		void IPreferences.Set(string key, string value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		void IPreferences.Set(string key, bool value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		void IPreferences.Set(string key, int value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		void IPreferences.Set(string key, double value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		void IPreferences.Set(string key, float value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		void IPreferences.Set(string key, long value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+
+		DateTime IPreferences.Get(string key, DateTime defaultValue)
+		{
+			return Preferences.Get(key, defaultValue);
+		}
+
+		void IPreferences.Set(string key, DateTime value)
+		{
+			Preferences.Set(key, value);
+		}
+
+		DateTime IPreferences.Get(string key, DateTime defaultValue, string sharedName)
+		{
+			return Preferences.Get(key, defaultValue, sharedName);
+		}
+
+		void IPreferences.Set(string key, DateTime value, string sharedName)
+		{
+			Preferences.Set(key, value, sharedName);
+		}
+	}
+	public class SecureStorageImplementation : IEssentialsImplementation, NDB.Covid19.Utils.XamarinEssentials.Interfaces.ISecureStorage
+	{
+		[Preserve(Conditional = true)]
+		public SecureStorageImplementation()
+		{
+		}
+
+		Task<string> NDB.Covid19.Utils.XamarinEssentials.Interfaces.ISecureStorage.GetAsync(string key)
+		{
+			return Xamarin.Essentials.SecureStorage.GetAsync(key);
+		}
+
+		Task NDB.Covid19.Utils.XamarinEssentials.Interfaces.ISecureStorage.SetAsync(string key, string value)
+		{
+			return Xamarin.Essentials.SecureStorage.SetAsync(key, value);
+		}
+
+		bool NDB.Covid19.Utils.XamarinEssentials.Interfaces.ISecureStorage.Remove(string key)
+		{
+			return Xamarin.Essentials.SecureStorage.Remove(key);
+		}
+
+		void NDB.Covid19.Utils.XamarinEssentials.Interfaces.ISecureStorage.RemoveAll()
+		{
+			Xamarin.Essentials.SecureStorage.RemoveAll();
+		}
+	}
+	public class ShareImplementation : IEssentialsImplementation, IShare
+	{
+		[Preserve(Conditional = true)]
+		public ShareImplementation()
+		{
+		}
+
+		Task IShare.RequestAsync(string text)
+		{
+			return Share.RequestAsync(text);
+		}
+
+		Task IShare.RequestAsync(string text, string title)
+		{
+			return Share.RequestAsync(text, title);
+		}
+
+		Task IShare.RequestAsync(ShareTextRequest request)
+		{
+			return Share.RequestAsync(request);
+		}
+
+		Task IShare.RequestAsync(ShareFileRequest request)
+		{
+			return Share.RequestAsync(request);
+		}
+	}
+	public class SmsImplementation : IEssentialsImplementation, ISms
+	{
+		[Preserve(Conditional = true)]
+		public SmsImplementation()
+		{
+		}
+
+		Task ISms.ComposeAsync()
+		{
+			return Sms.ComposeAsync();
+		}
+
+		Task ISms.ComposeAsync(SmsMessage message)
+		{
+			return Sms.ComposeAsync(message);
+		}
+	}
+	public class TextToSpeechImplementation : IEssentialsImplementation, ITextToSpeech
+	{
+		[Preserve(Conditional = true)]
+		public TextToSpeechImplementation()
+		{
+		}
+
+		Task<IEnumerable<Xamarin.Essentials.Locale>> ITextToSpeech.GetLocalesAsync()
+		{
+			return TextToSpeech.GetLocalesAsync();
+		}
+
+		Task ITextToSpeech.SpeakAsync(string text, CancellationToken cancelToken = default(CancellationToken))
+		{
+			return TextToSpeech.SpeakAsync(text, cancelToken);
+		}
+
+		Task ITextToSpeech.SpeakAsync(string text, SpeechOptions options, CancellationToken cancelToken = default(CancellationToken))
+		{
+			return TextToSpeech.SpeakAsync(text, options, cancelToken);
+		}
+	}
+	public class VersionTrackingImplementation : IEssentialsImplementation, IVersionTracking
+	{
+		bool IVersionTracking.IsFirstLaunchEver => VersionTracking.IsFirstLaunchEver;
+
+		bool IVersionTracking.IsFirstLaunchForCurrentVersion => VersionTracking.IsFirstLaunchForCurrentVersion;
+
+		bool IVersionTracking.IsFirstLaunchForCurrentBuild => VersionTracking.IsFirstLaunchForCurrentBuild;
+
+		string IVersionTracking.CurrentVersion => VersionTracking.CurrentVersion;
+
+		string IVersionTracking.CurrentBuild => VersionTracking.CurrentBuild;
+
+		string IVersionTracking.PreviousVersion => VersionTracking.PreviousVersion;
+
+		string IVersionTracking.PreviousBuild => VersionTracking.PreviousBuild;
+
+		string IVersionTracking.FirstInstalledVersion => VersionTracking.FirstInstalledVersion;
+
+		string IVersionTracking.FirstInstalledBuild => VersionTracking.FirstInstalledBuild;
+
+		IEnumerable<string> IVersionTracking.VersionHistory => VersionTracking.VersionHistory;
+
+		IEnumerable<string> IVersionTracking.BuildHistory => VersionTracking.BuildHistory;
+
+		[Preserve(Conditional = true)]
+		public VersionTrackingImplementation()
+		{
+		}
+
+		void IVersionTracking.Track()
+		{
+			VersionTracking.Track();
+		}
+
+		bool IVersionTracking.IsFirstLaunchForVersion(string version)
+		{
+			return VersionTracking.IsFirstLaunchForVersion(version);
+		}
+
+		bool IVersionTracking.IsFirstLaunchForBuild(string build)
+		{
+			return VersionTracking.IsFirstLaunchForBuild(build);
+		}
+	}
+	public class VibrationImplementation : IEssentialsImplementation, IVibration
+	{
+		[Preserve(Conditional = true)]
+		public VibrationImplementation()
+		{
+		}
+
+		void IVibration.Vibrate()
+		{
+			Vibration.Vibrate();
+		}
+
+		void IVibration.Vibrate(double duration)
+		{
+			Vibration.Vibrate(duration);
+		}
+
+		void IVibration.Vibrate(TimeSpan duration)
+		{
+			Vibration.Vibrate(duration);
+		}
+
+		void IVibration.Cancel()
+		{
+			Vibration.Cancel();
+		}
+	}
+	public class WebAuthenticatorImplementation : IEssentialsImplementation, IWebAuthenticator
+	{
+		[Preserve(Conditional = true)]
+		public WebAuthenticatorImplementation()
+		{
+		}
+
+		Task<WebAuthenticatorResult> IWebAuthenticator.AuthenticateAsync(Uri url, Uri callbackUrl)
+		{
+			return WebAuthenticator.AuthenticateAsync(url, callbackUrl);
+		}
+	}
+}
+namespace NDB.Covid19.Utils.XamarinEssentials.Interfaces
+{
+	public interface IEssentialsImplementation
+	{
+	}
+	public interface IAccelerometer
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<AccelerometerChangedEventArgs> ReadingChanged;
+
+		event EventHandler ShakeDetected;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IAppInfo
+	{
+		string PackageName
+		{
+			get;
+		}
+
+		string Name
+		{
+			get;
+		}
+
+		string VersionString
+		{
+			get;
+		}
+
+		Version Version
+		{
+			get;
+		}
+
+		string BuildString
+		{
+			get;
+		}
+
+		AppTheme RequestedTheme
+		{
+			get;
+		}
+
+		void ShowSettingsUI();
+	}
+	public interface IBarometer
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<BarometerChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IBattery
+	{
+		double ChargeLevel
+		{
+			get;
+		}
+
+		BatteryState State
+		{
+			get;
+		}
+
+		BatteryPowerSource PowerSource
+		{
+			get;
+		}
+
+		EnergySaverStatus EnergySaverStatus
+		{
+			get;
+		}
+
+		event EventHandler<BatteryInfoChangedEventArgs> BatteryInfoChanged;
+
+		event EventHandler<EnergySaverStatusChangedEventArgs> EnergySaverStatusChanged;
+	}
+	public interface IBrowser
+	{
+		Task OpenAsync(string uri);
+
+		Task OpenAsync(string uri, BrowserLaunchMode launchMode);
+
+		Task OpenAsync(string uri, BrowserLaunchOptions options);
+
+		Task OpenAsync(Uri uri);
+
+		Task OpenAsync(Uri uri, BrowserLaunchMode launchMode);
+
+		Task<bool> OpenAsync(Uri uri, BrowserLaunchOptions options);
+	}
+	public interface IClipboard
+	{
+		bool HasText
+		{
+			get;
+		}
+
+		event EventHandler<EventArgs> ClipboardContentChanged;
+
+		Task SetTextAsync(string text);
+
+		Task<string> GetTextAsync();
+	}
+	public interface ICompass
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<CompassChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Start(SensorSpeed sensorSpeed, bool applyLowPassFilter);
+
+		void Stop();
+	}
+	public interface IConnectivity
+	{
+		NetworkAccess NetworkAccess
+		{
+			get;
+		}
+
+		IEnumerable<ConnectionProfile> ConnectionProfiles
+		{
+			get;
+		}
+
+		event EventHandler<ConnectivityChangedEventArgs> ConnectivityChanged;
+	}
+	public interface IDeviceDisplay
+	{
+		bool KeepScreenOn
+		{
+			get;
+			set;
+		}
+
+		DisplayInfo MainDisplayInfo
+		{
+			get;
+		}
+
+		event EventHandler<DisplayInfoChangedEventArgs> MainDisplayInfoChanged;
+	}
+	public interface IDeviceInfo
+	{
+		string Model
+		{
+			get;
+		}
+
+		string Manufacturer
+		{
+			get;
+		}
+
+		string Name
+		{
+			get;
+		}
+
+		string VersionString
+		{
+			get;
+		}
+
+		Version Version
+		{
+			get;
+		}
+
+		DevicePlatform Platform
+		{
+			get;
+		}
+
+		DeviceIdiom Idiom
+		{
+			get;
+		}
+
+		DeviceType DeviceType
+		{
+			get;
+		}
+	}
+	public interface IEmail
+	{
+		Task ComposeAsync();
+
+		Task ComposeAsync(string subject, string body, params string[] to);
+
+		Task ComposeAsync(EmailMessage message);
+	}
+	public interface IFileSystem
+	{
+		string CacheDirectory
+		{
+			get;
+		}
+
+		string AppDataDirectory
+		{
+			get;
+		}
+
+		Task<Stream> OpenAppPackageFileAsync(string filename);
+	}
+	public interface IFlashlight
+	{
+		Task TurnOnAsync();
+
+		Task TurnOffAsync();
+	}
+	public interface IGeocoding
+	{
+		Task<IEnumerable<Placemark>> GetPlacemarksAsync(Location location);
+
+		Task<IEnumerable<Placemark>> GetPlacemarksAsync(double latitude, double longitude);
+
+		Task<IEnumerable<Location>> GetLocationsAsync(string address);
+	}
+	public interface IGeolocation
+	{
+		Task<Location> GetLastKnownLocationAsync();
+
+		Task<Location> GetLocationAsync();
+
+		Task<Location> GetLocationAsync(GeolocationRequest request);
+
+		Task<Location> GetLocationAsync(GeolocationRequest request, CancellationToken cancelToken);
+	}
+	public interface IGyroscope
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<GyroscopeChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface ILauncher
+	{
+		Task<bool> CanOpenAsync(string uri);
+
+		Task<bool> CanOpenAsync(Uri uri);
+
+		Task OpenAsync(string uri);
+
+		Task OpenAsync(Uri uri);
+
+		Task OpenAsync(OpenFileRequest request);
+
+		Task<bool> TryOpenAsync(string uri);
+
+		Task<bool> TryOpenAsync(Uri uri);
+	}
+	public interface IMagnetometer
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<MagnetometerChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IMainThread
+	{
+		bool IsMainThread
+		{
+			get;
+		}
+
+		void BeginInvokeOnMainThread(Action action);
+
+		Task InvokeOnMainThreadAsync(Action action);
+
+		Task<T> InvokeOnMainThreadAsync<T>(Func<T> func);
+
+		Task InvokeOnMainThreadAsync(Func<Task> funcTask);
+
+		Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> funcTask);
+
+		Task<SynchronizationContext> GetMainThreadSynchronizationContextAsync();
+	}
+	public interface IMap
+	{
+		Task OpenAsync(Location location);
+
+		Task OpenAsync(Location location, MapLaunchOptions options);
+
+		Task OpenAsync(double latitude, double longitude);
+
+		Task OpenAsync(double latitude, double longitude, MapLaunchOptions options);
+
+		Task OpenAsync(Placemark placemark);
+
+		Task OpenAsync(Placemark placemark, MapLaunchOptions options);
+	}
+	public interface IOrientationSensor
+	{
+		bool IsMonitoring
+		{
+			get;
+		}
+
+		event EventHandler<OrientationSensorChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IPermissions
+	{
+		Task<PermissionStatus> CheckStatusAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
+
+		Task<PermissionStatus> RequestAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
+	}
+	public interface IPhoneDialer
+	{
+		void Open(string number);
+	}
+	public interface IPreferences
+	{
+		bool ContainsKey(string key);
+
+		void Remove(string key);
+
+		void Clear();
+
+		string Get(string key, string defaultValue);
+
+		bool Get(string key, bool defaultValue);
+
+		int Get(string key, int defaultValue);
+
+		double Get(string key, double defaultValue);
+
+		float Get(string key, float defaultValue);
+
+		long Get(string key, long defaultValue);
+
+		void Set(string key, string value);
+
+		void Set(string key, bool value);
+
+		void Set(string key, int value);
+
+		void Set(string key, double value);
+
+		void Set(string key, float value);
+
+		void Set(string key, long value);
+
+		bool ContainsKey(string key, string sharedName);
+
+		void Remove(string key, string sharedName);
+
+		void Clear(string sharedName);
+
+		string Get(string key, string defaultValue, string sharedName);
+
+		bool Get(string key, bool defaultValue, string sharedName);
+
+		int Get(string key, int defaultValue, string sharedName);
+
+		double Get(string key, double defaultValue, string sharedName);
+
+		float Get(string key, float defaultValue, string sharedName);
+
+		long Get(string key, long defaultValue, string sharedName);
+
+		void Set(string key, string value, string sharedName);
+
+		void Set(string key, bool value, string sharedName);
+
+		void Set(string key, int value, string sharedName);
+
+		void Set(string key, double value, string sharedName);
+
+		void Set(string key, float value, string sharedName);
+
+		void Set(string key, long value, string sharedName);
+
+		DateTime Get(string key, DateTime defaultValue);
+
+		void Set(string key, DateTime value);
+
+		DateTime Get(string key, DateTime defaultValue, string sharedName);
+
+		void Set(string key, DateTime value, string sharedName);
+	}
+	public interface ISecureStorage
+	{
+		Task<string> GetAsync(string key);
+
+		Task SetAsync(string key, string value);
+
+		bool Remove(string key);
+
+		void RemoveAll();
+	}
+	public interface IShare
+	{
+		Task RequestAsync(string text);
+
+		Task RequestAsync(string text, string title);
+
+		Task RequestAsync(ShareTextRequest request);
+
+		Task RequestAsync(ShareFileRequest request);
+	}
+	public interface ISms
+	{
+		Task ComposeAsync();
+
+		Task ComposeAsync(SmsMessage message);
+	}
+	public interface ITextToSpeech
+	{
+		Task<IEnumerable<Xamarin.Essentials.Locale>> GetLocalesAsync();
+
+		Task SpeakAsync(string text, CancellationToken cancelToken = default(CancellationToken));
+
+		Task SpeakAsync(string text, SpeechOptions options, CancellationToken cancelToken = default(CancellationToken));
+	}
+	public interface IVersionTracking
+	{
+		bool IsFirstLaunchEver
+		{
+			get;
+		}
+
+		bool IsFirstLaunchForCurrentVersion
+		{
+			get;
+		}
+
+		bool IsFirstLaunchForCurrentBuild
+		{
+			get;
+		}
+
+		string CurrentVersion
+		{
+			get;
+		}
+
+		string CurrentBuild
+		{
+			get;
+		}
+
+		string PreviousVersion
+		{
+			get;
+		}
+
+		string PreviousBuild
+		{
+			get;
+		}
+
+		string FirstInstalledVersion
+		{
+			get;
+		}
+
+		string FirstInstalledBuild
+		{
+			get;
+		}
+
+		IEnumerable<string> VersionHistory
+		{
+			get;
+		}
+
+		IEnumerable<string> BuildHistory
+		{
+			get;
+		}
+
+		void Track();
+
+		bool IsFirstLaunchForVersion(string version);
+
+		bool IsFirstLaunchForBuild(string build);
+	}
+	public interface IVibration
+	{
+		void Vibrate();
+
+		void Vibrate(double duration);
+
+		void Vibrate(TimeSpan duration);
+
+		void Cancel();
+	}
+	public interface IWebAuthenticator
+	{
+		Task<WebAuthenticatorResult> AuthenticateAsync(Uri url, Uri callbackUrl);
+	}
+}
 namespace NDB.Covid19.PersistedData.SQLite
 {
 	public interface ILoggingManager
@@ -1581,16 +3176,16 @@ namespace NDB.Covid19.SecureStorage
 {
 	public interface ISecureStorageService
 	{
-		ISecureStorage SecureStorage
+		Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage
 		{
 			get;
 		}
 	}
 	public class SecureStorageService : ISecureStorageService
 	{
-		private ISecureStorage _secureStorage;
+		private Plugin.SecureStorage.Abstractions.ISecureStorage _secureStorage;
 
-		public ISecureStorage SecureStorage
+		public Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage
 		{
 			get
 			{
@@ -1633,7 +3228,7 @@ namespace NDB.Covid19.SecureStorage
 			}
 		}
 
-		public void SetSecureStorageInstance(ISecureStorage instance)
+		public void SetSecureStorageInstance(Plugin.SecureStorage.Abstractions.ISecureStorage instance)
 		{
 			_secureStorage = instance;
 		}
@@ -1776,11 +3371,7 @@ namespace NDB.Covid19.Models
 			get
 			{
 				string text = "API " + Endpoint + " failed";
-				if (!new int[2]
-				{
-					200,
-					201
-				}.Contains(StatusCode))
+				if (!IsSuccessfull)
 				{
 					text += $" with HttpStatusCode {StatusCode}";
 				}
@@ -2239,8 +3830,8 @@ namespace NDB.Covid19.Models.Logging
 			Description = Anonymizer.RedactText(logMessage);
 			ReportedTime = DateTime.Now;
 			ApiVersion = SharedConf.APIVersion;
-			string backGroundServicVersionLogString = ServiceLocator.Current.GetInstance<IApiDataHelper>().GetBackGroundServicVersionLogString();
-			AdditionalInfo = Anonymizer.RedactText(additionalInfo) + backGroundServicVersionLogString;
+			additionalInfo = additionalInfo + " " + ServiceLocator.Current.GetInstance<IApiDataHelper>().GetBackGroundServicVersionLogString();
+			AdditionalInfo = Anonymizer.RedactText(additionalInfo);
 			BuildNumber = AppInfo.BuildString;
 			BuildVersion = AppInfo.VersionString;
 			DeviceOSVersion = DeviceInfo.VersionString;
@@ -2480,11 +4071,12 @@ namespace NDB.Covid19.HardwareServices.SupportServices
 		{
 			get
 			{
-				if (DeviceInfo.Platform == DevicePlatform.Android)
+				IDeviceInfo instance = ServiceLocator.Current.GetInstance<IDeviceInfo>();
+				if (instance.Platform == DevicePlatform.Android)
 				{
-					return DeviceInfo.Model;
+					return instance.Model;
 				}
-				return IOSHardwareMapper.GetModel(DeviceInfo.Model);
+				return IOSHardwareMapper.GetModel(instance.Model);
 			}
 		}
 
@@ -2492,9 +4084,10 @@ namespace NDB.Covid19.HardwareServices.SupportServices
 		{
 			get
 			{
-				if (DeviceInfo.Platform == DevicePlatform.Android)
+				IDeviceInfo instance = ServiceLocator.Current.GetInstance<IDeviceInfo>();
+				if (instance.Platform == DevicePlatform.Android)
 				{
-					if (!(DeviceInfo.Manufacturer.ToLower() == "huawei") || ApiDataHelperInstance.IsGoogleServiceEnabled())
+					if (!(instance.Manufacturer.ToLower() == "huawei") || ApiDataHelperInstance.IsGoogleServiceEnabled())
 					{
 						return "Android-Google";
 					}
@@ -2589,6 +4182,11 @@ namespace NDB.Covid19.Configuration
 			get;
 		}
 
+		bool UseDeveloperTools
+		{
+			get;
+		}
+
 		string URL_LOG_MESSAGE
 		{
 			get;
@@ -2621,6 +4219,8 @@ namespace NDB.Covid19.Configuration
 
 		public static string AuthorizationHeader => PlatformConf.AuthorizationHeader;
 
+		public static bool UseDeveloperTools => PlatformConf.UseDeveloperTools;
+
 		public static string URL_LOG_MESSAGE => PlatformConf.URL_LOG_MESSAGE;
 
 		public static string IOSAppstoreAppLink => PlatformConf.IOSAppstoreAppLink;
@@ -2628,5 +4228,7 @@ namespace NDB.Covid19.Configuration
 		public static string GooglePlayAppLink => PlatformConf.GooglePlayAppLink;
 
 		public static string HuaweiAppGalleryLink => PlatformConf.HuaweiAppGalleryLink;
+
+		public static int DEFAULT_TIMEOUT_SERVICECALLS_SECONDS => 10;
 	}
 }

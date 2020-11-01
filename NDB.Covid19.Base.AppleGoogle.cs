@@ -47,6 +47,7 @@ using NDB.Covid19.Models;
 using NDB.Covid19.PersistedData.SecureStorage;
 using NDB.Covid19.SecureStorage;
 using NDB.Covid19.Utils;
+using NDB.Covid19.Utils.XamarinEssentials.Interfaces;
 using NDB.Covid19.ViewModels;
 using NDB.Covid19.WebServices;
 using NDB.Covid19.WebServices.ErrorHandlers;
@@ -83,6 +84,14 @@ namespace NDB.Covid19.Base.AppleGoogle
 			unityContainer.RegisterType<IHeaderService, HeaderService>(Array.Empty<InjectionMember>());
 			unityContainer.RegisterSingleton<MessagesManager>(Array.Empty<InjectionMember>());
 			unityContainer.RegisterSingleton<SecureStorageService>(Array.Empty<InjectionMember>());
+			if (Conf.UseDeveloperTools)
+			{
+				unityContainer.RegisterType<IDeveloperToolsService, DeveloperToolsService>(Array.Empty<InjectionMember>());
+			}
+			else
+			{
+				unityContainer.RegisterType<IDeveloperToolsService, ReleaseToolsService>(Array.Empty<InjectionMember>());
+			}
 		}
 	}
 	public static class LocalesService
@@ -91,14 +100,15 @@ namespace NDB.Covid19.Base.AppleGoogle
 		{
 			if (I18N.Current?.Locale == null)
 			{
-				I18N.Current.SetNotFoundSymbol("$").SetFallbackLocale("dk").AddLocaleReader(new JsonKvpReader(), ".json")
+				I18N.Current.SetNotFoundSymbol("$").SetFallbackLocale(Conf.DEFAULT_LANGUAGE).AddLocaleReader(new JsonKvpReader(), ".json")
 					.Init(typeof(LocalesService).GetTypeInfo().Assembly);
 			}
+			SetInternationalization();
 		}
 
-		public static void SetInternationalization(string conf)
+		public static void SetInternationalization()
 		{
-			I18N.Current.Locale = conf;
+			I18N.Current.Locale = Conf.DEFAULT_LANGUAGE;
 		}
 	}
 }
@@ -152,12 +162,12 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices
 			{
 				return JsonConvert.DeserializeObject<Xamarin.ExposureNotifications.Configuration>("{    'minimumRiskScore': 20,\n    'attenuationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'attenuationWeight': 50,\n    'daysSinceLastExposureScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'daysSinceLastExposureWeight': 50,\n    'durationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'durationWeight': 50,\n    'transmissionRiskScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'transmissionRiskWeight': 50,\n    'durationAtAttenuationThresholds': [\n        85,\n        170\n    ]\n}");
 			}
-			ApiResponse<Xamarin.ExposureNotifications.Configuration> response = await Get<Xamarin.ExposureNotifications.Configuration>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
-			BaseWebService.HandleErrorsSilently(response);
-			if (response.IsSuccessfull && response.Data != null)
+			ApiResponse<Xamarin.ExposureNotifications.Configuration> apiResponse = await Get<Xamarin.ExposureNotifications.Configuration>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
+			BaseWebService.HandleErrorsSilently(apiResponse);
+			LogUtils.SendAllLogs();
+			if (apiResponse.IsSuccessfull && apiResponse.Data != null)
 			{
-				await LogUtils.SendAllLogs();
-				return response.Data;
+				return apiResponse.Data;
 			}
 			return null;
 		}
@@ -314,7 +324,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public static void OpenPrivacyPolicyLink()
 		{
-			Browser.OpenAsync(CONSENT_SEVEN_BUTTON_URL);
+			ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(CONSENT_SEVEN_BUTTON_URL);
 		}
 
 		public List<ConsentSectionTexts> GetConsentSectionsTexts()
@@ -327,7 +337,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 				new ConsentSectionTexts(CONSENT_FOUR_TITLE, CONSENT_FOUR_PARAGRAPH, null),
 				new ConsentSectionTexts(CONSENT_FIVE_TITLE, CONSENT_FIVE_PARAGRAPH, null),
 				new ConsentSectionTexts(CONSENT_SIX_TITLE, CONSENT_SIX_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_SEVEN_TITLE, CONSENT_SEVEN_PARAGRAPH, null),
+				new ConsentSectionTexts(CONSENT_SEVEN_TITLE, CONSENT_SEVEN_PARAGRAPH, CONSENT_SEVEN_PARAGRAPH.Replace("|", "")),
 				new ConsentSectionTexts(CONSENT_EIGHT_TITLE, CONSENT_EIGHT_PARAGRAPH, null),
 				new ConsentSectionTexts(CONSENT_NINE_TITLE, CONSENT_NINE_PARAGRAPH, null)
 			};
@@ -359,6 +369,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			set;
 		}
 
+		public static IDeveloperToolsService DeveloperTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
+
+		private IClipboard _clipboard => ServiceLocator.Current.GetInstance<IClipboard>();
+
 		public ENDeveloperToolsViewModel()
 		{
 			handler = new ExposureNotificationHandler();
@@ -366,14 +380,14 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		internal static void UpdatePushKeysInfo(ApiResponse response, SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings)
 		{
-			PushKeysInfo = $"StatusCode: {response.StatusCode}, Time: {DateTime.Now}\n\n";
+			PushKeysInfo = string.Format("StatusCode: {0}, Time (UTC): {1}\n\n", response.StatusCode, DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss"));
 			ParseKeys(selfDiagnosisSubmissionDTO, settings, ENOperation.PUSH);
 			PutInPushKeyInfoInSharedPrefs();
 		}
 
 		internal static void UpdatePullKeysInfo(ApiResponse response, SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings)
 		{
-			PullKeysInfo = $"StatusCode: {response.StatusCode}, Time: {DateTime.Now}\n\n";
+			PullKeysInfo = string.Format("StatusCode: {0}, Time (UTC): {1}\n\n", response.StatusCode, DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss"));
 			ParseKeys(selfDiagnosisSubmissionDTO, settings, ENOperation.PULL);
 			PutPullKeyInfoInSharedPrefs();
 		}
@@ -396,53 +410,53 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		private static void PutPullKeyInfoInSharedPrefs()
 		{
-			PullKeysInfo = PullKeysInfo + "\n\n" + DeveloperToolsSingleton.Instance.PullKeyInfo;
-			DeveloperToolsSingleton.Instance.PullKeyInfo = PullKeysInfo;
+			PullKeysInfo = PullKeysInfo + "\n\n" + DeveloperTools.PullKeyInfo;
+			DeveloperTools.PullKeyInfo = PullKeysInfo;
 		}
 
 		private static void PutInPushKeyInfoInSharedPrefs()
 		{
-			DeveloperToolsSingleton.Instance.LastKeyUploadInfo = PushKeysInfo;
+			ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastKeyUploadInfo = PushKeysInfo;
 		}
 
 		public async Task<string> GetPushKeyInfoFromSharedPrefs()
 		{
 			string res = "Empty";
-			PushKeysInfo = DeveloperToolsSingleton.Instance.LastKeyUploadInfo;
+			PushKeysInfo = DeveloperTools.LastKeyUploadInfo;
 			if (PushKeysInfo != "")
 			{
 				res = PushKeysInfo;
 			}
-			await Clipboard.SetTextAsync(res);
+			await _clipboard.SetTextAsync(res);
 			return res;
 		}
 
 		public async Task<string> GetPullKeyInfoFromSharedPrefs()
 		{
 			string res = "Empty";
-			PullKeysInfo = DeveloperToolsSingleton.Instance.PullKeyInfo;
+			PullKeysInfo = DeveloperTools.PullKeyInfo;
 			if (PullKeysInfo != "")
 			{
 				res = PullKeysInfo;
 			}
-			await Clipboard.SetTextAsync(res);
+			await _clipboard.SetTextAsync(res);
 			return res;
 		}
 
 		public static void SetLastPullResult(string result)
 		{
-			DeveloperToolsSingleton.Instance.PullKeyInfo = result;
+			ServiceLocator.Current.GetInstance<IDeveloperToolsService>().PullKeyInfo = result;
 		}
 
 		public static string GetLastPullResult()
 		{
-			return DeveloperToolsSingleton.Instance.PullKeyInfo;
+			return DeveloperTools.PullKeyInfo;
 		}
 
 		public string LastUsedExposureConfigurationAsync()
 		{
-			string lastUsedConfiguration = DeveloperToolsSingleton.Instance.LastUsedConfiguration;
-			Clipboard.SetTextAsync(lastUsedConfiguration);
+			string lastUsedConfiguration = DeveloperTools.LastUsedConfiguration;
+			_clipboard.SetTextAsync(lastUsedConfiguration);
 			return lastUsedConfiguration;
 		}
 
@@ -458,7 +472,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			catch (Exception ex)
 			{
 				LogUtils.LogException(LogSeverity.ERROR, ex, "PullKeysFromServer failed");
-				Clipboard.SetTextAsync($"Pull keys failed:\n{ex}");
+				_clipboard.SetTextAsync($"Pull keys failed:\n{ex}");
 				SetLastPullResult($"Pull keys failed:\n{ex}");
 				return processedAnyFiles;
 			}
@@ -468,7 +482,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			DEV_TOOLS_OUTPUT = GetLastPullResult();
 			bool processedAnyFiles = false;
-			Preferences.Set(ExposureDetectedHelper.SHOULD_SAVE_EXPOSURE_INFOS_PREF, value: true);
+			DeveloperTools.ShouldSaveExposureInfo = true;
 			try
 			{
 				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
@@ -477,7 +491,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			catch (Exception ex)
 			{
 				LogUtils.LogException(LogSeverity.ERROR, ex, "PullKeysFromServer failed");
-				Clipboard.SetTextAsync($"Pull keys failed:\n{ex}");
+				_clipboard.SetTextAsync($"Pull keys failed:\n{ex}");
 				SetLastPullResult($"Pull keys failed:\n{ex}");
 				return processedAnyFiles;
 			}
@@ -485,9 +499,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public string GetExposureInfosFromLastPull()
 		{
-			string lastExposureInfos = DeveloperToolsSingleton.Instance.LastExposureInfos;
+			string persistedExposureInfo = DeveloperTools.PersistedExposureInfo;
 			string text = "";
-			if (lastExposureInfos == "")
+			if (persistedExposureInfo == "")
 			{
 				text = "We have not saved any ExposureInfos yet";
 			}
@@ -495,7 +509,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			{
 				try
 				{
-					foreach (ExposureInfo item in ExposureInfoJsonHelper.ExposureInfosFromJsonCompatibleString(lastExposureInfos))
+					foreach (ExposureInfo item in ExposureInfoJsonHelper.ExposureInfosFromJsonCompatibleString(persistedExposureInfo))
 					{
 						string str = ((text == "") ? "" : "\n");
 						text += str;
@@ -515,7 +529,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 				}
 			}
 			string text2 = "These are the ExposureInfos we got the last time \"Pull keys and get exposure info\" was clicked:\n" + text;
-			Clipboard.SetTextAsync(text2);
+			_clipboard.SetTextAsync(text2);
 			return text2;
 		}
 
@@ -524,7 +538,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			Xamarin.ExposureNotifications.Configuration configuration = await new ExposureNotificationHandler().GetConfigurationAsync();
 			string text2 = (DEV_TOOLS_OUTPUT = $"Exposure Configuration: (mock: {Conf.MOCK_EXPOSURE_CONFIGURATION})\n" + $" AttenuationWeight: {configuration.AttenuationWeight}, Values: {EnConfArrayString(configuration.AttenuationScores)} \n" + $" DaysSinceLastExposureWeight: {configuration.DaysSinceLastExposureWeight}, Values: {EnConfArrayString(configuration.DaysSinceLastExposureScores)} \n" + $" DurationWeight: {configuration.DurationWeight}, Values: {EnConfArrayString(configuration.DurationScores)} \n" + $" TransmissionWeight: {configuration.TransmissionWeight}, Values: {EnConfArrayString(configuration.TransmissionRiskScores)} \n" + $" MinimumRiskScore: {configuration.MinimumRiskScore}" + $" DurationAtAttenuationThresholds: [{configuration.DurationAtAttenuationThresholds[0]},{configuration.DurationAtAttenuationThresholds[1]}]");
 			devToolUpdateOutput?.Invoke();
-			Clipboard.SetTextAsync(text2);
+			_clipboard.SetTextAsync(text2);
 			return text2;
 		}
 
@@ -556,13 +570,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		public string incementExposureDate()
 		{
 			MessageDateTime = MessageDateTime.AddDays(1.0);
-			return $"Incremented date for Send Message function: \n{MessageDateTime}";
+			return "Incremented date for Send Message function: \n" + MessageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
 		}
 
 		public string decrementExposureDate()
 		{
 			MessageDateTime = MessageDateTime.AddDays(-1.0);
-			return $"Decremented date for Send Message function: \n{MessageDateTime}";
+			return "Decremented date for Send Message function: \n" + MessageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
 		}
 
 		public string PrintLastSymptomOnsetDate()
@@ -573,13 +587,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public string PrintLastPulledKeysAndTimestamp()
 		{
-			string text = DeveloperToolsSingleton.Instance.LastProvidedFiles;
+			string text = DeveloperTools.LastProvidedFilesPref;
 			if (text == "")
 			{
-				text = "We have not saved any downloaded keys to the Storage Singleton";
+				text = "We have not saved any downloaded keys yet";
 			}
 			string text2 = "These are the last TEK batch files provided to the EN API:\n" + text;
-			Clipboard.SetTextAsync(text2);
+			_clipboard.SetTextAsync(text2);
 			return text2;
 		}
 
@@ -602,13 +616,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		public string GetLastExposureSummary()
 		{
 			string text = ((!ServiceLocator.Current.GetInstance<SecureStorageService>().KeyExists(SecureStorageKeys.LAST_SUMMARY_KEY)) ? "No summary yet" : ("Last exposure summary: " + ServiceLocator.Current.GetInstance<SecureStorageService>().GetValue(SecureStorageKeys.LAST_SUMMARY_KEY)));
-			Clipboard.SetTextAsync(text);
+			_clipboard.SetTextAsync(text);
 			return text;
 		}
 
 		public string GetLatestPullKeysTimesAndStatuses()
 		{
-			string latestPullKeysTimesAndStatuses = DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses;
+			string latestPullKeysTimesAndStatuses = DeveloperTools.LatestPullKeysTimesAndStatuses;
 			string text;
 			if (latestPullKeysTimesAndStatuses == "")
 			{
@@ -624,7 +638,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 					{
 						string str = ((text == "") ? "" : "\n");
 						text += str;
-						text += $"[A call to \"pull keys\" at \"{item.Item1}\" UTC with status \"{item.Item2}\"]";
+						text = text + "[A call to \"pull keys\" at \"" + item.Item1.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + "\" UTC with status \"" + item.Item2 + "\"]";
 					}
 				}
 				catch (Exception e)
@@ -634,7 +648,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 				}
 			}
 			string text2 = "These are the last 20 times the \"pull keys\" function was triggered, together with the statuses for the runs:\n" + text;
-			Clipboard.SetTextAsync(text2);
+			_clipboard.SetTextAsync(text2);
 			return text2;
 		}
 	}
@@ -758,16 +772,11 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			}
 			catch (Exception ex)
 			{
-				if (ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "IsRunning"))
 				{
-					if (!_isRunningExceptionWasLogged)
-					{
-						LogUtils.LogException(LogSeverity.ERROR, ex, "InfectionStatusViewModel.IsRunning: EN API was not available");
-						_isRunningExceptionWasLogged = true;
-					}
-					return false;
+					throw ex;
 				}
-				throw ex;
+				return false;
 			}
 		}
 
@@ -779,12 +788,11 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			}
 			catch (Exception ex)
 			{
-				if (ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "IsEnabled"))
 				{
-					LogUtils.LogException(LogSeverity.ERROR, ex, "InfectionStatusViewModel.IsEnabled: EN API was not available");
-					return false;
+					throw ex;
 				}
-				throw ex;
+				return false;
 			}
 		}
 
@@ -802,18 +810,27 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			}
 			catch (Exception ex)
 			{
-				if (!ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "StartBluetooth"))
 				{
 					throw ex;
 				}
-				LogUtils.LogException(LogSeverity.ERROR, ex, "InfectionStatusViewModel.StartBluetooth: EN API was not available");
 			}
 			return await IsRunning();
 		}
 
 		public async Task<bool> StopBluetooth()
 		{
-			await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+			try
+			{
+				await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+			}
+			catch (Exception ex)
+			{
+				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "StopBluetooth"))
+				{
+					throw ex;
+				}
+			}
 			return await IsRunning();
 		}
 
@@ -956,8 +973,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		private void OnAuthCompleted(object sender, AuthenticatorCompletedEventArgs e)
 		{
+			string str = "InformationAndConsentViewModel.OnAuthCompleted: ";
 			if (e != null && e.IsAuthenticated && e.Account?.Properties != null && e.Account.Properties.ContainsKey("access_token"))
 			{
+				LogUtils.LogMessage(LogSeverity.INFO, str + "User returned from NemID after authentication and access_token exists.");
 				string accessToken = e.Account?.Properties["access_token"];
 				PersonalDataModel payloadValidateJWTToken = _authManager.GetPayloadValidateJWTToken(accessToken);
 				if (payloadValidateJWTToken == null)
@@ -968,22 +987,31 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 				if (e.Account.Properties.TryGetValue("expires_in", out var value))
 				{
 					int.TryParse(value, out var result);
-					if (result > 0 && payloadValidateJWTToken != null)
+					if (result > 0)
 					{
 						payloadValidateJWTToken.TokenExpiration = DateTime.Now.AddSeconds(result);
+						LogUtils.LogMessage(LogSeverity.INFO, str + "Access-token expires timestamp", payloadValidateJWTToken.TokenExpiration.ToString());
 					}
 				}
+				else
+				{
+					LogUtils.LogMessage(LogSeverity.ERROR, str + "'expires_in' value does not exist");
+				}
 				SaveCovidRelatedAttributes(payloadValidateJWTToken);
-				if (AuthenticationState.PersonalData.Covid19_blokeret == "true")
+				if (AuthenticationState.PersonalData.IsBlocked)
 				{
 					this.OnError?.Invoke(this, AuthErrorType.MaxTriesExceeded);
 				}
-				else if (AuthenticationState.PersonalData.Covid19_status == "negativ")
+				else if (AuthenticationState.PersonalData.IsNotInfected)
 				{
 					this.OnError?.Invoke(this, AuthErrorType.NotInfected);
 				}
-				else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.Covid19_status == "ukendt")
+				else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.UnknownStatus)
 				{
+					if (AuthenticationState.PersonalData.UnknownStatus)
+					{
+						LogUtils.LogMessage(LogSeverity.ERROR, str + "Value Covid19_status = ukendt");
+					}
 					this.OnError?.Invoke(this, AuthErrorType.Unknown);
 				}
 				else
@@ -1196,13 +1224,15 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public DialogViewModel CloseDialogViewModel;
 
+		public static bool DateHasBeenSet = false;
+
 		public static string DateLabel
 		{
 			get
 			{
 				if (!(_selectedDateUTC == DateTime.MinValue))
 				{
-					return _localSelectedDate.ToString("dd/MM/yyyy");
+					return _localSelectedDate.ToGreGorianUtcString("dd/MM/yyyy");
 				}
 				return "dd/mm/åååå";
 			}
@@ -1263,6 +1293,12 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		public void SetSelectedDateUTC(DateTime newDate)
 		{
 			_selectedDateUTC = newDate;
+			DateHasBeenSet = true;
+		}
+
+		public static DateTime GetLocalSelectedDate()
+		{
+			return _localSelectedDate;
 		}
 
 		public void SetSelection(QuestionaireSelection selection)
@@ -1507,38 +1543,85 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 	{
 		public static void SetIsOnboardingCompleted(bool isOnboardingCompleted)
 		{
-			Preferences.Set("isOnboardingCompleted", isOnboardingCompleted);
+			ServiceLocator.Current.GetInstance<IPreferences>().Set("isOnboardingCompleted", isOnboardingCompleted);
 		}
 
 		public static bool GetIsOnboardingCompleted()
 		{
-			return Preferences.Get("isOnboardingCompleted", defaultValue: false);
+			return ServiceLocator.Current.GetInstance<IPreferences>().Get("isOnboardingCompleted", defaultValue: false);
 		}
 	}
 	public static class DateUtils
 	{
-		public static readonly CultureInfo cultureInfo = CultureInfo.CurrentCulture;
-
 		public static string GetDateFromDateTime(this DateTime? date, string dateFormat)
 		{
 			if (date.HasValue)
 			{
-				return date.Value.ToString(dateFormat, cultureInfo);
+				return date.Value.ToString(dateFormat, new CultureInfo("da-DK"));
 			}
 			return string.Empty;
 		}
+
+		public static string ReplaceAndInsertNewlineiOS(string text, string sizeCategory)
+		{
+			text = (((((DeviceDisplay.MainDisplayInfo.Width <= 750.0) ? 1u : 0u) & (uint)(sizeCategory switch
+			{
+				"UICTContentSizeCategoryXS" => 0, 
+				"UICTContentSizeCategoryS" => 0, 
+				"UICTContentSizeCategoryM" => 0, 
+				"UICTContentSizeCategoryL" => 0, 
+				_ => 1, 
+			})) == 0) ? text.Replace("-", "/") : ReplaceLastOccurrence(text.Replace("-", "/"), "/", "/" + Environment.NewLine));
+			return text;
+		}
+
+		private static string ReplaceLastOccurrence(string Source, string Find, string Replace)
+		{
+			int num = Source.LastIndexOf(Find);
+			if (num == -1)
+			{
+				return Source;
+			}
+			return Source.Remove(num, Find.Length).Insert(num, Replace);
+		}
+
+		public static string ToGreGorianUtcString(this DateTime dateTime, string format)
+		{
+			return dateTime.ToString(format, CultureInfo.InvariantCulture);
+		}
+
+		public static DateTime TrimMilliseconds(this DateTime dt)
+		{
+			return new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
+		}
 	}
-	public sealed class DeveloperToolsSingleton
+	public sealed class DeveloperToolsService : IDeveloperToolsService
 	{
+		public static readonly string DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF = "DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF";
+
+		public static readonly string DEV_TOOLS_LAST_PROVIDED_FILES_PREF = "DEV_TOOLS_LAST_PROVIDED_FILES_PREF";
+
+		public static readonly string DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF = "DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF";
+
+		public static readonly string DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF = "DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF";
+
+		public static readonly string DEV_TOOLS_PULL_KEYS_INFO = "PullKeyInfo";
+
+		public static readonly string DEV_TOOLS_LAST_KEY_UPLOAD_INFO = "LastKeyUploadInfo";
+
+		public static readonly string DEV_TOOLS_LAST_USED_CONFIGURATION = "LastUsedConfiguration";
+
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
 		public string PullKeyInfo
 		{
 			get
 			{
-				return PullKeyInfo;
+				return _preferences.Get(DEV_TOOLS_PULL_KEYS_INFO, "");
 			}
 			set
 			{
-				PullKeyInfo = value;
+				_preferences.Set(DEV_TOOLS_PULL_KEYS_INFO, value);
 			}
 		}
 
@@ -1546,11 +1629,11 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 		{
 			get
 			{
-				return PullKeyInfo;
+				return _preferences.Get(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
 			}
 			set
 			{
-				PullKeyInfo = value;
+				_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, value);
 			}
 		}
 
@@ -1558,23 +1641,47 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 		{
 			get
 			{
-				return PullKeyInfo;
+				return _preferences.Get(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
 			}
 			set
 			{
-				PullKeyInfo = value;
+				_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, value);
 			}
 		}
 
-		public string LastProvidedFiles
+		public bool ShouldSaveExposureInfo
 		{
 			get
 			{
-				return PullKeyInfo;
+				return _preferences.Get(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, defaultValue: false);
 			}
 			set
 			{
-				PullKeyInfo = value;
+				_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, value);
+			}
+		}
+
+		public string LastProvidedFilesPref
+		{
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, value);
+			}
+		}
+
+		public string PersistedExposureInfo
+		{
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, value);
 			}
 		}
 
@@ -1582,48 +1689,157 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 		{
 			get
 			{
-				return PullKeyInfo;
+				return _preferences.Get(DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF, "");
 			}
 			set
 			{
-				PullKeyInfo = value;
+				_preferences.Set(DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF, value);
 			}
-		}
-
-		public string LastExposureInfos
-		{
-			get
-			{
-				return PullKeyInfo;
-			}
-			set
-			{
-				PullKeyInfo = value;
-			}
-		}
-
-		public static DeveloperToolsSingleton Instance
-		{
-			get;
 		}
 
 		public void ClearAllFields()
 		{
-			PullKeyInfo = "";
-			LastKeyUploadInfo = "";
-			LastUsedConfiguration = "";
-			LastProvidedFiles = "";
-			LatestPullKeysTimesAndStatuses = "";
-			LastExposureInfos = "";
+			_preferences.Set(DEV_TOOLS_PULL_KEYS_INFO, "");
+			_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
+			_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
+			_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, "");
+			_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
+			_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
+			_preferences.Set(DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF, "");
 		}
 
-		static DeveloperToolsSingleton()
+		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
 		{
-			Instance = new DeveloperToolsSingleton();
+			string str = "TEK batch files downloaded at " + DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC:\n#######\n";
+			foreach (string localFileUrl in localFileUrls)
+			{
+				TemporaryExposureKeyExport temporaryExposureKeyExport = BatchFileHelper.ZipToTemporaryExposureKeyExport(BatchFileHelper.UrlToZipArchive(localFileUrl));
+				string str2 = ServiceLocator.Current.GetInstance<IDeveloperToolsService>().TemporaryExposureKeyExportToPrettyString(temporaryExposureKeyExport);
+				str = str + str2 + "\n";
+			}
+			str += "#######";
+			_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, str);
 		}
 
-		private DeveloperToolsSingleton()
+		public void SavePullCallTime()
 		{
+			string text = _preferences.Get(DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF, "");
+			List<Tuple<DateTime, string>> list;
+			if (text == "")
+			{
+				list = new List<Tuple<DateTime, string>>();
+			}
+			else
+			{
+				try
+				{
+					list = JsonConvert.DeserializeObject<IEnumerable<Tuple<DateTime, string>>>(text).ToList();
+				}
+				catch (Exception e)
+				{
+					LogUtils.LogException(LogSeverity.ERROR, e, "DeveloperTools: Failed at deserialising latestPullKeysTimesAndStatusesString in SavePullCallTime");
+					list = new List<Tuple<DateTime, string>>();
+				}
+			}
+			Tuple<DateTime, string> item = new Tuple<DateTime, string>(DateTime.UtcNow, "No status got saved for this call to \"pull keys\"");
+			if (list.Count() < 20)
+			{
+				list.Add(item);
+			}
+			else
+			{
+				list = list.Skip(1).ToList();
+				list.Add(item);
+			}
+			try
+			{
+				string value = JsonConvert.SerializeObject(list);
+				_preferences.Set(DEV_TOOLS_LATEST_PULL_KEYS_TIMES_AND_STATUSES_PREF, value);
+			}
+			catch (Exception e2)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e2, "DeveloperTools: Failed at saving a JSON serialization of latestPullKeysTimesAndStatuses in SavePullCallTime");
+			}
+		}
+
+		public async Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
+		{
+			bool flag;
+			try
+			{
+				flag = ShouldSaveExposureInfo;
+			}
+			catch (Exception)
+			{
+				flag = false;
+			}
+			if (flag)
+			{
+				try
+				{
+					ShouldSaveExposureInfo = false;
+					string text2 = (PersistedExposureInfo = ExposureInfoJsonHelper.ExposureInfosToJson(await getExposureInfo()));
+				}
+				catch (Exception e)
+				{
+					LogUtils.LogException(LogSeverity.WARNING, e, "ExposureDetectedHelper.DevToolsSaveLastExposureInfos");
+				}
+			}
+		}
+
+		public void SaveAndShowLastPullResult(string lastPullResult)
+		{
+			SaveStatusOfLastPullCall(lastPullResult);
+			ENDeveloperToolsViewModel.SetLastPullResult(lastPullResult);
+		}
+
+		public void SaveStatusOfLastPullCall(string status)
+		{
+			try
+			{
+				string latestPullKeysTimesAndStatuses = LatestPullKeysTimesAndStatuses;
+				if (latestPullKeysTimesAndStatuses == "")
+				{
+					throw new Exception("latestPullKeysTimesAndStatusesString == \"\"");
+				}
+				List<Tuple<DateTime, string>> source = JsonConvert.DeserializeObject<IEnumerable<Tuple<DateTime, string>>>(latestPullKeysTimesAndStatuses).ToList();
+				Tuple<DateTime, string> tuple = source.Last();
+				source = source.Take(source.Count() - 1).ToList();
+				Tuple<DateTime, string> item = new Tuple<DateTime, string>(tuple.Item1, status);
+				source.Add(item);
+				string text2 = (LatestPullKeysTimesAndStatuses = JsonConvert.SerializeObject(source));
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "Failed at adding a status to the latest tuple in SaveStatusOfLastPullCall");
+			}
+		}
+
+		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
+		{
+			try
+			{
+				string str = "TEK batch, containing these keys:\n";
+				string text = "";
+				int num = 0;
+				foreach (NDB.Covid19.Base.AppleGoogle.ProtoModels.TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
+				{
+					string str2 = ((text == "") ? "--" : "\n--");
+					text += str2;
+					text = text + "[TemporaryExposureKey with KeyData.ToBase64()=" + key.KeyData.ToBase64() + ", " + $"TransmissionRiskLevel={key.TransmissionRiskLevel}, " + "RollingStartIntervalNumber=" + DateTimeOffset.FromUnixTimeSeconds(key.RollingStartIntervalNumber * 600).UtcDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC and " + $"RollingPeriod={key.RollingPeriod * 10} minutes";
+					num++;
+					if (num == 200)
+					{
+						break;
+					}
+				}
+				return str + text;
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "DeveloperToolsService.TemporaryExposureKeyExportToPrettyString");
+				return "";
+			}
 		}
 	}
 	public class DeviceUtils : IDeviceUtils
@@ -1631,9 +1847,9 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 		public void CleanDataFromDevice()
 		{
 			ServiceLocator.Current.GetInstance<DeviceGuidService>().DeleteAll();
-			DeveloperToolsSingleton.Instance.ClearAllFields();
+			ServiceLocator.Current.GetInstance<IDeveloperToolsService>().ClearAllFields();
 			HttpClientManager.MakeNewInstance();
-			Preferences.Clear();
+			ServiceLocator.Current.GetInstance<IPreferences>().Clear();
 			MessageUtils.RemoveAll();
 			LocalPreferences.SetIsOnboardingCompleted(isOnboardingCompleted: false);
 			foreach (string item in SecureStorageKeys.GetAllKeysForCleaningDevice())
@@ -1644,8 +1860,76 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 
 		public async void StopScanServices()
 		{
-			await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+			try
+			{
+				await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+			}
+			catch (Exception ex)
+			{
+				if (!ex.HandleExposureNotificationException("DeviceUtils", "StopScanServices"))
+				{
+					throw ex;
+				}
+			}
 		}
+	}
+	public interface IDeveloperToolsService
+	{
+		string PullKeyInfo
+		{
+			get;
+			set;
+		}
+
+		string LastKeyUploadInfo
+		{
+			get;
+			set;
+		}
+
+		string LastUsedConfiguration
+		{
+			get;
+			set;
+		}
+
+		bool ShouldSaveExposureInfo
+		{
+			get;
+			set;
+		}
+
+		string LastProvidedFilesPref
+		{
+			get;
+			set;
+		}
+
+		string PersistedExposureInfo
+		{
+			get;
+			set;
+		}
+
+		string LatestPullKeysTimesAndStatuses
+		{
+			get;
+			set;
+		}
+
+		void ClearAllFields();
+
+		void StoreLastProvidedFiles(IEnumerable<string> localFileUrls);
+
+		void SavePullCallTime();
+
+		Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo);
+
+		void SaveAndShowLastPullResult(string lastPullResult);
+
+		void SaveStatusOfLastPullCall(string status);
+
+		string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport);
 	}
 	public static class MessageUtils
 	{
@@ -1758,12 +2042,121 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 
 		public static void UpdateLastUpdatedDate()
 		{
-			Preferences.Set(MESSAGES_LAST_UPDATED_PREF, DateTime.Now);
+			ServiceLocator.Current.GetInstance<IPreferences>().Set(MESSAGES_LAST_UPDATED_PREF, DateTime.Now);
 		}
 
 		public static DateTime GetUpdatedDateTime()
 		{
-			return Preferences.Get(MESSAGES_LAST_UPDATED_PREF, DateTime.MinValue);
+			return ServiceLocator.Current.GetInstance<IPreferences>().Get(MESSAGES_LAST_UPDATED_PREF, DateTime.MinValue);
+		}
+	}
+	public class ReleaseToolsService : IDeveloperToolsService
+	{
+		public string PullKeyInfo
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string LastKeyUploadInfo
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string LastUsedConfiguration
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public bool ShouldSaveExposureInfo
+		{
+			get
+			{
+				return false;
+			}
+			set
+			{
+			}
+		}
+
+		public string LastProvidedFilesPref
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string PersistedExposureInfo
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string LatestPullKeysTimesAndStatuses
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public void ClearAllFields()
+		{
+		}
+
+		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
+		{
+		}
+
+		public void SavePullCallTime()
+		{
+		}
+
+		public Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
+		{
+			return Task.FromResult(result: true);
+		}
+
+		public void SaveAndShowLastPullResult(string lastPullResult)
+		{
+		}
+
+		public void SaveStatusOfLastPullCall(string status)
+		{
+		}
+
+		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
+		{
+			return "";
 		}
 	}
 }
@@ -1856,7 +2249,6 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 	public enum AuthErrorType
 	{
 		Unknown,
-		AuthenticationFailed,
 		MaxTriesExceeded,
 		NotInfected
 	}
@@ -1917,10 +2309,6 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 				if (response.StatusCode != HttpStatusCode.OK)
 				{
 					LogUtils.LogMessage(LogSeverity.WARNING, "CustomOAuth2Authenticator failed to refresh token.", "Error from service: " + text);
-				}
-				else
-				{
-					LogUtils.LogMessage(LogSeverity.INFO, "CustomOAuth2Authenticator successfully refreshed token");
 				}
 			}
 			catch
@@ -2023,10 +2411,28 @@ namespace NDB.Covid19.Base.AppleGoogle.Models
 			set;
 		}
 
+		[JsonIgnore]
+		public bool IsBlocked => Covid19_blokeret == "true";
+
+		[JsonIgnore]
+		public bool IsNotInfected => Covid19_status == "negativ";
+
+		[JsonIgnore]
+		public bool UnknownStatus => Covid19_status == "ukendt";
+
 		public bool Validate()
 		{
+			string str = "PersonalDataModel.Validate: ";
 			bool num = !string.IsNullOrEmpty(Covid19_smitte_start);
+			if (!num)
+			{
+				LogUtils.LogMessage(LogSeverity.ERROR, str + "Covid19_smitte_start value was null or empty");
+			}
 			bool flag = TokenExpiration.HasValue && TokenExpiration > DateTime.Now;
+			if (!flag)
+			{
+				LogUtils.LogMessage(LogSeverity.ERROR, str + "Access token was expired");
+			}
 			return num && flag;
 		}
 	}
@@ -2071,8 +2477,8 @@ namespace NDB.Covid19.Base.AppleGoogle.Models
 		public SelfDiagnosisSubmissionDTO(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> keys)
 		{
 			Keys = keys;
-			AppPackageName = AppInfo.PackageName;
-			Platform = DeviceInfo.Platform.ToString();
+			AppPackageName = ServiceLocator.Current.GetInstance<IAppInfo>().PackageName;
+			Platform = ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform.ToString();
 			Regions = Conf.SUPPORTED_REGIONS.ToList();
 			DeviceVerificationPayload = AuthenticationState.DeviceVerificationToken;
 			computePadding();
@@ -2215,10 +2621,6 @@ namespace NDB.Covid19.Base.AppleGoogle.Interfaces
 	public interface ILocalNotificationsManager
 	{
 		void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds);
-	}
-	public interface IStopBackgroundService
-	{
-		void StopBackgroundService();
 	}
 }
 namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
@@ -3921,11 +4323,15 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 
 		public string UserExplanation => "Saving ExposureInfos with \"Pull Keys and Save ExposureInfos\" causes the EN API to display this notification (not a bug)";
 
-		public async Task ExposureDetectedAsync(ExposureDetectionSummary summary, Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
+		public Task<Xamarin.ExposureNotifications.Configuration> GetConfigurationAsync()
 		{
-			await ExposureDetectedHelper.GenerateMessageIfAppropriate(summary, this);
-			await ExposureDetectedHelper.SaveLastExposureInfosIfReleaseAndPrefIsTrue(getExposureInfo);
-			ExposureDetectedHelper.SaveLastSummary(summary);
+			return Task.Run(async delegate
+			{
+				Xamarin.ExposureNotifications.Configuration obj = await exposureNotificationWebService.GetExposureConfiguration();
+				string str = JsonConvert.SerializeObject(obj);
+				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastUsedConfiguration = "Time used (UTC): " + DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + "\n" + str;
+				return obj;
+			});
 		}
 
 		public async Task FetchExposureKeyBatchFilesFromServerAsync(Func<IEnumerable<string>, Task> submitBatches, CancellationToken cancellationToken)
@@ -3933,30 +4339,36 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 			await new FetchExposureKeysHelper().FetchExposureKeyBatchFilesFromServerAsync(submitBatches, cancellationToken);
 		}
 
-		public Task<Xamarin.ExposureNotifications.Configuration> GetConfigurationAsync()
+		public async Task ExposureDetectedAsync(ExposureDetectionSummary summary, Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
 		{
-			return Task.Run(async delegate
-			{
-				Xamarin.ExposureNotifications.Configuration obj = await exposureNotificationWebService.GetExposureConfiguration();
-				string arg = JsonConvert.SerializeObject(obj);
-				DeveloperToolsSingleton.Instance.LastUsedConfiguration = $"Time used: {DateTime.Now}\n{arg}";
-				return obj;
-			});
+			await ExposureDetectedHelper.GenerateMessageIfAppropriate(summary, this);
+			await ServiceLocator.Current.GetInstance<IDeveloperToolsService>().SaveLastExposureInfos(getExposureInfo);
+			ExposureDetectedHelper.SaveLastSummary(summary);
 		}
 
 		public async Task UploadSelfExposureKeysToServerAsync(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> temporaryExposureKeys)
 		{
-			if (DeviceInfo.Platform == DevicePlatform.iOS)
+			try
 			{
-				if (!(await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync()))
+				if (ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform == DevicePlatform.iOS)
 				{
-					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-					await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+					if (!(await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync()))
+					{
+						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
+						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+					}
+					else
+					{
+						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
+					}
 				}
-				else
+			}
+			catch (Exception ex)
+			{
+				if (ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform == DevicePlatform.iOS && !ex.HandleExposureNotificationException("ExposureNotificationHandler", "UploadSelfExposureKeysToServerAsync"))
 				{
-					await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
-					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
+					throw ex;
 				}
 			}
 			if (AuthenticationState.PersonalData?.Access_token == null)
@@ -3985,8 +4397,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 			ZipArchiveEntry entry2 = zipArchive.GetEntry("export.sig");
 			Stream stream = entry.Open();
 			Stream stream2 = entry2.Open();
-			string text = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".bin");
-			string text2 = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".sig");
+			string text = Path.Combine(ServiceLocator.Current.GetInstance<IFileSystem>().CacheDirectory, Guid.NewGuid().ToString() + ".bin");
+			string text2 = Path.Combine(ServiceLocator.Current.GetInstance<IFileSystem>().CacheDirectory, Guid.NewGuid().ToString() + ".sig");
 			FileStream fileStream = File.Create(text);
 			FileStream fileStream2 = File.Create(text2);
 			stream.CopyTo(fileStream);
@@ -4009,27 +4421,6 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 		{
 			IEnumerable<byte> source = ReadToEnd(zipArchive.GetEntry("export.bin").Open()).Skip(16);
 			return TemporaryExposureKeyExport.Parser.ParseFrom(source.ToArray());
-		}
-
-		public static string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
-		{
-			string str = "TEK batch, containing these keys:\n";
-			string text;
-			if (temporaryExposureKeyExport.Keys.Count() > 200)
-			{
-				text = "More than 200 keys in the batch. Displaying all of them would take too long";
-			}
-			else
-			{
-				text = "";
-				foreach (NDB.Covid19.Base.AppleGoogle.ProtoModels.TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
-				{
-					string str2 = ((text == "") ? "--" : "\n--");
-					text += str2;
-					text = text + $"[TemporaryExposureKey with KeyData.ToBase64()={key.KeyData.ToBase64()}, TransmissionRiskLevel={key.TransmissionRiskLevel}, " + $"RollingStartIntervalNumber={DateTimeOffset.FromUnixTimeSeconds(key.RollingStartIntervalNumber * 600).UtcDateTime} UTC and RollingPeriod={key.RollingPeriod * 10} minutes";
-				}
-			}
-			return str + text;
 		}
 
 		private static byte[] ReadToEnd(Stream stream)
@@ -4083,8 +4474,6 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 {
 	public abstract class ExposureDetectedHelper
 	{
-		public static readonly string SHOULD_SAVE_EXPOSURE_INFOS_PREF = "SHOULD_SAVE_EXPOSURE_INFOS_PREF";
-
 		private static readonly SecureStorageService _secureStorageService = ServiceLocator.Current.GetInstance<SecureStorageService>();
 
 		public static async Task GenerateMessageIfAppropriate(ExposureDetectionSummary summary, object messageSender)
@@ -4112,26 +4501,6 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			catch (Exception e)
 			{
 				LogUtils.LogException(LogSeverity.ERROR, e, "ExposureDetectedHelper.SaveLastSummary");
-			}
-		}
-
-		public static async Task SaveLastExposureInfosIfReleaseAndPrefIsTrue(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
-		{
-			bool flag;
-			try
-			{
-				flag = Preferences.Get(SHOULD_SAVE_EXPOSURE_INFOS_PREF, defaultValue: false);
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.WARNING, e, "SaveLastExposureInfosIfPrefIsTrue");
-				flag = false;
-			}
-			if (flag)
-			{
-				Preferences.Set(SHOULD_SAVE_EXPOSURE_INFOS_PREF, value: false);
-				string lastExposureInfos = ExposureInfoJsonHelper.ExposureInfosToJson(await getExposureInfo());
-				DeveloperToolsSingleton.Instance.LastExposureInfos = lastExposureInfos;
 			}
 		}
 
@@ -4313,41 +4682,43 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 	}
 	public class FetchExposureKeysHelper
 	{
+		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
+
 		public async Task FetchExposureKeyBatchFilesFromServerAsync(Func<IEnumerable<string>, Task> submitBatches, CancellationToken cancellationToken)
 		{
-			StoredValueHelper.SavePullCallTime();
+			_developerTools.SavePullCallTime();
 			if (StoredValueHelper.LastDownloadZipsTooRecent())
 			{
-				SaveAndShowLastPullResult("Pull aborted. The last time we ran DownloadZips was too recent");
-				return;
+				string text = "Pull aborted. The last time we ran DownloadZips was too recent";
+				_developerTools.SaveAndShowLastPullResult(text);
+				LogUtils.LogMessage(LogSeverity.WARNING, text);
 			}
-			if (StoredValueHelper.TooManySubmitBatches())
+			else
 			{
-				LogUtils.LogMessage(LogSeverity.WARNING, "User had too many submit batches. Deleting value in preferences.");
-				StoredValueHelper.DeleteBatchesValue();
+				IEnumerable<string> zips = await new ZipDownloader().DownloadZips(cancellationToken);
+				await SubmitZips(zips, submitBatches);
+				DeleteZips(zips);
 			}
-			IEnumerable<string> zips = await new ZipDownloader().DownloadZips(cancellationToken);
-			await SubmitZips(zips, submitBatches);
-			DeleteZips(zips);
 		}
 
 		private Task SubmitZips(IEnumerable<string> zips, Func<IEnumerable<string>, Task> submitBatches)
 		{
 			if (zips.Count() == 0)
 			{
-				SaveAndShowLastPullResult("No zips were given to SubmitZips. Probably because A: \"Our first request to the server got something other than response code Ok or response code No Content\" or B: \"We got response code No Content for all the requests we made to the server\"");
+				_developerTools.SaveAndShowLastPullResult("No zips were given to SubmitZips. Probably because A: \"Our first request to the server got something other than response code Ok or response code No Content\" or B: \"We got response code No Content for all the requests we made to the server\"");
 				return Task.CompletedTask;
 			}
-			StoredValueHelper.StoreLastProvidedFiles(zips);
+			_developerTools.StoreLastProvidedFiles(zips);
 			try
 			{
-				SaveAndShowLastPullResult("Zip files submitted");
+				StoredValueHelper.AddSubmitBatchesCall();
+				_developerTools.SaveAndShowLastPullResult("Zip files submitted");
 				return submitBatches(zips);
 			}
 			catch (Exception ex)
 			{
 				LogUtils.LogException(LogSeverity.ERROR, ex, "FetchExposureKeyBatchFilesFromServerAsync, submitBatches failed when submitting the files to the EN API");
-				SaveAndShowLastPullResult($"Pull keys failed:\n{ex}");
+				_developerTools.SaveAndShowLastPullResult($"Pull keys failed:\n{ex}");
 				return Task.CompletedTask;
 			}
 		}
@@ -4366,11 +4737,19 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 				}
 			}
 		}
+	}
+	public static class SystemTime
+	{
+		public static Func<DateTime> Now = () => DateTime.UtcNow;
 
-		private void SaveAndShowLastPullResult(string lastPullResult)
+		public static void SetDateTime(DateTime dateTimeNow)
 		{
-			StoredValueHelper.SaveStatusOfLastPullCall(lastPullResult);
-			ENDeveloperToolsViewModel.SetLastPullResult(lastPullResult);
+			Now = () => dateTimeNow;
+		}
+
+		public static void ResetDateTime()
+		{
+			Now = () => DateTime.UtcNow;
 		}
 	}
 	public abstract class UploadDiagnosisKeysHelper
@@ -4428,158 +4807,134 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			return keys;
 		}
 	}
+	public class MigrationService
+	{
+		public int CurrentMigrationVersion = 1;
+
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
+		public void Migrate()
+		{
+			int num = _preferences.Get(PreferencesKeys.MIGRATION_COUNT, 0);
+			while (num < CurrentMigrationVersion)
+			{
+				DoTheMigrationToVersion(num + 1);
+				_preferences.Set(PreferencesKeys.MIGRATION_COUNT, ++num);
+			}
+		}
+
+		private void DoTheMigrationToVersion(int versionToMigrateTo)
+		{
+			if (versionToMigrateTo == 1)
+			{
+				MigrateToVersion1();
+			}
+		}
+
+		private void MigrateToVersion1()
+		{
+			DateTime value;
+			try
+			{
+				value = DateTime.Parse(_preferences.Get(PreferencesKeys.LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, "defaultvalue"));
+			}
+			catch (Exception)
+			{
+				value = SystemTime.Now().AddDays(-14.0);
+			}
+			_preferences.Set(PreferencesKeys.LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF, value);
+			_preferences.Remove(PreferencesKeys.LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF);
+			try
+			{
+				value = DateTime.Parse(_preferences.Get(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, "defaultvalue"));
+			}
+			catch (Exception)
+			{
+				value = SystemTime.Now().Date;
+			}
+			_preferences.Set(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, value);
+			_preferences.Remove(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF);
+		}
+	}
 }
 namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposureKeys
 {
 	public abstract class StoredValueHelper
 	{
-		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
-
 		private static readonly string MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC = "MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC";
+
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
 
 		public static bool LastDownloadZipsTooRecent()
 		{
-			string defaultValue = DateTime.UtcNow.AddDays(-123.0).Date.ToString();
-			DateTime d = DateTime.Parse(Preferences.Get(LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, defaultValue));
-			return DateTime.UtcNow - d < Conf.FETCH_MIN_HOURS_BETWEEN_PULL;
+			DateTime date = DateTime.UtcNow.AddDays(-14.0).Date;
+			DateTime dateTime = _preferences.Get(PreferencesKeys.LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF, date);
+			TimeSpan t = DateTime.UtcNow - dateTime;
+			if (dateTime > DateTime.UtcNow)
+			{
+				return false;
+			}
+			return t < Conf.FETCH_MIN_HOURS_BETWEEN_PULL;
 		}
 
-		public static bool TooManySubmitBatches()
+		public static void AddSubmitBatchesCall()
 		{
-			string text = Preferences.Get(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, "");
+			string text = _preferences.Get(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, "");
+			List<DateTime> list;
 			if (text == "")
 			{
-				return false;
-			}
-			IEnumerable<DateTime> source;
-			try
-			{
-				source = JsonConvert.DeserializeObject<IEnumerable<DateTime>>(text);
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deserialising submitBatchesCallsString in TooManySubmitBatches");
-				return false;
-			}
-			if (source.Count() < 15)
-			{
-				return false;
-			}
-			DateTime d = source.First();
-			return source.Last() - d < TimeSpan.FromHours(24.0);
-		}
-
-		public static void DeleteBatchesValue()
-		{
-			try
-			{
-				if (Preferences.ContainsKey(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC))
-				{
-					Preferences.Remove(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC);
-				}
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deleting TooManySubmitBatchesValue");
-			}
-		}
-
-		public static void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
-		{
-			string str = $"TEK batch files downloaded at {DateTime.UtcNow} UTC:\n#######\n";
-			foreach (string localFileUrl in localFileUrls)
-			{
-				string str2 = BatchFileHelper.TemporaryExposureKeyExportToPrettyString(BatchFileHelper.ZipToTemporaryExposureKeyExport(BatchFileHelper.UrlToZipArchive(localFileUrl)));
-				str = str + str2 + "\n";
-			}
-			str += "#######";
-			DeveloperToolsSingleton.Instance.LastProvidedFiles = str;
-		}
-
-		public static void SavePullCallTime()
-		{
-			string latestPullKeysTimesAndStatuses = DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses;
-			List<Tuple<DateTime, string>> list;
-			if (latestPullKeysTimesAndStatuses == "")
-			{
-				list = new List<Tuple<DateTime, string>>();
+				list = new List<DateTime>();
 			}
 			else
 			{
 				try
 				{
-					list = JsonConvert.DeserializeObject<IEnumerable<Tuple<DateTime, string>>>(latestPullKeysTimesAndStatuses).ToList();
+					list = JsonConvert.DeserializeObject<IEnumerable<DateTime>>(text).ToList();
 				}
 				catch (Exception e)
 				{
-					LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deserialising latestPullKeysTimesAndStatusesString in SavePullCallTime");
-					list = new List<Tuple<DateTime, string>>();
+					LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deserialising submitBatchesCallsString in AddSubmitBatchesCall");
+					list = new List<DateTime>();
 				}
 			}
-			Tuple<DateTime, string> item = new Tuple<DateTime, string>(DateTime.UtcNow, "No status got saved for this call to \"pull keys\"");
-			if (list.Count() < 20)
+			if (list.Count() < 15)
 			{
-				list.Add(item);
+				list.Add(DateTime.UtcNow);
 			}
 			else
 			{
 				list = list.Skip(1).ToList();
-				list.Add(item);
+				list.Add(DateTime.UtcNow);
 			}
 			try
 			{
-				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject(list);
-				DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses = latestPullKeysTimesAndStatuses2;
+				string value = JsonConvert.SerializeObject(list);
+				_preferences.Set(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, value);
 			}
 			catch (Exception e2)
 			{
-				LogUtils.LogException(LogSeverity.ERROR, e2, "Failed at saving a JSON serialization of latestPullKeysTimesAndStatuses in SavePullCallTime");
-			}
-		}
-
-		public static void SaveStatusOfLastPullCall(string status)
-		{
-			try
-			{
-				string latestPullKeysTimesAndStatuses = DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses;
-				if (latestPullKeysTimesAndStatuses == "")
-				{
-					throw new Exception("latestPullKeysTimesAndStatusesString == emptyString");
-				}
-				List<Tuple<DateTime, string>> source = JsonConvert.DeserializeObject<IEnumerable<Tuple<DateTime, string>>>(latestPullKeysTimesAndStatuses).ToList();
-				Tuple<DateTime, string> tuple = source.Last();
-				source = source.Take(source.Count() - 1).ToList();
-				Tuple<DateTime, string> item = new Tuple<DateTime, string>(tuple.Item1, status);
-				source.Add(item);
-				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject(source);
-				DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses = latestPullKeysTimesAndStatuses2;
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "Failed at adding a status to the latest tuple in SaveStatusOfLastPullCall");
+				LogUtils.LogException(LogSeverity.ERROR, e2, "Failed at saving a JSON serialization of submitBatchesCalls in AddSubmitBatchesCall");
 			}
 		}
 	}
 	public class ZipDownloader
 	{
-		private readonly string CURRENT_DOWNLOAD_DAY_BATCH_PREF = "CURRENT_DOWNLOAD_DAY_BATCH_PREF";
-
-		private readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF";
-
 		private int fetchAttemptsLeft = Conf.FETCH_MAX_ATTEMPTS;
 
 		private readonly ExposureNotificationWebService exposureNotificationWebService = new ExposureNotificationWebService();
 
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
 		public async Task<IEnumerable<string>> DownloadZips(CancellationToken cancellationToken)
 		{
-			Preferences.Set(StoredValueHelper.LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, DateTime.UtcNow.ToString());
+			_preferences.Set(PreferencesKeys.LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF, DateTime.UtcNow);
 			List<string> zips = new List<string>();
 			DateTime currentDownloadDayUtc = GetCurrentUtcDayToDownloadKeysFor();
-			int currentDownloadDayUtcBatchNumber = Preferences.Get(CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
+			int currentDownloadDayUtcBatchNumber = _preferences.Get(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
 			int iterations = 0;
-			while (iterations < 1000 && !(DateTime.UtcNow.Date < currentDownloadDayUtc))
+			while (iterations < 1000 && !(SystemTime.Now().Date < currentDownloadDayUtc))
 			{
-				string arg = currentDownloadDayUtc.ToString("yyyy-MM-dd");
+				string arg = currentDownloadDayUtc.ToGreGorianUtcString("yyyy-MM-dd");
 				string dateAndBatch = $"{arg}:{currentDownloadDayUtcBatchNumber}";
 				ApiResponse<Stream> apiResponse = await exposureNotificationWebService.GetDiagnosisKeys(dateAndBatch, cancellationToken);
 				if (apiResponse == null || (apiResponse.StatusCode != 200 && apiResponse.StatusCode != 204))
@@ -4588,21 +4943,21 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 				}
 				if (apiResponse.StatusCode == 204)
 				{
-					if (currentDownloadDayUtc < DateTime.UtcNow.Date)
+					if (currentDownloadDayUtc < SystemTime.Now().Date)
 					{
 						currentDownloadDayUtc = currentDownloadDayUtc.AddDays(1.0);
-						Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
+						_preferences.Set(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, currentDownloadDayUtc);
 						currentDownloadDayUtcBatchNumber = 0;
-						Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
+						_preferences.Set(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
 						continue;
 					}
-					Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
-					Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
+					_preferences.Set(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, currentDownloadDayUtc);
+					_preferences.Set(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
 					break;
 				}
 				try
 				{
-					string text = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".zip");
+					string text = Path.Combine(ServiceLocator.Current.GetInstance<IFileSystem>().CacheDirectory, Guid.NewGuid().ToString() + ".zip");
 					FileStream fileStream = File.Create(text);
 					apiResponse.Data.CopyTo(fileStream);
 					fileStream.Close();
@@ -4614,21 +4969,21 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 				}
 				if (GetFinalBatchForDayBooleanFromHeader(apiResponse))
 				{
-					if (!(currentDownloadDayUtc < DateTime.UtcNow.Date))
+					if (!(currentDownloadDayUtc < SystemTime.Now().Date))
 					{
-						Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
-						Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
+						_preferences.Set(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, currentDownloadDayUtc);
+						_preferences.Set(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
 						break;
 					}
 					currentDownloadDayUtc = currentDownloadDayUtc.AddDays(1.0);
-					Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
+					_preferences.Set(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, currentDownloadDayUtc);
 					currentDownloadDayUtcBatchNumber = 0;
-					Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
+					_preferences.Set(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
 				}
 				else
 				{
 					currentDownloadDayUtcBatchNumber++;
-					Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
+					_preferences.Set(PreferencesKeys.CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
 				}
 				iterations++;
 			}
@@ -4637,9 +4992,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 
 		private DateTime GetCurrentUtcDayToDownloadKeysFor()
 		{
-			string defaultValue = DateTime.UtcNow.Date.ToString();
-			DateTime dateTime = DateTime.Parse(Preferences.Get(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, defaultValue));
-			DateTime dateTime2 = DateTime.UtcNow.Date.AddDays(-14.0);
+			DateTime date = DateTime.UtcNow.Date;
+			DateTime dateTime = _preferences.Get(PreferencesKeys.CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF, date);
+			DateTime dateTime2 = SystemTime.Now().Date.AddDays(-14.0);
 			if (dateTime < dateTime2)
 			{
 				return dateTime2;
@@ -4739,7 +5094,17 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static readonly string BaseUrl = "https://app.smittestop.dk/API/";
 
+		public static string DEFAULT_LANGUAGE = "dk";
+
+		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(1.0);
+
 		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(120.0);
+
+		public static readonly int FETCH_MAX_ATTEMPTS = 1;
+
+		public static readonly int FETCH_RETRY_INTERVAL = 5000;
+
+		public static readonly int MAX_SUBMIT_BATCHES_PER_24_HOURS = 15;
 
 		public static int MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = MESSAGE_RETENTION_TIME_IN_MINUTES_LONG;
 
@@ -4772,9 +5137,9 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static string IOSAppstoreAppLink = "itms-apps://itunes.apple.com/app/1516581736";
 
-		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromMilliseconds(900000.0);
-
 		public static string AuthorizationHeader => "68iXQyxZOy";
+
+		public static bool UseDeveloperTools => false;
 
 		public static string OAUTH2_CLIENT_ID => OAuthConf.OAUTH2_CLIENT_ID;
 
@@ -4800,16 +5165,6 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static bool MOCK_EXPOSURE_CONFIGURATION => false;
 
-		public static int FETCH_RETRY_INTERVAL => 5000;
-
-		public static int FETCH_MAX_ATTEMPTS => 1;
-
-		public static int MOCK_FETCH_BATCHCOUNT => 20;
-
-		public static long FETCH_MIN_TICKS_BETWEEN_PULL => 7200 * TICKS_IN_SECOND;
-
-		private static int TICKS_IN_SECOND => 10000000;
-
 		public static int MESSAGE_RETENTION_TIME_IN_MINUTES_SHORT => 15;
 
 		public static int MESSAGE_RETENTION_TIME_IN_MINUTES_LONG => 20160;
@@ -4831,6 +5186,8 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 		string ISharedConfInterface.HuaweiAppGalleryLink => HuaweiAppGalleryLink;
 
 		string ISharedConfInterface.AuthorizationHeader => AuthorizationHeader;
+
+		bool ISharedConfInterface.UseDeveloperTools => UseDeveloperTools;
 	}
 	public static class OAuthConf
 	{
@@ -4845,5 +5202,23 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 		public static string OAUTH2_ACCESSTOKEN_URL = "https://smittestop.sundhedsdatastyrelsen.dk/auth/realms/smittestop/protocol/openid-connect/token";
 
 		public static string OAUTH2_VERIFY_TOKEN_PUBLIC_KEY = "MIICozCCAYsCBgFyUF+KrzANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDDApzbWl0dGVzdG9wMB4XDTIwMDUyNjA5NDM1OFoXDTMwMDUyNjA5NDUzOFowFTETMBEGA1UEAwwKc21pdHRlc3RvcDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKfvyy3eqyn9A4s5cuyzNJyJQsrWkyN2aNzwq8s1Gd9WUsFe6RKwKHAMQqRzSVzDS6cgxN9MWbsyLZymxNxtDFvILxOTKvzxJsbDwcD2vAiLu7raRTP0e2WyST8UdSS+ZT69yIKqWXqjwtz/KMgFD9FaWhj/xLf34RiLP6qysEYNGaBnKONoajjvo5+WzXkvX5vkhx2dWajikk0wxbLhKskwr41yw2xa6fsBmhzigZjGkzAoXoLeYGx/EbnpRSoadFatagMemWUXe1Nw8AGYpamqAuvuHRUTAYtyJChZZuXbtm8hygj05oTOfPOlE3E7dL0MGhe91BgyKmEjGeHRNBcCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEANhvGRFjAyTewVu4/gy234d5qGadET5y4OR3uUPyySM2gMhkmrlUyOxWr82UunRLCVs+S0N1AEVt4/sAFn4q5zopyDMHhYUpi9L5X32Q8E1qHRFgwjfMIGq6kiU6qZld3zOvBlu9A4mgsxm23JhCx+kYoDN4FSsoyIiyQX9wxHj9VXA7exlK/nTlk4aPTPPH/ukY1isZmdPXfKUiLocikDReFffqy8gaG081Jqjpp04HmJWX+ryOYI1oKB88ZNkadpadA1z7nHBTF1k+KIhB+0vFCBjGVXeC7KSJQkJck8mfG/JKNFgnKGt4x2PzHGJYOQewJxhDXWXyRGtIwmUzH3w==";
+	}
+	public class PreferencesKeys
+	{
+		public static readonly string MIGRATION_COUNT = "MIGRATION_COUNT";
+
+		public static readonly string CURRENT_DOWNLOAD_DAY_BATCH_PREF = "CURRENT_DOWNLOAD_DAY_BATCH_PREF";
+
+		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
+
+		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF";
+
+		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF";
+
+		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF";
+
+		public static readonly DateTime DEFAULT_LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF = DateTime.UtcNow.AddDays(-123.0);
+
+		public static readonly DateTime DEFAULT_CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF = DateTime.UtcNow.Date;
 	}
 }

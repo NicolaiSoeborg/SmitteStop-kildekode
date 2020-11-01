@@ -14,7 +14,6 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Gms.Common;
 using Android.Gms.SafetyNet;
-using Android.Icu.Util;
 using Android.Locations;
 using Android.Net;
 using Android.OS;
@@ -44,6 +43,7 @@ using Java.Nio.FileNio;
 using MoreLinq.Extensions;
 using NDB.Covid19.Base.AppleGoogle;
 using NDB.Covid19.Base.AppleGoogle.Config;
+using NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers;
 using NDB.Covid19.Base.AppleGoogle.Interfaces;
 using NDB.Covid19.Base.AppleGoogle.OAuth2;
 using NDB.Covid19.Base.AppleGoogle.Utils;
@@ -68,6 +68,7 @@ using NDB.Covid19.Droid.Shared.Views;
 using NDB.Covid19.Enums;
 using NDB.Covid19.HardwareServices.SupportServices;
 using NDB.Covid19.Utils;
+using NDB.Covid19.Utils.XamarinEssentials.Interfaces;
 using NDB.Covid19.ViewModels;
 using NDB.Covid19.WebServices.ErrorHandlers;
 using PCLCrypto;
@@ -126,13 +127,16 @@ namespace NDB.Covid19.Droid.GoogleApi
 			AppDomain.CurrentDomain.UnhandledException += LogUtils.OnUnhandledException;
 			AndroidEnvironment.UnhandledExceptionRaiser += OnUnhandledAndroidException;
 			LocalesService.Initialize();
-			LocalesService.SetInternationalization("dk");
 			DroidDependencyInjectionConfig.Init();
 			Platform.Init(this);
 			CrossCurrentActivity.Current.Init(this);
+			new MigrationService().Migrate();
 			_permissionsBroadcastReceiver = new PermissionsBroadcastReceiver();
 			LogUtils.SendAllLogs();
-			BackgroundFetchScheduler.ScheduleBackgroundFetch();
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
+			{
+				BackgroundFetchScheduler.ScheduleBackgroundFetch();
+			}
 		}
 
 		private void OnUnhandledAndroidException(object sender, RaiseThrowableEventArgs e)
@@ -2030,245 +2034,247 @@ namespace NDB.Covid19.Droid.GoogleApi
 
 			public const int infectionStatusBackgroundRed = 2131034235;
 
-			public const int infectionStatusButtonOffRed = 2131034236;
+			public const int infectionStatusButtonMark = 2131034236;
 
-			public const int infectionStatusButtonOnGreen = 2131034237;
+			public const int infectionStatusButtonOffRed = 2131034237;
 
-			public const int infectionStatusLayoutButtonArrowBackground = 2131034238;
+			public const int infectionStatusButtonOnGreen = 2131034238;
 
-			public const int infectionStatusLayoutButtonBackground = 2131034239;
+			public const int infectionStatusLayoutButtonArrowBackground = 2131034239;
 
-			public const int lightBlueDivider = 2131034240;
+			public const int infectionStatusLayoutButtonBackground = 2131034240;
 
-			public const int lightPrimary = 2131034241;
+			public const int lightBlueDivider = 2131034241;
 
-			public const int linkColor = 2131034242;
+			public const int lightPrimary = 2131034242;
 
-			public const int material_blue_grey_800 = 2131034243;
+			public const int linkColor = 2131034243;
 
-			public const int material_blue_grey_900 = 2131034244;
+			public const int material_blue_grey_800 = 2131034244;
 
-			public const int material_blue_grey_950 = 2131034245;
+			public const int material_blue_grey_900 = 2131034245;
 
-			public const int material_deep_teal_200 = 2131034246;
+			public const int material_blue_grey_950 = 2131034246;
 
-			public const int material_deep_teal_500 = 2131034247;
+			public const int material_deep_teal_200 = 2131034247;
 
-			public const int material_grey_100 = 2131034248;
+			public const int material_deep_teal_500 = 2131034248;
 
-			public const int material_grey_300 = 2131034249;
+			public const int material_grey_100 = 2131034249;
 
-			public const int material_grey_50 = 2131034250;
+			public const int material_grey_300 = 2131034250;
 
-			public const int material_grey_600 = 2131034251;
+			public const int material_grey_50 = 2131034251;
 
-			public const int material_grey_800 = 2131034252;
+			public const int material_grey_600 = 2131034252;
 
-			public const int material_grey_850 = 2131034253;
+			public const int material_grey_800 = 2131034253;
 
-			public const int material_grey_900 = 2131034254;
+			public const int material_grey_850 = 2131034254;
 
-			public const int material_on_background_disabled = 2131034255;
+			public const int material_grey_900 = 2131034255;
 
-			public const int material_on_background_emphasis_high_type = 2131034256;
+			public const int material_on_background_disabled = 2131034256;
 
-			public const int material_on_background_emphasis_medium = 2131034257;
+			public const int material_on_background_emphasis_high_type = 2131034257;
 
-			public const int material_on_primary_disabled = 2131034258;
+			public const int material_on_background_emphasis_medium = 2131034258;
 
-			public const int material_on_primary_emphasis_high_type = 2131034259;
+			public const int material_on_primary_disabled = 2131034259;
 
-			public const int material_on_primary_emphasis_medium = 2131034260;
+			public const int material_on_primary_emphasis_high_type = 2131034260;
 
-			public const int material_on_surface_disabled = 2131034261;
+			public const int material_on_primary_emphasis_medium = 2131034261;
 
-			public const int material_on_surface_emphasis_high_type = 2131034262;
+			public const int material_on_surface_disabled = 2131034262;
 
-			public const int material_on_surface_emphasis_medium = 2131034263;
+			public const int material_on_surface_emphasis_high_type = 2131034263;
 
-			public const int mtrl_bottom_nav_colored_item_tint = 2131034264;
+			public const int material_on_surface_emphasis_medium = 2131034264;
 
-			public const int mtrl_bottom_nav_colored_ripple_color = 2131034265;
+			public const int mtrl_bottom_nav_colored_item_tint = 2131034265;
 
-			public const int mtrl_bottom_nav_item_tint = 2131034266;
+			public const int mtrl_bottom_nav_colored_ripple_color = 2131034266;
 
-			public const int mtrl_bottom_nav_ripple_color = 2131034267;
+			public const int mtrl_bottom_nav_item_tint = 2131034267;
 
-			public const int mtrl_btn_bg_color_selector = 2131034268;
+			public const int mtrl_bottom_nav_ripple_color = 2131034268;
 
-			public const int mtrl_btn_ripple_color = 2131034269;
+			public const int mtrl_btn_bg_color_selector = 2131034269;
 
-			public const int mtrl_btn_stroke_color_selector = 2131034270;
+			public const int mtrl_btn_ripple_color = 2131034270;
 
-			public const int mtrl_btn_text_btn_bg_color_selector = 2131034271;
+			public const int mtrl_btn_stroke_color_selector = 2131034271;
 
-			public const int mtrl_btn_text_btn_ripple_color = 2131034272;
+			public const int mtrl_btn_text_btn_bg_color_selector = 2131034272;
 
-			public const int mtrl_btn_text_color_disabled = 2131034273;
+			public const int mtrl_btn_text_btn_ripple_color = 2131034273;
 
-			public const int mtrl_btn_text_color_selector = 2131034274;
+			public const int mtrl_btn_text_color_disabled = 2131034274;
 
-			public const int mtrl_btn_transparent_bg_color = 2131034275;
+			public const int mtrl_btn_text_color_selector = 2131034275;
 
-			public const int mtrl_calendar_item_stroke_color = 2131034276;
+			public const int mtrl_btn_transparent_bg_color = 2131034276;
 
-			public const int mtrl_calendar_selected_range = 2131034277;
+			public const int mtrl_calendar_item_stroke_color = 2131034277;
 
-			public const int mtrl_card_view_foreground = 2131034278;
+			public const int mtrl_calendar_selected_range = 2131034278;
 
-			public const int mtrl_card_view_ripple = 2131034279;
+			public const int mtrl_card_view_foreground = 2131034279;
 
-			public const int mtrl_chip_background_color = 2131034280;
+			public const int mtrl_card_view_ripple = 2131034280;
 
-			public const int mtrl_chip_close_icon_tint = 2131034281;
+			public const int mtrl_chip_background_color = 2131034281;
 
-			public const int mtrl_chip_ripple_color = 2131034282;
+			public const int mtrl_chip_close_icon_tint = 2131034282;
 
-			public const int mtrl_chip_surface_color = 2131034283;
+			public const int mtrl_chip_ripple_color = 2131034283;
 
-			public const int mtrl_chip_text_color = 2131034284;
+			public const int mtrl_chip_surface_color = 2131034284;
 
-			public const int mtrl_choice_chip_background_color = 2131034285;
+			public const int mtrl_chip_text_color = 2131034285;
 
-			public const int mtrl_choice_chip_ripple_color = 2131034286;
+			public const int mtrl_choice_chip_background_color = 2131034286;
 
-			public const int mtrl_choice_chip_text_color = 2131034287;
+			public const int mtrl_choice_chip_ripple_color = 2131034287;
 
-			public const int mtrl_error = 2131034288;
+			public const int mtrl_choice_chip_text_color = 2131034288;
 
-			public const int mtrl_extended_fab_bg_color_selector = 2131034289;
+			public const int mtrl_error = 2131034289;
 
-			public const int mtrl_extended_fab_ripple_color = 2131034290;
+			public const int mtrl_extended_fab_bg_color_selector = 2131034290;
 
-			public const int mtrl_extended_fab_text_color_selector = 2131034291;
+			public const int mtrl_extended_fab_ripple_color = 2131034291;
 
-			public const int mtrl_fab_ripple_color = 2131034292;
+			public const int mtrl_extended_fab_text_color_selector = 2131034292;
 
-			public const int mtrl_filled_background_color = 2131034293;
+			public const int mtrl_fab_ripple_color = 2131034293;
 
-			public const int mtrl_filled_icon_tint = 2131034294;
+			public const int mtrl_filled_background_color = 2131034294;
 
-			public const int mtrl_filled_stroke_color = 2131034295;
+			public const int mtrl_filled_icon_tint = 2131034295;
 
-			public const int mtrl_indicator_text_color = 2131034296;
+			public const int mtrl_filled_stroke_color = 2131034296;
 
-			public const int mtrl_navigation_item_background_color = 2131034297;
+			public const int mtrl_indicator_text_color = 2131034297;
 
-			public const int mtrl_navigation_item_icon_tint = 2131034298;
+			public const int mtrl_navigation_item_background_color = 2131034298;
 
-			public const int mtrl_navigation_item_text_color = 2131034299;
+			public const int mtrl_navigation_item_icon_tint = 2131034299;
 
-			public const int mtrl_on_primary_text_btn_text_color_selector = 2131034300;
+			public const int mtrl_navigation_item_text_color = 2131034300;
 
-			public const int mtrl_outlined_icon_tint = 2131034301;
+			public const int mtrl_on_primary_text_btn_text_color_selector = 2131034301;
 
-			public const int mtrl_outlined_stroke_color = 2131034302;
+			public const int mtrl_outlined_icon_tint = 2131034302;
 
-			public const int mtrl_popupmenu_overlay_color = 2131034303;
+			public const int mtrl_outlined_stroke_color = 2131034303;
 
-			public const int mtrl_scrim_color = 2131034304;
+			public const int mtrl_popupmenu_overlay_color = 2131034304;
 
-			public const int mtrl_tabs_colored_ripple_color = 2131034305;
+			public const int mtrl_scrim_color = 2131034305;
 
-			public const int mtrl_tabs_icon_color_selector = 2131034306;
+			public const int mtrl_tabs_colored_ripple_color = 2131034306;
 
-			public const int mtrl_tabs_icon_color_selector_colored = 2131034307;
+			public const int mtrl_tabs_icon_color_selector = 2131034307;
 
-			public const int mtrl_tabs_legacy_text_color_selector = 2131034308;
+			public const int mtrl_tabs_icon_color_selector_colored = 2131034308;
 
-			public const int mtrl_tabs_ripple_color = 2131034309;
+			public const int mtrl_tabs_legacy_text_color_selector = 2131034309;
 
-			public const int mtrl_textinput_default_box_stroke_color = 2131034311;
+			public const int mtrl_tabs_ripple_color = 2131034310;
 
-			public const int mtrl_textinput_disabled_color = 2131034312;
+			public const int mtrl_textinput_default_box_stroke_color = 2131034312;
 
-			public const int mtrl_textinput_filled_box_default_background_color = 2131034313;
+			public const int mtrl_textinput_disabled_color = 2131034313;
 
-			public const int mtrl_textinput_focused_box_stroke_color = 2131034314;
+			public const int mtrl_textinput_filled_box_default_background_color = 2131034314;
 
-			public const int mtrl_textinput_hovered_box_stroke_color = 2131034315;
+			public const int mtrl_textinput_focused_box_stroke_color = 2131034315;
 
-			public const int mtrl_text_btn_text_color_selector = 2131034310;
+			public const int mtrl_textinput_hovered_box_stroke_color = 2131034316;
 
-			public const int notification_action_color_filter = 2131034316;
+			public const int mtrl_text_btn_text_color_selector = 2131034311;
 
-			public const int notification_icon_bg_color = 2131034317;
+			public const int notification_action_color_filter = 2131034317;
 
-			public const int notification_material_background_media_default_color = 2131034318;
+			public const int notification_icon_bg_color = 2131034318;
 
-			public const int primaryText = 2131034319;
+			public const int notification_material_background_media_default_color = 2131034319;
 
-			public const int primary_dark_material_dark = 2131034320;
+			public const int primaryText = 2131034320;
 
-			public const int primary_dark_material_light = 2131034321;
+			public const int primary_dark_material_dark = 2131034321;
 
-			public const int primary_material_dark = 2131034322;
+			public const int primary_dark_material_light = 2131034322;
 
-			public const int primary_material_light = 2131034323;
+			public const int primary_material_dark = 2131034323;
 
-			public const int primary_text_default_material_dark = 2131034324;
+			public const int primary_material_light = 2131034324;
 
-			public const int primary_text_default_material_light = 2131034325;
+			public const int primary_text_default_material_dark = 2131034325;
 
-			public const int primary_text_disabled_material_dark = 2131034326;
+			public const int primary_text_default_material_light = 2131034326;
 
-			public const int primary_text_disabled_material_light = 2131034327;
+			public const int primary_text_disabled_material_dark = 2131034327;
 
-			public const int ripple_material_dark = 2131034328;
+			public const int primary_text_disabled_material_light = 2131034328;
 
-			public const int ripple_material_light = 2131034329;
+			public const int ripple_material_dark = 2131034329;
 
-			public const int secondaryText = 2131034330;
+			public const int ripple_material_light = 2131034330;
 
-			public const int secondary_text_default_material_dark = 2131034331;
+			public const int secondaryText = 2131034331;
 
-			public const int secondary_text_default_material_light = 2131034332;
+			public const int secondary_text_default_material_dark = 2131034332;
 
-			public const int secondary_text_disabled_material_dark = 2131034333;
+			public const int secondary_text_default_material_light = 2131034333;
 
-			public const int secondary_text_disabled_material_light = 2131034334;
+			public const int secondary_text_disabled_material_dark = 2131034334;
 
-			public const int selectedDot = 2131034335;
+			public const int secondary_text_disabled_material_light = 2131034335;
 
-			public const int splashBackground = 2131034336;
+			public const int selectedDot = 2131034336;
 
-			public const int switchSelectedThumb = 2131034337;
+			public const int splashBackground = 2131034337;
 
-			public const int switchSelectedTrack = 2131034338;
+			public const int switchSelectedThumb = 2131034338;
 
-			public const int switchUnselectedThumb = 2131034339;
+			public const int switchSelectedTrack = 2131034339;
 
-			public const int switchUnselectedTrack = 2131034340;
+			public const int switchUnselectedThumb = 2131034340;
 
-			public const int switch_thumb_disabled_material_dark = 2131034341;
+			public const int switchUnselectedTrack = 2131034341;
 
-			public const int switch_thumb_disabled_material_light = 2131034342;
+			public const int switch_thumb_disabled_material_dark = 2131034342;
 
-			public const int switch_thumb_material_dark = 2131034343;
+			public const int switch_thumb_disabled_material_light = 2131034343;
 
-			public const int switch_thumb_material_light = 2131034344;
+			public const int switch_thumb_material_dark = 2131034344;
 
-			public const int switch_thumb_normal_material_dark = 2131034345;
+			public const int switch_thumb_material_light = 2131034345;
 
-			public const int switch_thumb_normal_material_light = 2131034346;
+			public const int switch_thumb_normal_material_dark = 2131034346;
 
-			public const int test_mtrl_calendar_day = 2131034347;
+			public const int switch_thumb_normal_material_light = 2131034347;
 
-			public const int test_mtrl_calendar_day_selected = 2131034348;
+			public const int test_mtrl_calendar_day = 2131034348;
 
-			public const int textIcon = 2131034349;
+			public const int test_mtrl_calendar_day_selected = 2131034349;
 
-			public const int tooltip_background_dark = 2131034350;
+			public const int textIcon = 2131034350;
 
-			public const int tooltip_background_light = 2131034351;
+			public const int tooltip_background_dark = 2131034351;
 
-			public const int topbar = 2131034352;
+			public const int tooltip_background_light = 2131034352;
 
-			public const int topbarDevicer = 2131034353;
+			public const int topbar = 2131034353;
 
-			public const int unselectedDot = 2131034354;
+			public const int topbarDevicer = 2131034354;
 
-			public const int warningColor = 2131034355;
+			public const int unselectedDot = 2131034355;
+
+			public const int warningColor = 2131034356;
 
 			static Color()
 			{
@@ -4052,613 +4058,631 @@ namespace NDB.Covid19.Droid.GoogleApi
 
 			public const int info = 2131296529;
 
-			public const int information_consent_body_one_textView = 2131296530;
+			public const int information_consent_body_one_bullet_linearLayout = 2131296530;
 
-			public const int information_consent_body_two_textView = 2131296531;
+			public const int information_consent_body_one_textView = 2131296531;
 
-			public const int information_consent_content_textView = 2131296532;
+			public const int information_consent_body_two_bullet_linearLayout = 2131296532;
 
-			public const int information_consent_content_two_textView = 2131296533;
+			public const int information_consent_body_two_textView = 2131296533;
 
-			public const int information_consent_header_textView = 2131296534;
+			public const int information_consent_content_textView = 2131296534;
 
-			public const int information_consent_nemid_button = 2131296535;
+			public const int information_consent_content_two_textView = 2131296535;
 
-			public const int information_consent_progress_bar = 2131296536;
+			public const int information_consent_header_textView = 2131296536;
 
-			public const int information_consent_relativeLayout = 2131296537;
+			public const int information_consent_nemid_button = 2131296537;
 
-			public const int information_consent_scrollView = 2131296538;
+			public const int information_consent_progress_bar = 2131296538;
 
-			public const int information_consent_subtitle_textView = 2131296539;
+			public const int information_consent_relativeLayout = 2131296539;
 
-			public const int invisible = 2131296540;
+			public const int information_consent_scrollView = 2131296540;
 
-			public const int italic = 2131296541;
+			public const int information_consent_subtitle_textView = 2131296541;
 
-			public const int item_touch_helper_previous_elevation = 2131296542;
+			public const int invisible = 2131296542;
 
-			public const int labeled = 2131296543;
+			public const int italic = 2131296543;
 
-			public const int largeLabel = 2131296544;
+			public const int item_touch_helper_previous_elevation = 2131296544;
 
-			public const int last_updated_textView = 2131296545;
+			public const int labeled = 2131296545;
 
-			public const int launcer_icon_imageview = 2131296546;
+			public const int largeLabel = 2131296546;
 
-			public const int launcher_button = 2131296547;
+			public const int last_updated_textView = 2131296547;
 
-			public const int left = 2131296548;
+			public const int launcer_icon_imageview = 2131296548;
 
-			public const int light = 2131296549;
+			public const int launcher_button = 2131296549;
 
-			public const int line1 = 2131296550;
+			public const int left = 2131296550;
 
-			public const int line3 = 2131296551;
+			public const int light = 2131296551;
 
-			public const int linearLayout = 2131296552;
+			public const int line1 = 2131296552;
 
-			public const int listMode = 2131296553;
+			public const int line3 = 2131296553;
 
-			public const int listViewActivityFeed = 2131296554;
+			public const int linearLayout = 2131296554;
 
-			public const int listViewActivityFeedProximity = 2131296555;
+			public const int listMode = 2131296555;
 
-			public const int listViewActivityFeedRssi = 2131296556;
+			public const int listViewActivityFeed = 2131296556;
 
-			public const int listViewActivityFeedTimestamp = 2131296557;
+			public const int listViewActivityFeedProximity = 2131296557;
 
-			public const int listViewActivityFeedUUID = 2131296558;
+			public const int listViewActivityFeedRssi = 2131296558;
 
-			public const int list_item = 2131296559;
+			public const int listViewActivityFeedTimestamp = 2131296559;
 
-			public const int masked = 2131296560;
+			public const int listViewActivityFeedUUID = 2131296560;
 
-			public const int media_actions = 2131296561;
+			public const int list_item = 2131296561;
 
-			public const int message = 2131296562;
+			public const int masked = 2131296562;
 
-			public const int messages_devider = 2131296569;
+			public const int media_actions = 2131296563;
 
-			public const int messages_item_date = 2131296570;
+			public const int message = 2131296564;
 
-			public const int messages_item_description = 2131296571;
+			public const int messages_devider = 2131296571;
 
-			public const int messages_item_tile = 2131296572;
+			public const int messages_item_date = 2131296572;
 
-			public const int messages_list = 2131296573;
+			public const int messages_item_description = 2131296573;
 
-			public const int messages_page_title = 2131296574;
+			public const int messages_item_tile = 2131296574;
 
-			public const int message_article_image = 2131296563;
+			public const int messages_list = 2131296575;
 
-			public const int message_article_tile = 2131296564;
+			public const int messages_page_title = 2131296576;
 
-			public const int message_last_update = 2131296565;
+			public const int message_article_image = 2131296565;
 
-			public const int message_layout = 2131296566;
+			public const int message_article_tile = 2131296566;
 
-			public const int message_logo = 2131296567;
+			public const int message_last_update = 2131296567;
 
-			public const int message_tile_title = 2131296568;
+			public const int message_layout = 2131296568;
+
+			public const int message_logo = 2131296569;
+
+			public const int message_tile_title = 2131296570;
 
 			public const int META = 2131296261;
 
-			public const int middle = 2131296575;
+			public const int middle = 2131296577;
 
-			public const int mini = 2131296576;
+			public const int mini = 2131296578;
 
-			public const int month_grid = 2131296577;
+			public const int month_grid = 2131296579;
 
-			public const int month_navigation_bar = 2131296578;
+			public const int month_navigation_bar = 2131296580;
 
-			public const int month_navigation_fragment_toggle = 2131296579;
+			public const int month_navigation_fragment_toggle = 2131296581;
 
-			public const int month_navigation_next = 2131296580;
+			public const int month_navigation_next = 2131296582;
 
-			public const int month_navigation_previous = 2131296581;
+			public const int month_navigation_previous = 2131296583;
 
-			public const int month_title = 2131296582;
+			public const int month_title = 2131296584;
 
-			public const int mtrl_calendar_days_of_week = 2131296584;
+			public const int mtrl_calendar_days_of_week = 2131296586;
 
-			public const int mtrl_calendar_day_selector_frame = 2131296583;
+			public const int mtrl_calendar_day_selector_frame = 2131296585;
 
-			public const int mtrl_calendar_frame = 2131296585;
+			public const int mtrl_calendar_frame = 2131296587;
 
-			public const int mtrl_calendar_main_pane = 2131296586;
+			public const int mtrl_calendar_main_pane = 2131296588;
 
-			public const int mtrl_calendar_months = 2131296587;
+			public const int mtrl_calendar_months = 2131296589;
 
-			public const int mtrl_calendar_selection_frame = 2131296588;
+			public const int mtrl_calendar_selection_frame = 2131296590;
 
-			public const int mtrl_calendar_text_input_frame = 2131296589;
+			public const int mtrl_calendar_text_input_frame = 2131296591;
 
-			public const int mtrl_calendar_year_selector_frame = 2131296590;
+			public const int mtrl_calendar_year_selector_frame = 2131296592;
 
-			public const int mtrl_card_checked_layer_id = 2131296591;
+			public const int mtrl_card_checked_layer_id = 2131296593;
 
-			public const int mtrl_child_content_container = 2131296592;
+			public const int mtrl_child_content_container = 2131296594;
 
-			public const int mtrl_internal_children_alpha_tag = 2131296593;
+			public const int mtrl_internal_children_alpha_tag = 2131296595;
 
-			public const int mtrl_picker_fullscreen = 2131296594;
+			public const int mtrl_picker_fullscreen = 2131296596;
 
-			public const int mtrl_picker_header = 2131296595;
+			public const int mtrl_picker_header = 2131296597;
 
-			public const int mtrl_picker_header_selection_text = 2131296596;
+			public const int mtrl_picker_header_selection_text = 2131296598;
 
-			public const int mtrl_picker_header_title_and_selection = 2131296597;
+			public const int mtrl_picker_header_title_and_selection = 2131296599;
 
-			public const int mtrl_picker_header_toggle = 2131296598;
+			public const int mtrl_picker_header_toggle = 2131296600;
 
-			public const int mtrl_picker_text_input_date = 2131296599;
+			public const int mtrl_picker_text_input_date = 2131296601;
 
-			public const int mtrl_picker_text_input_range_end = 2131296600;
+			public const int mtrl_picker_text_input_range_end = 2131296602;
 
-			public const int mtrl_picker_text_input_range_start = 2131296601;
+			public const int mtrl_picker_text_input_range_start = 2131296603;
 
-			public const int mtrl_picker_title_text = 2131296602;
+			public const int mtrl_picker_title_text = 2131296604;
 
-			public const int multiply = 2131296603;
+			public const int multiply = 2131296605;
 
-			public const int navigation_header_container = 2131296604;
+			public const int navigation_header_container = 2131296606;
 
-			public const int never = 2131296605;
+			public const int never = 2131296607;
 
-			public const int none = 2131296610;
+			public const int none = 2131296612;
 
-			public const int normal = 2131296611;
+			public const int normal = 2131296613;
 
-			public const int noScroll = 2131296606;
+			public const int noScroll = 2131296608;
 
-			public const int notification_background = 2131296612;
+			public const int notification_background = 2131296614;
 
-			public const int notification_main_column = 2131296613;
+			public const int notification_main_column = 2131296615;
 
-			public const int notification_main_column_container = 2131296614;
+			public const int notification_main_column_container = 2131296616;
 
-			public const int nowrap = 2131296615;
+			public const int nowrap = 2131296617;
 
-			public const int no_items_description = 2131296607;
+			public const int no_items_description = 2131296609;
 
-			public const int no_items_message = 2131296608;
+			public const int no_items_message = 2131296610;
 
-			public const int no_items_title = 2131296609;
+			public const int no_items_title = 2131296611;
 
-			public const int number_counter_imageView = 2131296616;
+			public const int number_counter_imageView = 2131296618;
 
-			public const int number_counter_textView = 2131296617;
+			public const int number_counter_textView = 2131296619;
 
-			public const int number_counter_text_help_imageButton = 2131296618;
+			public const int number_counter_text_help_imageButton = 2131296620;
 
-			public const int number_counter_text_textView = 2131296619;
+			public const int number_counter_text_textView = 2131296621;
 
-			public const int off = 2131296620;
+			public const int off = 2131296622;
 
-			public const int om_frame = 2131296621;
+			public const int om_frame = 2131296623;
 
-			public const int on = 2131296622;
+			public const int on = 2131296624;
 
-			public const int on_off_button = 2131296623;
+			public const int on_off_button = 2131296625;
 
-			public const int outline = 2131296624;
+			public const int outline = 2131296626;
 
-			public const int packed = 2131296625;
+			public const int packed = 2131296627;
 
-			public const int parallax = 2131296626;
+			public const int parallax = 2131296628;
 
-			public const int parent = 2131296627;
+			public const int parent = 2131296629;
 
-			public const int parentPanel = 2131296628;
+			public const int parentPanel = 2131296630;
 
-			public const int parent_matrix = 2131296629;
+			public const int parent_matrix = 2131296631;
 
-			public const int password_toggle = 2131296630;
+			public const int password_toggle = 2131296632;
 
-			public const int peekHeight = 2131296631;
+			public const int peekHeight = 2131296633;
 
-			public const int percent = 2131296632;
+			public const int percent = 2131296634;
 
-			public const int pin = 2131296633;
+			public const int pin = 2131296635;
 
-			public const int progress_bar = 2131296634;
+			public const int progress_bar = 2131296636;
 
-			public const int progress_circular = 2131296635;
+			public const int progress_circular = 2131296637;
 
-			public const int progress_horizontal = 2131296636;
+			public const int progress_horizontal = 2131296638;
 
-			public const int proximity_status_page_counters_relativeLayout = 2131296640;
+			public const int proximity_status_page_counters_relativeLayout = 2131296642;
 
-			public const int proximity_status_page_counter_off_relativeLayout = 2131296637;
+			public const int proximity_status_page_counter_off_relativeLayout = 2131296639;
 
-			public const int proximity_status_page_counter_on_relativeLayout = 2131296638;
+			public const int proximity_status_page_counter_on_relativeLayout = 2131296640;
 
-			public const int proximity_status_page_counter_on_scrollView = 2131296639;
+			public const int proximity_status_page_counter_on_scrollView = 2131296641;
 
-			public const int proximity_status_page_scrollView_relativeLayout = 2131296641;
+			public const int proximity_status_page_scrollView_relativeLayout = 2131296643;
 
-			public const int proximity_sublayout = 2131296642;
+			public const int proximity_sublayout = 2131296644;
 
-			public const int questionnaire_button = 2131296643;
+			public const int questionnaire_button = 2131296645;
 
-			public const int questionnaire_info_button = 2131296644;
+			public const int questionnaire_info_button = 2131296646;
 
-			public const int questionnaire_subtitle = 2131296645;
+			public const int questionnaire_subtitle = 2131296647;
 
-			public const int questionnaire_title = 2131296646;
+			public const int questionnaire_title = 2131296648;
 
-			public const int radio = 2131296647;
+			public const int radio = 2131296649;
 
-			public const int radio_layout = 2131296648;
+			public const int radio_layout = 2131296650;
 
-			public const int radio_scroll = 2131296649;
+			public const int radio_scroll = 2131296651;
 
-			public const int recipe_divider = 2131296650;
+			public const int recipe_divider = 2131296652;
 
-			public const int recipe_header = 2131296651;
+			public const int recipe_header = 2131296653;
 
-			public const int recipe_logo = 2131296652;
+			public const int recipe_logo = 2131296654;
 
-			public const int recipe_small_text = 2131296653;
+			public const int recipe_small_text = 2131296655;
 
-			public const int recipe_small_text_layout = 2131296654;
+			public const int recipe_small_text_layout = 2131296656;
 
-			public const int registered_button = 2131296655;
+			public const int registered_button = 2131296657;
 
-			public const int registered_content = 2131296656;
+			public const int registered_content = 2131296658;
 
-			public const int registered_description = 2131296657;
+			public const int registered_description = 2131296659;
 
-			public const int registered_tick_text = 2131296658;
+			public const int registered_tick_text = 2131296660;
 
-			public const int registered_title = 2131296659;
+			public const int registered_title = 2131296661;
 
-			public const int relativeLayout1 = 2131296660;
+			public const int relativeLayout1 = 2131296662;
 
-			public const int right = 2131296661;
+			public const int right = 2131296663;
 
-			public const int right_icon = 2131296662;
+			public const int right_icon = 2131296664;
 
-			public const int right_side = 2131296663;
+			public const int right_side = 2131296665;
 
-			public const int rounded = 2131296664;
+			public const int rounded = 2131296666;
 
-			public const int row = 2131296665;
+			public const int row = 2131296667;
 
-			public const int row_reverse = 2131296666;
+			public const int row_reverse = 2131296668;
 
-			public const int save_non_transition_alpha = 2131296667;
+			public const int save_non_transition_alpha = 2131296669;
 
-			public const int save_overlay_view = 2131296668;
+			public const int save_overlay_view = 2131296670;
 
-			public const int scale = 2131296669;
+			public const int scale = 2131296671;
 
-			public const int screen = 2131296670;
+			public const int screen = 2131296672;
 
-			public const int scroll = 2131296671;
+			public const int scroll = 2131296673;
 
-			public const int scrollable = 2131296675;
+			public const int scrollable = 2131296677;
 
-			public const int scrollIndicatorDown = 2131296672;
+			public const int scrollIndicatorDown = 2131296674;
 
-			public const int scrollIndicatorUp = 2131296673;
+			public const int scrollIndicatorUp = 2131296675;
 
-			public const int scrollView = 2131296674;
+			public const int scrollView = 2131296676;
 
-			public const int search_badge = 2131296676;
+			public const int search_badge = 2131296678;
 
-			public const int search_bar = 2131296677;
+			public const int search_bar = 2131296679;
 
-			public const int search_button = 2131296678;
+			public const int search_button = 2131296680;
 
-			public const int search_close_btn = 2131296679;
+			public const int search_close_btn = 2131296681;
 
-			public const int search_edit_frame = 2131296680;
+			public const int search_edit_frame = 2131296682;
 
-			public const int search_go_btn = 2131296681;
+			public const int search_go_btn = 2131296683;
 
-			public const int search_mag_icon = 2131296682;
+			public const int search_mag_icon = 2131296684;
 
-			public const int search_plate = 2131296683;
+			public const int search_plate = 2131296685;
 
-			public const int search_src_text = 2131296684;
+			public const int search_src_text = 2131296686;
 
-			public const int search_voice_btn = 2131296685;
+			public const int search_voice_btn = 2131296687;
 
-			public const int secondRadioButton = 2131296686;
+			public const int secondRadioButton = 2131296688;
 
-			public const int selected = 2131296688;
+			public const int selected = 2131296690;
 
-			public const int select_dialog_listview = 2131296687;
+			public const int select_dialog_listview = 2131296689;
 
-			public const int settings_about_link = 2131296689;
+			public const int settings_about_link = 2131296691;
 
-			public const int settings_about_scroll_layout = 2131296690;
+			public const int settings_about_scroll_layout = 2131296692;
 
-			public const int settings_about_text = 2131296691;
+			public const int settings_about_text = 2131296693;
 
-			public const int settings_about_text_layout = 2131296692;
+			public const int settings_about_text_layout = 2131296694;
 
-			public const int settings_about_title = 2131296693;
+			public const int settings_about_title = 2131296695;
 
-			public const int settings_about_version_info_textview = 2131296694;
+			public const int settings_about_version_info_textview = 2131296696;
 
-			public const int settings_behandling_frame = 2131296695;
+			public const int settings_behandling_frame = 2131296697;
 
-			public const int settings_consents_layout = 2131296696;
+			public const int settings_consents_layout = 2131296698;
 
-			public const int settings_general_text = 2131296697;
+			public const int settings_general_text = 2131296699;
 
-			public const int settings_general_text_layout = 2131296698;
+			public const int settings_general_text_layout = 2131296700;
 
-			public const int settings_general_title = 2131296699;
+			public const int settings_general_title = 2131296701;
 
-			public const int settings_help_link = 2131296700;
+			public const int settings_help_link = 2131296702;
 
-			public const int settings_help_scroll_layout = 2131296701;
+			public const int settings_help_scroll_layout = 2131296703;
 
-			public const int settings_help_text = 2131296702;
+			public const int settings_help_text = 2131296704;
 
-			public const int settings_help_text_layout = 2131296703;
+			public const int settings_help_text_layout = 2131296705;
 
-			public const int settings_help_title = 2131296704;
+			public const int settings_help_title = 2131296706;
 
-			public const int settings_hjaelp_frame = 2131296705;
+			public const int settings_hjaelp_frame = 2131296707;
 
-			public const int settings_intro_frame = 2131296706;
+			public const int settings_intro_frame = 2131296708;
 
-			public const int settings_links_layout = 2131296708;
+			public const int settings_links_layout = 2131296710;
 
-			public const int settings_link_text = 2131296707;
+			public const int settings_link_text = 2131296709;
 
-			public const int settings_saddan_frame = 2131296709;
+			public const int settings_saddan_frame = 2131296711;
 
-			public const int settings_scroll_frame = 2131296710;
+			public const int settings_scroll_frame = 2131296712;
 
-			public const int settings_scroll_help_frame = 2131296711;
+			public const int settings_scroll_help_frame = 2131296713;
 
-			public const int settings_testmode_text_layout = 2131296712;
+			public const int settings_testmode_text_layout = 2131296714;
 
-			public const int settings_version_info_textview = 2131296713;
+			public const int settings_version_info_textview = 2131296715;
 
 			public const int SHIFT = 2131296262;
 
-			public const int shortcut = 2131296714;
+			public const int shortcut = 2131296716;
 
-			public const int showCustom = 2131296715;
+			public const int showCustom = 2131296717;
 
-			public const int showHome = 2131296716;
+			public const int showHome = 2131296718;
 
-			public const int showTitle = 2131296717;
+			public const int showTitle = 2131296719;
 
-			public const int skipCollapsed = 2131296718;
+			public const int skipCollapsed = 2131296720;
 
-			public const int slide = 2131296719;
+			public const int slide = 2131296721;
 
-			public const int smallLabel = 2131296720;
+			public const int smallLabel = 2131296722;
 
-			public const int snackbar_action = 2131296721;
+			public const int snackbar_action = 2131296723;
 
-			public const int snackbar_text = 2131296722;
+			public const int snackbar_text = 2131296724;
 
-			public const int snap = 2131296723;
+			public const int snap = 2131296725;
 
-			public const int snapMargins = 2131296724;
+			public const int snapMargins = 2131296726;
 
-			public const int spacer = 2131296728;
+			public const int spacer = 2131296730;
 
-			public const int space_around = 2131296725;
+			public const int space_around = 2131296727;
 
-			public const int space_between = 2131296726;
+			public const int space_between = 2131296728;
 
-			public const int space_evenly = 2131296727;
+			public const int space_evenly = 2131296729;
 
-			public const int split_action_bar = 2131296729;
+			public const int split_action_bar = 2131296731;
 
-			public const int spread = 2131296730;
+			public const int spread = 2131296732;
 
-			public const int spread_inside = 2131296731;
+			public const int spread_inside = 2131296733;
 
-			public const int src_atop = 2131296732;
+			public const int src_atop = 2131296734;
 
-			public const int src_in = 2131296733;
+			public const int src_in = 2131296735;
 
-			public const int src_over = 2131296734;
+			public const int src_over = 2131296736;
 
-			public const int standard = 2131296735;
+			public const int standard = 2131296737;
 
-			public const int start = 2131296736;
+			public const int start = 2131296738;
 
-			public const int status_bar_latest_event_content = 2131296737;
+			public const int status_bar_latest_event_content = 2131296739;
 
-			public const int stretch = 2131296738;
+			public const int stretch = 2131296740;
 
-			public const int submenuarrow = 2131296739;
+			public const int submenuarrow = 2131296741;
 
-			public const int submit_area = 2131296740;
+			public const int submit_area = 2131296742;
 
-			public const int switchbar = 2131296741;
+			public const int switchbar = 2131296743;
 
 			public const int SYM = 2131296263;
 
-			public const int tabDots = 2131296742;
+			public const int tabDots = 2131296744;
 
-			public const int tabMode = 2131296743;
+			public const int tabMode = 2131296745;
 
-			public const int tag_accessibility_actions = 2131296744;
+			public const int tag_accessibility_actions = 2131296746;
 
-			public const int tag_accessibility_clickable_spans = 2131296745;
+			public const int tag_accessibility_clickable_spans = 2131296747;
 
-			public const int tag_accessibility_heading = 2131296746;
+			public const int tag_accessibility_heading = 2131296748;
 
-			public const int tag_accessibility_pane_title = 2131296747;
+			public const int tag_accessibility_pane_title = 2131296749;
 
-			public const int tag_screen_reader_focusable = 2131296748;
+			public const int tag_screen_reader_focusable = 2131296750;
 
-			public const int tag_transition_group = 2131296749;
+			public const int tag_transition_group = 2131296751;
 
-			public const int tag_unhandled_key_event_manager = 2131296750;
+			public const int tag_unhandled_key_event_manager = 2131296752;
 
-			public const int tag_unhandled_key_listeners = 2131296751;
+			public const int tag_unhandled_key_listeners = 2131296753;
 
-			public const int technology_background = 2131296752;
+			public const int technology_background = 2131296754;
 
-			public const int test_checkbox_android_button_tint = 2131296753;
+			public const int test_checkbox_android_button_tint = 2131296755;
 
-			public const int test_checkbox_app_button_tint = 2131296754;
+			public const int test_checkbox_app_button_tint = 2131296756;
 
-			public const int test_frame = 2131296755;
+			public const int test_frame = 2131296757;
 
-			public const int text = 2131296756;
+			public const int text = 2131296758;
 
-			public const int text2 = 2131296757;
+			public const int text2 = 2131296759;
 
-			public const int textEnd = 2131296758;
+			public const int textEnd = 2131296760;
 
-			public const int textinput_counter = 2131296764;
+			public const int textinput_counter = 2131296766;
 
-			public const int textinput_error = 2131296765;
+			public const int textinput_error = 2131296767;
 
-			public const int textinput_helper_text = 2131296766;
+			public const int textinput_helper_text = 2131296768;
 
-			public const int textSpacerNoButtons = 2131296759;
+			public const int textSpacerNoButtons = 2131296761;
 
-			public const int textSpacerNoTitle = 2131296760;
+			public const int textSpacerNoTitle = 2131296762;
 
-			public const int textStart = 2131296761;
+			public const int textStart = 2131296763;
 
-			public const int text_input_end_icon = 2131296762;
+			public const int text_input_end_icon = 2131296764;
 
-			public const int text_input_start_icon = 2131296763;
+			public const int text_input_start_icon = 2131296765;
 
-			public const int thirdRadioButton = 2131296767;
+			public const int thirdRadioButton = 2131296769;
 
-			public const int time = 2131296768;
+			public const int time = 2131296770;
 
-			public const int title = 2131296769;
+			public const int title = 2131296771;
 
-			public const int titleDividerNoCustom = 2131296770;
+			public const int titleDividerNoCustom = 2131296772;
 
-			public const int title_and_updated_date = 2131296771;
+			public const int title_and_updated_date = 2131296773;
 
-			public const int title_template = 2131296772;
+			public const int title_template = 2131296774;
 
-			public const int top = 2131296773;
+			public const int top = 2131296775;
 
-			public const int topPanel = 2131296774;
+			public const int topPanel = 2131296776;
 
 			public const int TOP_END = 2131296264;
 
-			public const int top_layout = 2131296775;
+			public const int top_layout = 2131296777;
 
 			public const int TOP_START = 2131296265;
 
-			public const int touch_outside = 2131296776;
+			public const int touch_outside = 2131296778;
 
-			public const int transition_current_scene = 2131296777;
+			public const int transition_current_scene = 2131296779;
 
-			public const int transition_layout_save = 2131296778;
+			public const int transition_layout_save = 2131296780;
 
-			public const int transition_position = 2131296779;
+			public const int transition_position = 2131296781;
 
-			public const int transition_scene_layoutid_cache = 2131296780;
+			public const int transition_scene_layoutid_cache = 2131296782;
 
-			public const int transition_transform = 2131296781;
+			public const int transition_transform = 2131296783;
 
-			public const int transmission_error_body = 2131296782;
+			public const int transmission_error_body = 2131296784;
 
-			public const int @unchecked = 2131296783;
+			public const int @unchecked = 2131296785;
 
-			public const int uniform = 2131296784;
+			public const int uniform = 2131296786;
 
-			public const int unlabeled = 2131296785;
+			public const int unlabeled = 2131296787;
 
-			public const int unsupported_Transmit_text_textView = 2131296786;
+			public const int unsupported_Transmit_text_textView = 2131296788;
 
-			public const int up = 2131296787;
+			public const int up = 2131296789;
 
-			public const int useLogo = 2131296788;
+			public const int useLogo = 2131296790;
 
-			public const int userData = 2131296789;
+			public const int userData = 2131296791;
 
-			public const int vertical_devider = 2131296790;
+			public const int vertical_devider = 2131296792;
 
-			public const int view_offset_helper = 2131296791;
+			public const int view_offset_helper = 2131296793;
 
-			public const int visible = 2131296792;
+			public const int visible = 2131296794;
 
-			public const int visible_removing_fragment_view_tag = 2131296793;
+			public const int visible_removing_fragment_view_tag = 2131296795;
 
-			public const int warning = 2131296794;
+			public const int warning = 2131296796;
 
-			public const int warningBar = 2131296795;
+			public const int warningBar = 2131296797;
 
-			public const int warning_layout = 2131296796;
+			public const int warning_layout = 2131296798;
 
-			public const int warning_textView = 2131296797;
+			public const int warning_textView = 2131296799;
 
-			public const int webview = 2131296798;
+			public const int webview = 2131296800;
 
-			public const int welcome_page_five_button_next = 2131296799;
+			public const int welcome_page_five_button_next = 2131296801;
 
-			public const int welcome_page_five_consent_warning = 2131296800;
+			public const int welcome_page_five_consent_warning = 2131296802;
 
-			public const int welcome_page_five_consent_warning_text = 2131296801;
+			public const int welcome_page_five_consent_warning_text = 2131296803;
 
-			public const int welcome_page_five_prev_button = 2131296802;
+			public const int welcome_page_five_prev_button = 2131296804;
 
-			public const int welcome_page_five_switch = 2131296803;
+			public const int welcome_page_five_switch = 2131296805;
 
-			public const int welcome_page_five_switch_text = 2131296804;
+			public const int welcome_page_five_switch_text = 2131296806;
 
-			public const int welcome_page_five_title = 2131296805;
+			public const int welcome_page_five_title = 2131296807;
 
-			public const int welcome_page_four_body_one = 2131296806;
+			public const int welcome_page_four_body_one = 2131296808;
 
-			public const int welcome_page_four_body_three = 2131296807;
+			public const int welcome_page_four_body_three = 2131296809;
 
-			public const int welcome_page_four_body_two = 2131296808;
+			public const int welcome_page_four_body_two = 2131296810;
 
-			public const int welcome_page_four_title = 2131296809;
+			public const int welcome_page_four_bullet_one_layout = 2131296811;
 
-			public const int welcome_page_four_title_layout = 2131296810;
+			public const int welcome_page_four_bullet_three_layout = 2131296812;
 
-			public const int welcome_page_one_body_one = 2131296811;
+			public const int welcome_page_four_bullet_two_layout = 2131296813;
 
-			public const int welcome_page_one_body_two = 2131296812;
+			public const int welcome_page_four_title = 2131296814;
 
-			public const int welcome_page_one_title = 2131296813;
+			public const int welcome_page_four_title_layout = 2131296815;
 
-			public const int welcome_page_one_title_layout = 2131296814;
+			public const int welcome_page_one_body_one = 2131296816;
 
-			public const int welcome_page_three_body_one = 2131296815;
+			public const int welcome_page_one_body_two = 2131296817;
 
-			public const int welcome_page_three_body_two = 2131296816;
+			public const int welcome_page_one_bullet_one_layout = 2131296818;
 
-			public const int welcome_page_three_infobox_body = 2131296817;
+			public const int welcome_page_one_bullet_two_layout = 2131296819;
 
-			public const int welcome_page_three_title = 2131296818;
+			public const int welcome_page_one_title = 2131296820;
 
-			public const int welcome_page_two_body_one = 2131296819;
+			public const int welcome_page_one_title_layout = 2131296821;
 
-			public const int welcome_page_two_body_two = 2131296820;
+			public const int welcome_page_three_body_one = 2131296822;
 
-			public const int welcome_page_two_title = 2131296821;
+			public const int welcome_page_three_body_two = 2131296823;
 
-			public const int welcome_page_two_title_layout = 2131296822;
+			public const int welcome_page_three_infobox_body = 2131296824;
 
-			public const int wide = 2131296823;
+			public const int welcome_page_three_title = 2131296825;
 
-			public const int withText = 2131296824;
+			public const int welcome_page_two_body_one = 2131296826;
 
-			public const int working_schema = 2131296825;
+			public const int welcome_page_two_body_two = 2131296827;
 
-			public const int wrap = 2131296826;
+			public const int welcome_page_two_bullet_one_layout = 2131296828;
 
-			public const int wrap_content = 2131296827;
+			public const int welcome_page_two_bullet_two_layout = 2131296829;
 
-			public const int wrap_reverse = 2131296828;
+			public const int welcome_page_two_title = 2131296830;
+
+			public const int welcome_page_two_title_layout = 2131296831;
+
+			public const int wide = 2131296832;
+
+			public const int withText = 2131296833;
+
+			public const int working_schema = 2131296834;
+
+			public const int wrap = 2131296835;
+
+			public const int wrap_content = 2131296836;
+
+			public const int wrap_reverse = 2131296837;
 
 			static Id()
 			{
@@ -5784,1015 +5808,1019 @@ namespace NDB.Covid19.Droid.GoogleApi
 
 			public const int CardView_Light = 2131755233;
 
-			public const int CheckmarkText = 2131755234;
+			public const int Checkmark = 2131755234;
 
-			public const int ConsentButton = 2131755235;
+			public const int CheckmarkContainer = 2131755235;
 
-			public const int contactsTodayText = 2131755734;
+			public const int CheckmarkText = 2131755236;
 
-			public const int CounterBackground = 2131755236;
+			public const int ConsentButton = 2131755237;
 
-			public const int counterCircle = 2131755735;
+			public const int contactsTodayText = 2131755736;
 
-			public const int CounterExplainText = 2131755237;
+			public const int CounterBackground = 2131755238;
 
-			public const int counterNumber = 2131755736;
+			public const int counterCircle = 2131755737;
 
-			public const int DefaultButton = 2131755238;
+			public const int CounterExplainText = 2131755239;
 
-			public const int DefaultButtonGreen = 2131755239;
+			public const int counterNumber = 2131755738;
 
-			public const int DefaultButtonNoBorder = 2131755240;
+			public const int DefaultButton = 2131755240;
 
-			public const int DefaultButtonWhite = 2131755241;
+			public const int DefaultButtonGreen = 2131755241;
 
-			public const int Divider = 2131755242;
+			public const int DefaultButtonNoBorder = 2131755242;
 
-			public const int Divider_Horizontal = 2131755243;
+			public const int DefaultButtonWhite = 2131755243;
 
-			public const int EmptyTheme = 2131755244;
+			public const int Divider = 2131755244;
 
-			public const int ErrorText = 2131755245;
+			public const int Divider_Horizontal = 2131755245;
 
-			public const int ExplanationTextHeader = 2131755246;
+			public const int EmptyTheme = 2131755246;
 
-			public const int HeaderText = 2131755247;
+			public const int ErrorText = 2131755247;
 
-			public const int HelpText = 2131755248;
+			public const int ExplanationTextHeader = 2131755248;
 
-			public const int InfectionStatusLayoutButton = 2131755249;
+			public const int HeaderText = 2131755249;
 
-			public const int InfectionStatusOnOffButtonGreen = 2131755250;
+			public const int HelpText = 2131755250;
 
-			public const int InfectionStatusOnOffButtonRed = 2131755251;
+			public const int InfectionStatusLayoutButton = 2131755251;
 
-			public const int LastUpdatedText = 2131755252;
+			public const int InfectionStatusOnOffButtonGreen = 2131755252;
 
-			public const int LauncherAppName = 2131755253;
+			public const int InfectionStatusOnOffButtonRed = 2131755253;
 
-			public const int LauncherHealthAuth = 2131755254;
+			public const int LastUpdatedText = 2131755254;
 
-			public const int LauncherSubtitle = 2131755255;
+			public const int LauncherAppName = 2131755255;
 
-			public const int MaterialAlertDialog_MaterialComponents = 2131755256;
+			public const int LauncherHealthAuth = 2131755256;
 
-			public const int MaterialAlertDialog_MaterialComponents_Body_Text = 2131755257;
+			public const int LauncherSubtitle = 2131755257;
 
-			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755258;
+			public const int MaterialAlertDialog_MaterialComponents = 2131755258;
 
-			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755259;
+			public const int MaterialAlertDialog_MaterialComponents_Body_Text = 2131755259;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755260;
+			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755260;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755261;
+			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755261;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755262;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755262;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755263;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755263;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Text = 2131755264;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755264;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755265;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755265;
 
-			public const int MessageListItemDateText = 2131755266;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Text = 2131755266;
 
-			public const int MessageListItemDescriptionText = 2131755267;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755267;
 
-			public const int MessageListItemTitleText = 2131755268;
+			public const int MessageListItemDateText = 2131755268;
 
-			public const int MessageListLastUpdateText = 2131755269;
+			public const int MessageListItemDescriptionText = 2131755269;
 
-			public const int NemIDButton = 2131755270;
+			public const int MessageListItemTitleText = 2131755270;
 
-			public const int OnOffButton = 2131755271;
+			public const int MessageListLastUpdateText = 2131755271;
 
-			public const int OnOffButtonGreen = 2131755272;
+			public const int NemIDButton = 2131755272;
 
-			public const int Platform_AppCompat = 2131755273;
+			public const int OnOffButton = 2131755273;
 
-			public const int Platform_AppCompat_Light = 2131755274;
+			public const int OnOffButtonGreen = 2131755274;
 
-			public const int Platform_MaterialComponents = 2131755275;
+			public const int Platform_AppCompat = 2131755275;
 
-			public const int Platform_MaterialComponents_Dialog = 2131755276;
+			public const int Platform_AppCompat_Light = 2131755276;
 
-			public const int Platform_MaterialComponents_Light = 2131755277;
+			public const int Platform_MaterialComponents = 2131755277;
 
-			public const int Platform_MaterialComponents_Light_Dialog = 2131755278;
+			public const int Platform_MaterialComponents_Dialog = 2131755278;
 
-			public const int Platform_ThemeOverlay_AppCompat = 2131755279;
+			public const int Platform_MaterialComponents_Light = 2131755279;
 
-			public const int Platform_ThemeOverlay_AppCompat_Dark = 2131755280;
+			public const int Platform_MaterialComponents_Light_Dialog = 2131755280;
 
-			public const int Platform_ThemeOverlay_AppCompat_Light = 2131755281;
+			public const int Platform_ThemeOverlay_AppCompat = 2131755281;
 
-			public const int Platform_V21_AppCompat = 2131755282;
+			public const int Platform_ThemeOverlay_AppCompat_Dark = 2131755282;
 
-			public const int Platform_V21_AppCompat_Light = 2131755283;
+			public const int Platform_ThemeOverlay_AppCompat_Light = 2131755283;
 
-			public const int Platform_V25_AppCompat = 2131755284;
+			public const int Platform_V21_AppCompat = 2131755284;
 
-			public const int Platform_V25_AppCompat_Light = 2131755285;
+			public const int Platform_V21_AppCompat_Light = 2131755285;
 
-			public const int Platform_Widget_AppCompat_Spinner = 2131755286;
+			public const int Platform_V25_AppCompat = 2131755286;
 
-			public const int PrimaryText = 2131755287;
+			public const int Platform_V25_AppCompat_Light = 2131755287;
 
-			public const int PrimaryTextBold = 2131755288;
+			public const int Platform_Widget_AppCompat_Spinner = 2131755288;
 
-			public const int PrimaryTextItalic = 2131755289;
+			public const int PrimaryText = 2131755289;
 
-			public const int PrimaryTextLight = 2131755290;
+			public const int PrimaryTextBold = 2131755290;
 
-			public const int PrimaryTextRegular = 2131755291;
+			public const int PrimaryTextItalic = 2131755291;
 
-			public const int PrimaryTextSemiBold = 2131755292;
+			public const int PrimaryTextLight = 2131755292;
 
-			public const int QuestionnaireDateText = 2131755293;
+			public const int PrimaryTextRegular = 2131755293;
 
-			public const int RectangleBox = 2131755294;
+			public const int PrimaryTextSemiBold = 2131755294;
 
-			public const int RtlOverlay_DialogWindowTitle_AppCompat = 2131755295;
+			public const int QuestionnaireDateText = 2131755295;
 
-			public const int RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755296;
+			public const int RectangleBox = 2131755296;
 
-			public const int RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755297;
+			public const int RtlOverlay_DialogWindowTitle_AppCompat = 2131755297;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755298;
+			public const int RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755298;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755299;
+			public const int RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755299;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755300;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755300;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755301;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755301;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755302;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755302;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755303;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755303;
 
-			public const int RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755309;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755304;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755304;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755305;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755305;
+			public const int RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755311;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755306;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755306;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755307;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755307;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755308;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755308;
 
-			public const int RtlUnderlay_Widget_AppCompat_ActionButton = 2131755310;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755309;
 
-			public const int RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755311;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755310;
 
-			public const int ScrollbarConsent = 2131755313;
+			public const int RtlUnderlay_Widget_AppCompat_ActionButton = 2131755312;
 
-			public const int ScrollScreen = 2131755312;
+			public const int RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755313;
 
-			public const int SecondaryText = 2131755314;
+			public const int ScrollbarConsent = 2131755315;
 
-			public const int settings = 2131755737;
+			public const int ScrollScreen = 2131755314;
 
-			public const int settings_general = 2131755738;
+			public const int SecondaryText = 2131755316;
 
-			public const int ShapeAppearanceOverlay = 2131755320;
+			public const int settings = 2131755739;
 
-			public const int ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755321;
+			public const int settings_general = 2131755740;
 
-			public const int ShapeAppearanceOverlay_BottomRightCut = 2131755322;
+			public const int ShapeAppearanceOverlay = 2131755322;
 
-			public const int ShapeAppearanceOverlay_Cut = 2131755323;
+			public const int ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755323;
 
-			public const int ShapeAppearanceOverlay_DifferentCornerSize = 2131755324;
+			public const int ShapeAppearanceOverlay_BottomRightCut = 2131755324;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755325;
+			public const int ShapeAppearanceOverlay_Cut = 2131755325;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755326;
+			public const int ShapeAppearanceOverlay_DifferentCornerSize = 2131755326;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755327;
+			public const int ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755327;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755328;
+			public const int ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755328;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755329;
+			public const int ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755329;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755330;
+			public const int ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755330;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755331;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755331;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755332;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755332;
 
-			public const int ShapeAppearanceOverlay_TopLeftCut = 2131755333;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755333;
 
-			public const int ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755334;
+			public const int ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755334;
 
-			public const int ShapeAppearance_MaterialComponents = 2131755315;
+			public const int ShapeAppearanceOverlay_TopLeftCut = 2131755335;
 
-			public const int ShapeAppearance_MaterialComponents_LargeComponent = 2131755316;
+			public const int ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755336;
 
-			public const int ShapeAppearance_MaterialComponents_MediumComponent = 2131755317;
+			public const int ShapeAppearance_MaterialComponents = 2131755317;
 
-			public const int ShapeAppearance_MaterialComponents_SmallComponent = 2131755318;
+			public const int ShapeAppearance_MaterialComponents_LargeComponent = 2131755318;
 
-			public const int ShapeAppearance_MaterialComponents_Test = 2131755319;
+			public const int ShapeAppearance_MaterialComponents_MediumComponent = 2131755319;
 
-			public const int SwitchPlaneStyle = 2131755335;
+			public const int ShapeAppearance_MaterialComponents_SmallComponent = 2131755320;
 
-			public const int SwitchTextStyle = 2131755336;
+			public const int ShapeAppearance_MaterialComponents_Test = 2131755321;
 
-			public const int TestStyleWithLineHeight = 2131755342;
+			public const int SwitchPlaneStyle = 2131755337;
 
-			public const int TestStyleWithLineHeightAppearance = 2131755343;
+			public const int SwitchTextStyle = 2131755338;
 
-			public const int TestStyleWithoutLineHeight = 2131755345;
+			public const int TestStyleWithLineHeight = 2131755344;
 
-			public const int TestStyleWithThemeLineHeightAttribute = 2131755344;
+			public const int TestStyleWithLineHeightAppearance = 2131755345;
 
-			public const int TestThemeWithLineHeight = 2131755346;
+			public const int TestStyleWithoutLineHeight = 2131755347;
 
-			public const int TestThemeWithLineHeightDisabled = 2131755347;
+			public const int TestStyleWithThemeLineHeightAttribute = 2131755346;
 
-			public const int Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755337;
+			public const int TestThemeWithLineHeight = 2131755348;
 
-			public const int Test_Theme_MaterialComponents_MaterialCalendar = 2131755338;
+			public const int TestThemeWithLineHeightDisabled = 2131755349;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar = 2131755339;
+			public const int Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755339;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755340;
+			public const int Test_Theme_MaterialComponents_MaterialCalendar = 2131755340;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755341;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar = 2131755341;
 
-			public const int TextAppearance_AppCompat = 2131755348;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755342;
 
-			public const int TextAppearance_AppCompat_Body1 = 2131755349;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755343;
 
-			public const int TextAppearance_AppCompat_Body2 = 2131755350;
+			public const int TextAppearance_AppCompat = 2131755350;
 
-			public const int TextAppearance_AppCompat_Button = 2131755351;
+			public const int TextAppearance_AppCompat_Body1 = 2131755351;
 
-			public const int TextAppearance_AppCompat_Caption = 2131755352;
+			public const int TextAppearance_AppCompat_Body2 = 2131755352;
 
-			public const int TextAppearance_AppCompat_Display1 = 2131755353;
+			public const int TextAppearance_AppCompat_Button = 2131755353;
 
-			public const int TextAppearance_AppCompat_Display2 = 2131755354;
+			public const int TextAppearance_AppCompat_Caption = 2131755354;
 
-			public const int TextAppearance_AppCompat_Display3 = 2131755355;
+			public const int TextAppearance_AppCompat_Display1 = 2131755355;
 
-			public const int TextAppearance_AppCompat_Display4 = 2131755356;
+			public const int TextAppearance_AppCompat_Display2 = 2131755356;
 
-			public const int TextAppearance_AppCompat_Headline = 2131755357;
+			public const int TextAppearance_AppCompat_Display3 = 2131755357;
 
-			public const int TextAppearance_AppCompat_Inverse = 2131755358;
+			public const int TextAppearance_AppCompat_Display4 = 2131755358;
 
-			public const int TextAppearance_AppCompat_Large = 2131755359;
+			public const int TextAppearance_AppCompat_Headline = 2131755359;
 
-			public const int TextAppearance_AppCompat_Large_Inverse = 2131755360;
+			public const int TextAppearance_AppCompat_Inverse = 2131755360;
 
-			public const int TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755361;
+			public const int TextAppearance_AppCompat_Large = 2131755361;
 
-			public const int TextAppearance_AppCompat_Light_SearchResult_Title = 2131755362;
+			public const int TextAppearance_AppCompat_Large_Inverse = 2131755362;
 
-			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755363;
+			public const int TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755363;
 
-			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755364;
+			public const int TextAppearance_AppCompat_Light_SearchResult_Title = 2131755364;
 
-			public const int TextAppearance_AppCompat_Medium = 2131755365;
+			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755365;
 
-			public const int TextAppearance_AppCompat_Medium_Inverse = 2131755366;
+			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755366;
 
-			public const int TextAppearance_AppCompat_Menu = 2131755367;
+			public const int TextAppearance_AppCompat_Medium = 2131755367;
 
-			public const int TextAppearance_AppCompat_SearchResult_Subtitle = 2131755368;
+			public const int TextAppearance_AppCompat_Medium_Inverse = 2131755368;
 
-			public const int TextAppearance_AppCompat_SearchResult_Title = 2131755369;
+			public const int TextAppearance_AppCompat_Menu = 2131755369;
 
-			public const int TextAppearance_AppCompat_Small = 2131755370;
+			public const int TextAppearance_AppCompat_SearchResult_Subtitle = 2131755370;
 
-			public const int TextAppearance_AppCompat_Small_Inverse = 2131755371;
+			public const int TextAppearance_AppCompat_SearchResult_Title = 2131755371;
 
-			public const int TextAppearance_AppCompat_Subhead = 2131755372;
+			public const int TextAppearance_AppCompat_Small = 2131755372;
 
-			public const int TextAppearance_AppCompat_Subhead_Inverse = 2131755373;
+			public const int TextAppearance_AppCompat_Small_Inverse = 2131755373;
 
-			public const int TextAppearance_AppCompat_Title = 2131755374;
+			public const int TextAppearance_AppCompat_Subhead = 2131755374;
 
-			public const int TextAppearance_AppCompat_Title_Inverse = 2131755375;
+			public const int TextAppearance_AppCompat_Subhead_Inverse = 2131755375;
 
-			public const int TextAppearance_AppCompat_Tooltip = 2131755376;
+			public const int TextAppearance_AppCompat_Title = 2131755376;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755377;
+			public const int TextAppearance_AppCompat_Title_Inverse = 2131755377;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755378;
+			public const int TextAppearance_AppCompat_Tooltip = 2131755378;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755379;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755379;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755380;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755380;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755381;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755381;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755382;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755382;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755383;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755383;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755384;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755384;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755385;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755385;
 
-			public const int TextAppearance_AppCompat_Widget_Button = 2131755386;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755386;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755387;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755387;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Colored = 2131755388;
+			public const int TextAppearance_AppCompat_Widget_Button = 2131755388;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Inverse = 2131755389;
+			public const int TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755389;
 
-			public const int TextAppearance_AppCompat_Widget_DropDownItem = 2131755390;
+			public const int TextAppearance_AppCompat_Widget_Button_Colored = 2131755390;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755391;
+			public const int TextAppearance_AppCompat_Widget_Button_Inverse = 2131755391;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755392;
+			public const int TextAppearance_AppCompat_Widget_DropDownItem = 2131755392;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755393;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755393;
 
-			public const int TextAppearance_AppCompat_Widget_Switch = 2131755394;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755394;
 
-			public const int TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755395;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755395;
 
-			public const int TextAppearance_Compat_Notification = 2131755396;
+			public const int TextAppearance_AppCompat_Widget_Switch = 2131755396;
 
-			public const int TextAppearance_Compat_Notification_Info = 2131755397;
+			public const int TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755397;
 
-			public const int TextAppearance_Compat_Notification_Info_Media = 2131755398;
+			public const int TextAppearance_Compat_Notification = 2131755398;
 
-			public const int TextAppearance_Compat_Notification_Line2 = 2131755399;
+			public const int TextAppearance_Compat_Notification_Info = 2131755399;
 
-			public const int TextAppearance_Compat_Notification_Line2_Media = 2131755400;
+			public const int TextAppearance_Compat_Notification_Info_Media = 2131755400;
 
-			public const int TextAppearance_Compat_Notification_Media = 2131755401;
+			public const int TextAppearance_Compat_Notification_Line2 = 2131755401;
 
-			public const int TextAppearance_Compat_Notification_Time = 2131755402;
+			public const int TextAppearance_Compat_Notification_Line2_Media = 2131755402;
 
-			public const int TextAppearance_Compat_Notification_Time_Media = 2131755403;
+			public const int TextAppearance_Compat_Notification_Media = 2131755403;
 
-			public const int TextAppearance_Compat_Notification_Title = 2131755404;
+			public const int TextAppearance_Compat_Notification_Time = 2131755404;
 
-			public const int TextAppearance_Compat_Notification_Title_Media = 2131755405;
+			public const int TextAppearance_Compat_Notification_Time_Media = 2131755405;
 
-			public const int TextAppearance_Design_CollapsingToolbar_Expanded = 2131755406;
+			public const int TextAppearance_Compat_Notification_Title = 2131755406;
 
-			public const int TextAppearance_Design_Counter = 2131755407;
+			public const int TextAppearance_Compat_Notification_Title_Media = 2131755407;
 
-			public const int TextAppearance_Design_Counter_Overflow = 2131755408;
+			public const int TextAppearance_Design_CollapsingToolbar_Expanded = 2131755408;
 
-			public const int TextAppearance_Design_Error = 2131755409;
+			public const int TextAppearance_Design_Counter = 2131755409;
 
-			public const int TextAppearance_Design_HelperText = 2131755410;
+			public const int TextAppearance_Design_Counter_Overflow = 2131755410;
 
-			public const int TextAppearance_Design_Hint = 2131755411;
+			public const int TextAppearance_Design_Error = 2131755411;
 
-			public const int TextAppearance_Design_Snackbar_Message = 2131755412;
+			public const int TextAppearance_Design_HelperText = 2131755412;
 
-			public const int TextAppearance_Design_Tab = 2131755413;
+			public const int TextAppearance_Design_Hint = 2131755413;
 
-			public const int TextAppearance_MaterialComponents_Badge = 2131755414;
+			public const int TextAppearance_Design_Snackbar_Message = 2131755414;
 
-			public const int TextAppearance_MaterialComponents_Body1 = 2131755415;
+			public const int TextAppearance_Design_Tab = 2131755415;
 
-			public const int TextAppearance_MaterialComponents_Body2 = 2131755416;
+			public const int TextAppearance_MaterialComponents_Badge = 2131755416;
 
-			public const int TextAppearance_MaterialComponents_Button = 2131755417;
+			public const int TextAppearance_MaterialComponents_Body1 = 2131755417;
 
-			public const int TextAppearance_MaterialComponents_Caption = 2131755418;
+			public const int TextAppearance_MaterialComponents_Body2 = 2131755418;
 
-			public const int TextAppearance_MaterialComponents_Chip = 2131755419;
+			public const int TextAppearance_MaterialComponents_Button = 2131755419;
 
-			public const int TextAppearance_MaterialComponents_Headline1 = 2131755420;
+			public const int TextAppearance_MaterialComponents_Caption = 2131755420;
 
-			public const int TextAppearance_MaterialComponents_Headline2 = 2131755421;
+			public const int TextAppearance_MaterialComponents_Chip = 2131755421;
 
-			public const int TextAppearance_MaterialComponents_Headline3 = 2131755422;
+			public const int TextAppearance_MaterialComponents_Headline1 = 2131755422;
 
-			public const int TextAppearance_MaterialComponents_Headline4 = 2131755423;
+			public const int TextAppearance_MaterialComponents_Headline2 = 2131755423;
 
-			public const int TextAppearance_MaterialComponents_Headline5 = 2131755424;
+			public const int TextAppearance_MaterialComponents_Headline3 = 2131755424;
 
-			public const int TextAppearance_MaterialComponents_Headline6 = 2131755425;
+			public const int TextAppearance_MaterialComponents_Headline4 = 2131755425;
 
-			public const int TextAppearance_MaterialComponents_Overline = 2131755426;
+			public const int TextAppearance_MaterialComponents_Headline5 = 2131755426;
 
-			public const int TextAppearance_MaterialComponents_Subtitle1 = 2131755427;
+			public const int TextAppearance_MaterialComponents_Headline6 = 2131755427;
 
-			public const int TextAppearance_MaterialComponents_Subtitle2 = 2131755428;
+			public const int TextAppearance_MaterialComponents_Overline = 2131755428;
 
-			public const int TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755429;
+			public const int TextAppearance_MaterialComponents_Subtitle1 = 2131755429;
 
-			public const int TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755430;
+			public const int TextAppearance_MaterialComponents_Subtitle2 = 2131755430;
 
-			public const int TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755431;
+			public const int TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755431;
 
-			public const int ThemeOverlay_AppCompat = 2131755508;
+			public const int TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755432;
 
-			public const int ThemeOverlay_AppCompat_ActionBar = 2131755509;
+			public const int TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755433;
 
-			public const int ThemeOverlay_AppCompat_Dark = 2131755510;
+			public const int ThemeOverlay_AppCompat = 2131755510;
 
-			public const int ThemeOverlay_AppCompat_Dark_ActionBar = 2131755511;
+			public const int ThemeOverlay_AppCompat_ActionBar = 2131755511;
 
-			public const int ThemeOverlay_AppCompat_DayNight = 2131755512;
+			public const int ThemeOverlay_AppCompat_Dark = 2131755512;
 
-			public const int ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755513;
+			public const int ThemeOverlay_AppCompat_Dark_ActionBar = 2131755513;
 
-			public const int ThemeOverlay_AppCompat_Dialog = 2131755514;
+			public const int ThemeOverlay_AppCompat_DayNight = 2131755514;
 
-			public const int ThemeOverlay_AppCompat_Dialog_Alert = 2131755515;
+			public const int ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755515;
 
-			public const int ThemeOverlay_AppCompat_Light = 2131755516;
+			public const int ThemeOverlay_AppCompat_Dialog = 2131755516;
 
-			public const int ThemeOverlay_Design_TextInputEditText = 2131755517;
+			public const int ThemeOverlay_AppCompat_Dialog_Alert = 2131755517;
 
-			public const int ThemeOverlay_MaterialComponents = 2131755518;
+			public const int ThemeOverlay_AppCompat_Light = 2131755518;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar = 2131755519;
+			public const int ThemeOverlay_Design_TextInputEditText = 2131755519;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755520;
+			public const int ThemeOverlay_MaterialComponents = 2131755520;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755521;
+			public const int ThemeOverlay_MaterialComponents_ActionBar = 2131755521;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755522;
+			public const int ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755522;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755523;
+			public const int ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755523;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755524;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755524;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755525;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755525;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755526;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755526;
 
-			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755527;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755527;
 
-			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755528;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755528;
 
-			public const int ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755529;
+			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755529;
 
-			public const int ThemeOverlay_MaterialComponents_Dark = 2131755530;
+			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755530;
 
-			public const int ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755531;
+			public const int ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755531;
 
-			public const int ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755532;
+			public const int ThemeOverlay_MaterialComponents_Dark = 2131755532;
 
-			public const int ThemeOverlay_MaterialComponents_Dialog = 2131755533;
+			public const int ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755533;
 
-			public const int ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755534;
+			public const int ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755534;
 
-			public const int ThemeOverlay_MaterialComponents_Light = 2131755535;
+			public const int ThemeOverlay_MaterialComponents_Dialog = 2131755535;
 
-			public const int ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755536;
+			public const int ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755536;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755537;
+			public const int ThemeOverlay_MaterialComponents_Light = 2131755537;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755538;
+			public const int ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755538;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755539;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755539;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755540;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755540;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755541;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755541;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755542;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755542;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755543;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755543;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755544;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755544;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755545;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755545;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText = 2131755546;
+			public const int ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755546;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755547;
+			public const int ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755547;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755548;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText = 2131755548;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755549;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755549;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755550;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755550;
 
-			public const int ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755551;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755551;
 
-			public const int ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755552;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755552;
 
-			public const int Theme_AppCompat = 2131755432;
+			public const int ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755553;
 
-			public const int Theme_AppCompat_CompactMenu = 2131755433;
+			public const int ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755554;
 
-			public const int Theme_AppCompat_DayNight = 2131755434;
+			public const int Theme_AppCompat = 2131755434;
 
-			public const int Theme_AppCompat_DayNight_DarkActionBar = 2131755435;
+			public const int Theme_AppCompat_CompactMenu = 2131755435;
 
-			public const int Theme_AppCompat_DayNight_Dialog = 2131755436;
+			public const int Theme_AppCompat_DayNight = 2131755436;
 
-			public const int Theme_AppCompat_DayNight_DialogWhenLarge = 2131755439;
+			public const int Theme_AppCompat_DayNight_DarkActionBar = 2131755437;
 
-			public const int Theme_AppCompat_DayNight_Dialog_Alert = 2131755437;
+			public const int Theme_AppCompat_DayNight_Dialog = 2131755438;
 
-			public const int Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755438;
+			public const int Theme_AppCompat_DayNight_DialogWhenLarge = 2131755441;
 
-			public const int Theme_AppCompat_DayNight_NoActionBar = 2131755440;
+			public const int Theme_AppCompat_DayNight_Dialog_Alert = 2131755439;
 
-			public const int Theme_AppCompat_Dialog = 2131755441;
+			public const int Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755440;
 
-			public const int Theme_AppCompat_DialogWhenLarge = 2131755444;
+			public const int Theme_AppCompat_DayNight_NoActionBar = 2131755442;
 
-			public const int Theme_AppCompat_Dialog_Alert = 2131755442;
+			public const int Theme_AppCompat_Dialog = 2131755443;
 
-			public const int Theme_AppCompat_Dialog_MinWidth = 2131755443;
+			public const int Theme_AppCompat_DialogWhenLarge = 2131755446;
 
-			public const int Theme_AppCompat_Light = 2131755445;
+			public const int Theme_AppCompat_Dialog_Alert = 2131755444;
 
-			public const int Theme_AppCompat_Light_DarkActionBar = 2131755446;
+			public const int Theme_AppCompat_Dialog_MinWidth = 2131755445;
 
-			public const int Theme_AppCompat_Light_Dialog = 2131755447;
+			public const int Theme_AppCompat_Light = 2131755447;
 
-			public const int Theme_AppCompat_Light_DialogWhenLarge = 2131755450;
+			public const int Theme_AppCompat_Light_DarkActionBar = 2131755448;
 
-			public const int Theme_AppCompat_Light_Dialog_Alert = 2131755448;
+			public const int Theme_AppCompat_Light_Dialog = 2131755449;
 
-			public const int Theme_AppCompat_Light_Dialog_MinWidth = 2131755449;
+			public const int Theme_AppCompat_Light_DialogWhenLarge = 2131755452;
 
-			public const int Theme_AppCompat_Light_NoActionBar = 2131755451;
+			public const int Theme_AppCompat_Light_Dialog_Alert = 2131755450;
 
-			public const int Theme_AppCompat_NoActionBar = 2131755452;
+			public const int Theme_AppCompat_Light_Dialog_MinWidth = 2131755451;
 
-			public const int Theme_Design = 2131755453;
+			public const int Theme_AppCompat_Light_NoActionBar = 2131755453;
 
-			public const int Theme_Design_BottomSheetDialog = 2131755454;
+			public const int Theme_AppCompat_NoActionBar = 2131755454;
 
-			public const int Theme_Design_Light = 2131755455;
+			public const int Theme_Design = 2131755455;
 
-			public const int Theme_Design_Light_BottomSheetDialog = 2131755456;
+			public const int Theme_Design_BottomSheetDialog = 2131755456;
 
-			public const int Theme_Design_Light_NoActionBar = 2131755457;
+			public const int Theme_Design_Light = 2131755457;
 
-			public const int Theme_Design_NoActionBar = 2131755458;
+			public const int Theme_Design_Light_BottomSheetDialog = 2131755458;
 
-			public const int Theme_MaterialComponents = 2131755459;
+			public const int Theme_Design_Light_NoActionBar = 2131755459;
 
-			public const int Theme_MaterialComponents_BottomSheetDialog = 2131755460;
+			public const int Theme_Design_NoActionBar = 2131755460;
 
-			public const int Theme_MaterialComponents_Bridge = 2131755461;
+			public const int Theme_MaterialComponents = 2131755461;
 
-			public const int Theme_MaterialComponents_CompactMenu = 2131755462;
+			public const int Theme_MaterialComponents_BottomSheetDialog = 2131755462;
 
-			public const int Theme_MaterialComponents_DayNight = 2131755463;
+			public const int Theme_MaterialComponents_Bridge = 2131755463;
 
-			public const int Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755464;
+			public const int Theme_MaterialComponents_CompactMenu = 2131755464;
 
-			public const int Theme_MaterialComponents_DayNight_Bridge = 2131755465;
+			public const int Theme_MaterialComponents_DayNight = 2131755465;
 
-			public const int Theme_MaterialComponents_DayNight_DarkActionBar = 2131755466;
+			public const int Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755466;
 
-			public const int Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755467;
+			public const int Theme_MaterialComponents_DayNight_Bridge = 2131755467;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog = 2131755468;
+			public const int Theme_MaterialComponents_DayNight_DarkActionBar = 2131755468;
 
-			public const int Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755476;
+			public const int Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755469;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755469;
+			public const int Theme_MaterialComponents_DayNight_Dialog = 2131755470;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755470;
+			public const int Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755478;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755471;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755471;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755472;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755472;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755473;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755473;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755474;
+			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755474;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755475;
+			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755475;
 
-			public const int Theme_MaterialComponents_DayNight_NoActionBar = 2131755477;
+			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755476;
 
-			public const int Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755478;
+			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755477;
 
-			public const int Theme_MaterialComponents_Dialog = 2131755479;
+			public const int Theme_MaterialComponents_DayNight_NoActionBar = 2131755479;
 
-			public const int Theme_MaterialComponents_DialogWhenLarge = 2131755487;
+			public const int Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755480;
 
-			public const int Theme_MaterialComponents_Dialog_Alert = 2131755480;
+			public const int Theme_MaterialComponents_Dialog = 2131755481;
 
-			public const int Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755481;
+			public const int Theme_MaterialComponents_DialogWhenLarge = 2131755489;
 
-			public const int Theme_MaterialComponents_Dialog_Bridge = 2131755482;
+			public const int Theme_MaterialComponents_Dialog_Alert = 2131755482;
 
-			public const int Theme_MaterialComponents_Dialog_FixedSize = 2131755483;
+			public const int Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755483;
 
-			public const int Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755484;
+			public const int Theme_MaterialComponents_Dialog_Bridge = 2131755484;
 
-			public const int Theme_MaterialComponents_Dialog_MinWidth = 2131755485;
+			public const int Theme_MaterialComponents_Dialog_FixedSize = 2131755485;
 
-			public const int Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755486;
+			public const int Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755486;
 
-			public const int Theme_MaterialComponents_Light = 2131755488;
+			public const int Theme_MaterialComponents_Dialog_MinWidth = 2131755487;
 
-			public const int Theme_MaterialComponents_Light_BarSize = 2131755489;
+			public const int Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755488;
 
-			public const int Theme_MaterialComponents_Light_BottomSheetDialog = 2131755490;
+			public const int Theme_MaterialComponents_Light = 2131755490;
 
-			public const int Theme_MaterialComponents_Light_Bridge = 2131755491;
+			public const int Theme_MaterialComponents_Light_BarSize = 2131755491;
 
-			public const int Theme_MaterialComponents_Light_DarkActionBar = 2131755492;
+			public const int Theme_MaterialComponents_Light_BottomSheetDialog = 2131755492;
 
-			public const int Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755493;
+			public const int Theme_MaterialComponents_Light_Bridge = 2131755493;
 
-			public const int Theme_MaterialComponents_Light_Dialog = 2131755494;
+			public const int Theme_MaterialComponents_Light_DarkActionBar = 2131755494;
 
-			public const int Theme_MaterialComponents_Light_DialogWhenLarge = 2131755502;
+			public const int Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755495;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Alert = 2131755495;
+			public const int Theme_MaterialComponents_Light_Dialog = 2131755496;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755496;
+			public const int Theme_MaterialComponents_Light_DialogWhenLarge = 2131755504;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Bridge = 2131755497;
+			public const int Theme_MaterialComponents_Light_Dialog_Alert = 2131755497;
 
-			public const int Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755498;
+			public const int Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755498;
 
-			public const int Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755499;
+			public const int Theme_MaterialComponents_Light_Dialog_Bridge = 2131755499;
 
-			public const int Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755500;
+			public const int Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755500;
 
-			public const int Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755501;
+			public const int Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755501;
 
-			public const int Theme_MaterialComponents_Light_LargeTouch = 2131755503;
+			public const int Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755502;
 
-			public const int Theme_MaterialComponents_Light_NoActionBar = 2131755504;
+			public const int Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755503;
 
-			public const int Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755505;
+			public const int Theme_MaterialComponents_Light_LargeTouch = 2131755505;
 
-			public const int Theme_MaterialComponents_NoActionBar = 2131755506;
+			public const int Theme_MaterialComponents_Light_NoActionBar = 2131755506;
 
-			public const int Theme_MaterialComponents_NoActionBar_Bridge = 2131755507;
+			public const int Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755507;
 
-			public const int TopbarText = 2131755553;
+			public const int Theme_MaterialComponents_NoActionBar = 2131755508;
 
-			public const int UnsupportedText = 2131755554;
+			public const int Theme_MaterialComponents_NoActionBar_Bridge = 2131755509;
 
-			public const int WarningText = 2131755555;
+			public const int TopbarText = 2131755555;
 
-			public const int Widget_AppCompat_ActionBar = 2131755556;
+			public const int UnsupportedText = 2131755556;
 
-			public const int Widget_AppCompat_ActionBar_Solid = 2131755557;
+			public const int WarningText = 2131755557;
 
-			public const int Widget_AppCompat_ActionBar_TabBar = 2131755558;
+			public const int Widget_AppCompat_ActionBar = 2131755558;
 
-			public const int Widget_AppCompat_ActionBar_TabText = 2131755559;
+			public const int Widget_AppCompat_ActionBar_Solid = 2131755559;
 
-			public const int Widget_AppCompat_ActionBar_TabView = 2131755560;
+			public const int Widget_AppCompat_ActionBar_TabBar = 2131755560;
 
-			public const int Widget_AppCompat_ActionButton = 2131755561;
+			public const int Widget_AppCompat_ActionBar_TabText = 2131755561;
 
-			public const int Widget_AppCompat_ActionButton_CloseMode = 2131755562;
+			public const int Widget_AppCompat_ActionBar_TabView = 2131755562;
 
-			public const int Widget_AppCompat_ActionButton_Overflow = 2131755563;
+			public const int Widget_AppCompat_ActionButton = 2131755563;
 
-			public const int Widget_AppCompat_ActionMode = 2131755564;
+			public const int Widget_AppCompat_ActionButton_CloseMode = 2131755564;
 
-			public const int Widget_AppCompat_ActivityChooserView = 2131755565;
+			public const int Widget_AppCompat_ActionButton_Overflow = 2131755565;
 
-			public const int Widget_AppCompat_AutoCompleteTextView = 2131755566;
+			public const int Widget_AppCompat_ActionMode = 2131755566;
 
-			public const int Widget_AppCompat_Button = 2131755567;
+			public const int Widget_AppCompat_ActivityChooserView = 2131755567;
 
-			public const int Widget_AppCompat_ButtonBar = 2131755573;
+			public const int Widget_AppCompat_AutoCompleteTextView = 2131755568;
 
-			public const int Widget_AppCompat_ButtonBar_AlertDialog = 2131755574;
+			public const int Widget_AppCompat_Button = 2131755569;
 
-			public const int Widget_AppCompat_Button_Borderless = 2131755568;
+			public const int Widget_AppCompat_ButtonBar = 2131755575;
 
-			public const int Widget_AppCompat_Button_Borderless_Colored = 2131755569;
+			public const int Widget_AppCompat_ButtonBar_AlertDialog = 2131755576;
 
-			public const int Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755570;
+			public const int Widget_AppCompat_Button_Borderless = 2131755570;
 
-			public const int Widget_AppCompat_Button_Colored = 2131755571;
+			public const int Widget_AppCompat_Button_Borderless_Colored = 2131755571;
 
-			public const int Widget_AppCompat_Button_Small = 2131755572;
+			public const int Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755572;
 
-			public const int Widget_AppCompat_CompoundButton_CheckBox = 2131755575;
+			public const int Widget_AppCompat_Button_Colored = 2131755573;
 
-			public const int Widget_AppCompat_CompoundButton_RadioButton = 2131755576;
+			public const int Widget_AppCompat_Button_Small = 2131755574;
 
-			public const int Widget_AppCompat_CompoundButton_Switch = 2131755577;
+			public const int Widget_AppCompat_CompoundButton_CheckBox = 2131755577;
 
-			public const int Widget_AppCompat_DrawerArrowToggle = 2131755578;
+			public const int Widget_AppCompat_CompoundButton_RadioButton = 2131755578;
 
-			public const int Widget_AppCompat_DropDownItem_Spinner = 2131755579;
+			public const int Widget_AppCompat_CompoundButton_Switch = 2131755579;
 
-			public const int Widget_AppCompat_EditText = 2131755580;
+			public const int Widget_AppCompat_DrawerArrowToggle = 2131755580;
 
-			public const int Widget_AppCompat_ImageButton = 2131755581;
+			public const int Widget_AppCompat_DropDownItem_Spinner = 2131755581;
 
-			public const int Widget_AppCompat_Light_ActionBar = 2131755582;
+			public const int Widget_AppCompat_EditText = 2131755582;
 
-			public const int Widget_AppCompat_Light_ActionBar_Solid = 2131755583;
+			public const int Widget_AppCompat_ImageButton = 2131755583;
 
-			public const int Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755584;
+			public const int Widget_AppCompat_Light_ActionBar = 2131755584;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabBar = 2131755585;
+			public const int Widget_AppCompat_Light_ActionBar_Solid = 2131755585;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755586;
+			public const int Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755586;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabText = 2131755587;
+			public const int Widget_AppCompat_Light_ActionBar_TabBar = 2131755587;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755588;
+			public const int Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755588;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabView = 2131755589;
+			public const int Widget_AppCompat_Light_ActionBar_TabText = 2131755589;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755590;
+			public const int Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755590;
 
-			public const int Widget_AppCompat_Light_ActionButton = 2131755591;
+			public const int Widget_AppCompat_Light_ActionBar_TabView = 2131755591;
 
-			public const int Widget_AppCompat_Light_ActionButton_CloseMode = 2131755592;
+			public const int Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755592;
 
-			public const int Widget_AppCompat_Light_ActionButton_Overflow = 2131755593;
+			public const int Widget_AppCompat_Light_ActionButton = 2131755593;
 
-			public const int Widget_AppCompat_Light_ActionMode_Inverse = 2131755594;
+			public const int Widget_AppCompat_Light_ActionButton_CloseMode = 2131755594;
 
-			public const int Widget_AppCompat_Light_ActivityChooserView = 2131755595;
+			public const int Widget_AppCompat_Light_ActionButton_Overflow = 2131755595;
 
-			public const int Widget_AppCompat_Light_AutoCompleteTextView = 2131755596;
+			public const int Widget_AppCompat_Light_ActionMode_Inverse = 2131755596;
 
-			public const int Widget_AppCompat_Light_DropDownItem_Spinner = 2131755597;
+			public const int Widget_AppCompat_Light_ActivityChooserView = 2131755597;
 
-			public const int Widget_AppCompat_Light_ListPopupWindow = 2131755598;
+			public const int Widget_AppCompat_Light_AutoCompleteTextView = 2131755598;
 
-			public const int Widget_AppCompat_Light_ListView_DropDown = 2131755599;
+			public const int Widget_AppCompat_Light_DropDownItem_Spinner = 2131755599;
 
-			public const int Widget_AppCompat_Light_PopupMenu = 2131755600;
+			public const int Widget_AppCompat_Light_ListPopupWindow = 2131755600;
 
-			public const int Widget_AppCompat_Light_PopupMenu_Overflow = 2131755601;
+			public const int Widget_AppCompat_Light_ListView_DropDown = 2131755601;
 
-			public const int Widget_AppCompat_Light_SearchView = 2131755602;
+			public const int Widget_AppCompat_Light_PopupMenu = 2131755602;
 
-			public const int Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755603;
+			public const int Widget_AppCompat_Light_PopupMenu_Overflow = 2131755603;
 
-			public const int Widget_AppCompat_ListMenuView = 2131755604;
+			public const int Widget_AppCompat_Light_SearchView = 2131755604;
 
-			public const int Widget_AppCompat_ListPopupWindow = 2131755605;
+			public const int Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755605;
 
-			public const int Widget_AppCompat_ListView = 2131755606;
+			public const int Widget_AppCompat_ListMenuView = 2131755606;
 
-			public const int Widget_AppCompat_ListView_DropDown = 2131755607;
+			public const int Widget_AppCompat_ListPopupWindow = 2131755607;
 
-			public const int Widget_AppCompat_ListView_Menu = 2131755608;
+			public const int Widget_AppCompat_ListView = 2131755608;
 
-			public const int Widget_AppCompat_PopupMenu = 2131755609;
+			public const int Widget_AppCompat_ListView_DropDown = 2131755609;
 
-			public const int Widget_AppCompat_PopupMenu_Overflow = 2131755610;
+			public const int Widget_AppCompat_ListView_Menu = 2131755610;
 
-			public const int Widget_AppCompat_PopupWindow = 2131755611;
+			public const int Widget_AppCompat_PopupMenu = 2131755611;
 
-			public const int Widget_AppCompat_ProgressBar = 2131755612;
+			public const int Widget_AppCompat_PopupMenu_Overflow = 2131755612;
 
-			public const int Widget_AppCompat_ProgressBar_Horizontal = 2131755613;
+			public const int Widget_AppCompat_PopupWindow = 2131755613;
 
-			public const int Widget_AppCompat_RatingBar = 2131755614;
+			public const int Widget_AppCompat_ProgressBar = 2131755614;
 
-			public const int Widget_AppCompat_RatingBar_Indicator = 2131755615;
+			public const int Widget_AppCompat_ProgressBar_Horizontal = 2131755615;
 
-			public const int Widget_AppCompat_RatingBar_Small = 2131755616;
+			public const int Widget_AppCompat_RatingBar = 2131755616;
 
-			public const int Widget_AppCompat_SearchView = 2131755617;
+			public const int Widget_AppCompat_RatingBar_Indicator = 2131755617;
 
-			public const int Widget_AppCompat_SearchView_ActionBar = 2131755618;
+			public const int Widget_AppCompat_RatingBar_Small = 2131755618;
 
-			public const int Widget_AppCompat_SeekBar = 2131755619;
+			public const int Widget_AppCompat_SearchView = 2131755619;
 
-			public const int Widget_AppCompat_SeekBar_Discrete = 2131755620;
+			public const int Widget_AppCompat_SearchView_ActionBar = 2131755620;
 
-			public const int Widget_AppCompat_Spinner = 2131755621;
+			public const int Widget_AppCompat_SeekBar = 2131755621;
 
-			public const int Widget_AppCompat_Spinner_DropDown = 2131755622;
+			public const int Widget_AppCompat_SeekBar_Discrete = 2131755622;
 
-			public const int Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755623;
+			public const int Widget_AppCompat_Spinner = 2131755623;
 
-			public const int Widget_AppCompat_Spinner_Underlined = 2131755624;
+			public const int Widget_AppCompat_Spinner_DropDown = 2131755624;
 
-			public const int Widget_AppCompat_TextView = 2131755625;
+			public const int Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755625;
 
-			public const int Widget_AppCompat_TextView_SpinnerItem = 2131755626;
+			public const int Widget_AppCompat_Spinner_Underlined = 2131755626;
 
-			public const int Widget_AppCompat_Toolbar = 2131755627;
+			public const int Widget_AppCompat_TextView = 2131755627;
 
-			public const int Widget_AppCompat_Toolbar_Button_Navigation = 2131755628;
+			public const int Widget_AppCompat_TextView_SpinnerItem = 2131755628;
 
-			public const int Widget_Compat_NotificationActionContainer = 2131755629;
+			public const int Widget_AppCompat_Toolbar = 2131755629;
 
-			public const int Widget_Compat_NotificationActionText = 2131755630;
+			public const int Widget_AppCompat_Toolbar_Button_Navigation = 2131755630;
 
-			public const int Widget_Design_AppBarLayout = 2131755631;
+			public const int Widget_Compat_NotificationActionContainer = 2131755631;
 
-			public const int Widget_Design_BottomNavigationView = 2131755632;
+			public const int Widget_Compat_NotificationActionText = 2131755632;
 
-			public const int Widget_Design_BottomSheet_Modal = 2131755633;
+			public const int Widget_Design_AppBarLayout = 2131755633;
 
-			public const int Widget_Design_CollapsingToolbar = 2131755634;
+			public const int Widget_Design_BottomNavigationView = 2131755634;
 
-			public const int Widget_Design_FloatingActionButton = 2131755635;
+			public const int Widget_Design_BottomSheet_Modal = 2131755635;
 
-			public const int Widget_Design_NavigationView = 2131755636;
+			public const int Widget_Design_CollapsingToolbar = 2131755636;
 
-			public const int Widget_Design_ScrimInsetsFrameLayout = 2131755637;
+			public const int Widget_Design_FloatingActionButton = 2131755637;
 
-			public const int Widget_Design_Snackbar = 2131755638;
+			public const int Widget_Design_NavigationView = 2131755638;
 
-			public const int Widget_Design_TabLayout = 2131755639;
+			public const int Widget_Design_ScrimInsetsFrameLayout = 2131755639;
 
-			public const int Widget_Design_TextInputLayout = 2131755640;
+			public const int Widget_Design_Snackbar = 2131755640;
 
-			public const int Widget_MaterialComponents_ActionBar_Primary = 2131755641;
+			public const int Widget_Design_TabLayout = 2131755641;
 
-			public const int Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755642;
+			public const int Widget_Design_TextInputLayout = 2131755642;
 
-			public const int Widget_MaterialComponents_ActionBar_Solid = 2131755643;
+			public const int Widget_MaterialComponents_ActionBar_Primary = 2131755643;
 
-			public const int Widget_MaterialComponents_ActionBar_Surface = 2131755644;
+			public const int Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755644;
 
-			public const int Widget_MaterialComponents_AppBarLayout_Primary = 2131755645;
+			public const int Widget_MaterialComponents_ActionBar_Solid = 2131755645;
 
-			public const int Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755646;
+			public const int Widget_MaterialComponents_ActionBar_Surface = 2131755646;
 
-			public const int Widget_MaterialComponents_AppBarLayout_Surface = 2131755647;
+			public const int Widget_MaterialComponents_AppBarLayout_Primary = 2131755647;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755648;
+			public const int Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755648;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755649;
+			public const int Widget_MaterialComponents_AppBarLayout_Surface = 2131755649;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755650;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755650;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755651;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755651;
 
-			public const int Widget_MaterialComponents_Badge = 2131755652;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755652;
 
-			public const int Widget_MaterialComponents_BottomAppBar = 2131755653;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755653;
 
-			public const int Widget_MaterialComponents_BottomAppBar_Colored = 2131755654;
+			public const int Widget_MaterialComponents_Badge = 2131755654;
 
-			public const int Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755655;
+			public const int Widget_MaterialComponents_BottomAppBar = 2131755655;
 
-			public const int Widget_MaterialComponents_BottomNavigationView = 2131755656;
+			public const int Widget_MaterialComponents_BottomAppBar_Colored = 2131755656;
 
-			public const int Widget_MaterialComponents_BottomNavigationView_Colored = 2131755657;
+			public const int Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755657;
 
-			public const int Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755658;
+			public const int Widget_MaterialComponents_BottomNavigationView = 2131755658;
 
-			public const int Widget_MaterialComponents_BottomSheet = 2131755659;
+			public const int Widget_MaterialComponents_BottomNavigationView_Colored = 2131755659;
 
-			public const int Widget_MaterialComponents_BottomSheet_Modal = 2131755660;
+			public const int Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755660;
 
-			public const int Widget_MaterialComponents_Button = 2131755661;
+			public const int Widget_MaterialComponents_BottomSheet = 2131755661;
 
-			public const int Widget_MaterialComponents_Button_Icon = 2131755662;
+			public const int Widget_MaterialComponents_BottomSheet_Modal = 2131755662;
 
-			public const int Widget_MaterialComponents_Button_OutlinedButton = 2131755663;
+			public const int Widget_MaterialComponents_Button = 2131755663;
 
-			public const int Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755664;
+			public const int Widget_MaterialComponents_Button_Icon = 2131755664;
 
-			public const int Widget_MaterialComponents_Button_TextButton = 2131755665;
+			public const int Widget_MaterialComponents_Button_OutlinedButton = 2131755665;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog = 2131755666;
+			public const int Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755666;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755667;
+			public const int Widget_MaterialComponents_Button_TextButton = 2131755667;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755668;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog = 2131755668;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Icon = 2131755669;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755669;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755670;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755670;
 
-			public const int Widget_MaterialComponents_Button_UnelevatedButton = 2131755671;
+			public const int Widget_MaterialComponents_Button_TextButton_Icon = 2131755671;
 
-			public const int Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755672;
+			public const int Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755672;
 
-			public const int Widget_MaterialComponents_CardView = 2131755673;
+			public const int Widget_MaterialComponents_Button_UnelevatedButton = 2131755673;
 
-			public const int Widget_MaterialComponents_CheckedTextView = 2131755674;
+			public const int Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755674;
 
-			public const int Widget_MaterialComponents_ChipGroup = 2131755679;
+			public const int Widget_MaterialComponents_CardView = 2131755675;
 
-			public const int Widget_MaterialComponents_Chip_Action = 2131755675;
+			public const int Widget_MaterialComponents_CheckedTextView = 2131755676;
 
-			public const int Widget_MaterialComponents_Chip_Choice = 2131755676;
+			public const int Widget_MaterialComponents_ChipGroup = 2131755681;
 
-			public const int Widget_MaterialComponents_Chip_Entry = 2131755677;
+			public const int Widget_MaterialComponents_Chip_Action = 2131755677;
 
-			public const int Widget_MaterialComponents_Chip_Filter = 2131755678;
+			public const int Widget_MaterialComponents_Chip_Choice = 2131755678;
 
-			public const int Widget_MaterialComponents_CompoundButton_CheckBox = 2131755680;
+			public const int Widget_MaterialComponents_Chip_Entry = 2131755679;
 
-			public const int Widget_MaterialComponents_CompoundButton_RadioButton = 2131755681;
+			public const int Widget_MaterialComponents_Chip_Filter = 2131755680;
 
-			public const int Widget_MaterialComponents_CompoundButton_Switch = 2131755682;
+			public const int Widget_MaterialComponents_CompoundButton_CheckBox = 2131755682;
 
-			public const int Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755683;
+			public const int Widget_MaterialComponents_CompoundButton_RadioButton = 2131755683;
 
-			public const int Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755684;
+			public const int Widget_MaterialComponents_CompoundButton_Switch = 2131755684;
 
-			public const int Widget_MaterialComponents_FloatingActionButton = 2131755685;
+			public const int Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755685;
 
-			public const int Widget_MaterialComponents_Light_ActionBar_Solid = 2131755686;
+			public const int Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755686;
 
-			public const int Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755687;
+			public const int Widget_MaterialComponents_FloatingActionButton = 2131755687;
 
-			public const int Widget_MaterialComponents_MaterialCalendar = 2131755688;
+			public const int Widget_MaterialComponents_Light_ActionBar_Solid = 2131755688;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day = 2131755689;
+			public const int Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755689;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755693;
+			public const int Widget_MaterialComponents_MaterialCalendar = 2131755690;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755690;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day = 2131755691;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755691;
+			public const int Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755695;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755692;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755692;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755694;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755693;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755695;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755694;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755696;
+			public const int Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755696;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755697;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755697;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755698;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755698;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755699;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755699;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755700;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755700;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755701;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755701;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Item = 2131755702;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755702;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year = 2131755703;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755703;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755704;
+			public const int Widget_MaterialComponents_MaterialCalendar_Item = 2131755704;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755705;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year = 2131755705;
 
-			public const int Widget_MaterialComponents_NavigationView = 2131755706;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755706;
 
-			public const int Widget_MaterialComponents_PopupMenu = 2131755707;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755707;
 
-			public const int Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755708;
+			public const int Widget_MaterialComponents_NavigationView = 2131755708;
 
-			public const int Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755709;
+			public const int Widget_MaterialComponents_PopupMenu = 2131755709;
 
-			public const int Widget_MaterialComponents_PopupMenu_Overflow = 2131755710;
+			public const int Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755710;
 
-			public const int Widget_MaterialComponents_Snackbar = 2131755711;
+			public const int Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755711;
 
-			public const int Widget_MaterialComponents_Snackbar_FullWidth = 2131755712;
+			public const int Widget_MaterialComponents_PopupMenu_Overflow = 2131755712;
 
-			public const int Widget_MaterialComponents_TabLayout = 2131755713;
+			public const int Widget_MaterialComponents_Snackbar = 2131755713;
 
-			public const int Widget_MaterialComponents_TabLayout_Colored = 2131755714;
+			public const int Widget_MaterialComponents_Snackbar_FullWidth = 2131755714;
 
-			public const int Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755715;
+			public const int Widget_MaterialComponents_TabLayout = 2131755715;
 
-			public const int Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755716;
+			public const int Widget_MaterialComponents_TabLayout_Colored = 2131755716;
 
-			public const int Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755717;
+			public const int Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755717;
 
-			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755718;
+			public const int Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755718;
 
-			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755719;
+			public const int Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755719;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755720;
+			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755720;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755721;
+			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755721;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755722;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755722;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755723;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755723;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755724;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755724;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755725;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755725;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755726;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755726;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755727;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755727;
 
-			public const int Widget_MaterialComponents_TextView = 2131755728;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755728;
 
-			public const int Widget_MaterialComponents_Toolbar = 2131755729;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755729;
 
-			public const int Widget_MaterialComponents_Toolbar_Primary = 2131755730;
+			public const int Widget_MaterialComponents_TextView = 2131755730;
 
-			public const int Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755731;
+			public const int Widget_MaterialComponents_Toolbar = 2131755731;
 
-			public const int Widget_MaterialComponents_Toolbar_Surface = 2131755732;
+			public const int Widget_MaterialComponents_Toolbar_Primary = 2131755732;
 
-			public const int Widget_Support_CoordinatorLayout = 2131755733;
+			public const int Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755733;
+
+			public const int Widget_MaterialComponents_Toolbar_Surface = 2131755734;
+
+			public const int Widget_Support_CoordinatorLayout = 2131755735;
 
 			static Style()
 			{
@@ -11107,126 +11135,127 @@ namespace NDB.Covid19.Droid.GoogleApi
 			NDB.Covid19.Droid.Shared.Resource.Color.ic_launcher_background = 2131034233;
 			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusBackgroundGreen = 2131034234;
 			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusBackgroundRed = 2131034235;
-			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusButtonOffRed = 2131034236;
-			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusButtonOnGreen = 2131034237;
-			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusLayoutButtonArrowBackground = 2131034238;
-			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusLayoutButtonBackground = 2131034239;
-			NDB.Covid19.Droid.Shared.Resource.Color.lightBlueDivider = 2131034240;
-			NDB.Covid19.Droid.Shared.Resource.Color.lightPrimary = 2131034241;
-			NDB.Covid19.Droid.Shared.Resource.Color.linkColor = 2131034242;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_800 = 2131034243;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_900 = 2131034244;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_950 = 2131034245;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_deep_teal_200 = 2131034246;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_deep_teal_500 = 2131034247;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_100 = 2131034248;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_300 = 2131034249;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_50 = 2131034250;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_600 = 2131034251;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_800 = 2131034252;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_850 = 2131034253;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_900 = 2131034254;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_disabled = 2131034255;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_emphasis_high_type = 2131034256;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_emphasis_medium = 2131034257;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_disabled = 2131034258;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_emphasis_high_type = 2131034259;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_emphasis_medium = 2131034260;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_disabled = 2131034261;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_emphasis_high_type = 2131034262;
-			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_emphasis_medium = 2131034263;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_colored_item_tint = 2131034264;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_colored_ripple_color = 2131034265;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_item_tint = 2131034266;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_ripple_color = 2131034267;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_bg_color_selector = 2131034268;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_ripple_color = 2131034269;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_stroke_color_selector = 2131034270;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_btn_bg_color_selector = 2131034271;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_btn_ripple_color = 2131034272;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_color_disabled = 2131034273;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_color_selector = 2131034274;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_transparent_bg_color = 2131034275;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_calendar_item_stroke_color = 2131034276;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_calendar_selected_range = 2131034277;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_card_view_foreground = 2131034278;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_card_view_ripple = 2131034279;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_background_color = 2131034280;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_close_icon_tint = 2131034281;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_ripple_color = 2131034282;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_surface_color = 2131034283;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_text_color = 2131034284;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_background_color = 2131034285;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_ripple_color = 2131034286;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_text_color = 2131034287;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_error = 2131034288;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_bg_color_selector = 2131034289;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_ripple_color = 2131034290;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_text_color_selector = 2131034291;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_fab_ripple_color = 2131034292;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_background_color = 2131034293;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_icon_tint = 2131034294;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_stroke_color = 2131034295;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_indicator_text_color = 2131034296;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_background_color = 2131034297;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_icon_tint = 2131034298;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_text_color = 2131034299;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_on_primary_text_btn_text_color_selector = 2131034300;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_outlined_icon_tint = 2131034301;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_outlined_stroke_color = 2131034302;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_popupmenu_overlay_color = 2131034303;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_scrim_color = 2131034304;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_colored_ripple_color = 2131034305;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_icon_color_selector = 2131034306;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_icon_color_selector_colored = 2131034307;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_legacy_text_color_selector = 2131034308;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_ripple_color = 2131034309;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_default_box_stroke_color = 2131034311;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_disabled_color = 2131034312;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_filled_box_default_background_color = 2131034313;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_focused_box_stroke_color = 2131034314;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_hovered_box_stroke_color = 2131034315;
-			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_text_btn_text_color_selector = 2131034310;
-			NDB.Covid19.Droid.Shared.Resource.Color.notification_action_color_filter = 2131034316;
-			NDB.Covid19.Droid.Shared.Resource.Color.notification_icon_bg_color = 2131034317;
-			NDB.Covid19.Droid.Shared.Resource.Color.notification_material_background_media_default_color = 2131034318;
-			NDB.Covid19.Droid.Shared.Resource.Color.primaryText = 2131034319;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_dark_material_dark = 2131034320;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_dark_material_light = 2131034321;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_material_dark = 2131034322;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_material_light = 2131034323;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_default_material_dark = 2131034324;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_default_material_light = 2131034325;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_disabled_material_dark = 2131034326;
-			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_disabled_material_light = 2131034327;
-			NDB.Covid19.Droid.Shared.Resource.Color.ripple_material_dark = 2131034328;
-			NDB.Covid19.Droid.Shared.Resource.Color.ripple_material_light = 2131034329;
-			NDB.Covid19.Droid.Shared.Resource.Color.secondaryText = 2131034330;
-			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_default_material_dark = 2131034331;
-			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_default_material_light = 2131034332;
-			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_disabled_material_dark = 2131034333;
-			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_disabled_material_light = 2131034334;
-			NDB.Covid19.Droid.Shared.Resource.Color.selectedDot = 2131034335;
-			NDB.Covid19.Droid.Shared.Resource.Color.splashBackground = 2131034336;
-			NDB.Covid19.Droid.Shared.Resource.Color.switchSelectedThumb = 2131034337;
-			NDB.Covid19.Droid.Shared.Resource.Color.switchSelectedTrack = 2131034338;
-			NDB.Covid19.Droid.Shared.Resource.Color.switchUnselectedThumb = 2131034339;
-			NDB.Covid19.Droid.Shared.Resource.Color.switchUnselectedTrack = 2131034340;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_disabled_material_dark = 2131034341;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_disabled_material_light = 2131034342;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_material_dark = 2131034343;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_material_light = 2131034344;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_normal_material_dark = 2131034345;
-			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_normal_material_light = 2131034346;
-			NDB.Covid19.Droid.Shared.Resource.Color.test_mtrl_calendar_day = 2131034347;
-			NDB.Covid19.Droid.Shared.Resource.Color.test_mtrl_calendar_day_selected = 2131034348;
-			NDB.Covid19.Droid.Shared.Resource.Color.textIcon = 2131034349;
-			NDB.Covid19.Droid.Shared.Resource.Color.tooltip_background_dark = 2131034350;
-			NDB.Covid19.Droid.Shared.Resource.Color.tooltip_background_light = 2131034351;
-			NDB.Covid19.Droid.Shared.Resource.Color.topbar = 2131034352;
-			NDB.Covid19.Droid.Shared.Resource.Color.topbarDevicer = 2131034353;
-			NDB.Covid19.Droid.Shared.Resource.Color.unselectedDot = 2131034354;
-			NDB.Covid19.Droid.Shared.Resource.Color.warningColor = 2131034355;
+			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusButtonMark = 2131034236;
+			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusButtonOffRed = 2131034237;
+			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusButtonOnGreen = 2131034238;
+			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusLayoutButtonArrowBackground = 2131034239;
+			NDB.Covid19.Droid.Shared.Resource.Color.infectionStatusLayoutButtonBackground = 2131034240;
+			NDB.Covid19.Droid.Shared.Resource.Color.lightBlueDivider = 2131034241;
+			NDB.Covid19.Droid.Shared.Resource.Color.lightPrimary = 2131034242;
+			NDB.Covid19.Droid.Shared.Resource.Color.linkColor = 2131034243;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_800 = 2131034244;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_900 = 2131034245;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_blue_grey_950 = 2131034246;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_deep_teal_200 = 2131034247;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_deep_teal_500 = 2131034248;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_100 = 2131034249;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_300 = 2131034250;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_50 = 2131034251;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_600 = 2131034252;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_800 = 2131034253;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_850 = 2131034254;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_grey_900 = 2131034255;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_disabled = 2131034256;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_emphasis_high_type = 2131034257;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_background_emphasis_medium = 2131034258;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_disabled = 2131034259;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_emphasis_high_type = 2131034260;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_primary_emphasis_medium = 2131034261;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_disabled = 2131034262;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_emphasis_high_type = 2131034263;
+			NDB.Covid19.Droid.Shared.Resource.Color.material_on_surface_emphasis_medium = 2131034264;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_colored_item_tint = 2131034265;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_colored_ripple_color = 2131034266;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_item_tint = 2131034267;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_bottom_nav_ripple_color = 2131034268;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_bg_color_selector = 2131034269;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_ripple_color = 2131034270;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_stroke_color_selector = 2131034271;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_btn_bg_color_selector = 2131034272;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_btn_ripple_color = 2131034273;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_color_disabled = 2131034274;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_text_color_selector = 2131034275;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_btn_transparent_bg_color = 2131034276;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_calendar_item_stroke_color = 2131034277;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_calendar_selected_range = 2131034278;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_card_view_foreground = 2131034279;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_card_view_ripple = 2131034280;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_background_color = 2131034281;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_close_icon_tint = 2131034282;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_ripple_color = 2131034283;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_surface_color = 2131034284;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_chip_text_color = 2131034285;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_background_color = 2131034286;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_ripple_color = 2131034287;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_choice_chip_text_color = 2131034288;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_error = 2131034289;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_bg_color_selector = 2131034290;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_ripple_color = 2131034291;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_extended_fab_text_color_selector = 2131034292;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_fab_ripple_color = 2131034293;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_background_color = 2131034294;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_icon_tint = 2131034295;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_filled_stroke_color = 2131034296;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_indicator_text_color = 2131034297;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_background_color = 2131034298;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_icon_tint = 2131034299;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_navigation_item_text_color = 2131034300;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_on_primary_text_btn_text_color_selector = 2131034301;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_outlined_icon_tint = 2131034302;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_outlined_stroke_color = 2131034303;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_popupmenu_overlay_color = 2131034304;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_scrim_color = 2131034305;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_colored_ripple_color = 2131034306;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_icon_color_selector = 2131034307;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_icon_color_selector_colored = 2131034308;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_legacy_text_color_selector = 2131034309;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_tabs_ripple_color = 2131034310;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_default_box_stroke_color = 2131034312;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_disabled_color = 2131034313;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_filled_box_default_background_color = 2131034314;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_focused_box_stroke_color = 2131034315;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_textinput_hovered_box_stroke_color = 2131034316;
+			NDB.Covid19.Droid.Shared.Resource.Color.mtrl_text_btn_text_color_selector = 2131034311;
+			NDB.Covid19.Droid.Shared.Resource.Color.notification_action_color_filter = 2131034317;
+			NDB.Covid19.Droid.Shared.Resource.Color.notification_icon_bg_color = 2131034318;
+			NDB.Covid19.Droid.Shared.Resource.Color.notification_material_background_media_default_color = 2131034319;
+			NDB.Covid19.Droid.Shared.Resource.Color.primaryText = 2131034320;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_dark_material_dark = 2131034321;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_dark_material_light = 2131034322;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_material_dark = 2131034323;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_material_light = 2131034324;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_default_material_dark = 2131034325;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_default_material_light = 2131034326;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_disabled_material_dark = 2131034327;
+			NDB.Covid19.Droid.Shared.Resource.Color.primary_text_disabled_material_light = 2131034328;
+			NDB.Covid19.Droid.Shared.Resource.Color.ripple_material_dark = 2131034329;
+			NDB.Covid19.Droid.Shared.Resource.Color.ripple_material_light = 2131034330;
+			NDB.Covid19.Droid.Shared.Resource.Color.secondaryText = 2131034331;
+			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_default_material_dark = 2131034332;
+			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_default_material_light = 2131034333;
+			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_disabled_material_dark = 2131034334;
+			NDB.Covid19.Droid.Shared.Resource.Color.secondary_text_disabled_material_light = 2131034335;
+			NDB.Covid19.Droid.Shared.Resource.Color.selectedDot = 2131034336;
+			NDB.Covid19.Droid.Shared.Resource.Color.splashBackground = 2131034337;
+			NDB.Covid19.Droid.Shared.Resource.Color.switchSelectedThumb = 2131034338;
+			NDB.Covid19.Droid.Shared.Resource.Color.switchSelectedTrack = 2131034339;
+			NDB.Covid19.Droid.Shared.Resource.Color.switchUnselectedThumb = 2131034340;
+			NDB.Covid19.Droid.Shared.Resource.Color.switchUnselectedTrack = 2131034341;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_disabled_material_dark = 2131034342;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_disabled_material_light = 2131034343;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_material_dark = 2131034344;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_material_light = 2131034345;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_normal_material_dark = 2131034346;
+			NDB.Covid19.Droid.Shared.Resource.Color.switch_thumb_normal_material_light = 2131034347;
+			NDB.Covid19.Droid.Shared.Resource.Color.test_mtrl_calendar_day = 2131034348;
+			NDB.Covid19.Droid.Shared.Resource.Color.test_mtrl_calendar_day_selected = 2131034349;
+			NDB.Covid19.Droid.Shared.Resource.Color.textIcon = 2131034350;
+			NDB.Covid19.Droid.Shared.Resource.Color.tooltip_background_dark = 2131034351;
+			NDB.Covid19.Droid.Shared.Resource.Color.tooltip_background_light = 2131034352;
+			NDB.Covid19.Droid.Shared.Resource.Color.topbar = 2131034353;
+			NDB.Covid19.Droid.Shared.Resource.Color.topbarDevicer = 2131034354;
+			NDB.Covid19.Droid.Shared.Resource.Color.unselectedDot = 2131034355;
+			NDB.Covid19.Droid.Shared.Resource.Color.warningColor = 2131034356;
 			NDB.Covid19.Droid.Shared.Resource.Dimension.abc_action_bar_content_inset_material = 2131099648;
 			NDB.Covid19.Droid.Shared.Resource.Dimension.abc_action_bar_content_inset_with_nav = 2131099649;
 			NDB.Covid19.Droid.Shared.Resource.Dimension.abc_action_bar_default_height_material = 2131099650;
@@ -11975,200 +12004,200 @@ namespace NDB.Covid19.Droid.GoogleApi
 			NDB.Covid19.Droid.Shared.Resource.Id.ifRoom = 2131296507;
 			NDB.Covid19.Droid.Shared.Resource.Id.image = 2131296508;
 			NDB.Covid19.Droid.Shared.Resource.Id.info = 2131296529;
-			NDB.Covid19.Droid.Shared.Resource.Id.invisible = 2131296540;
-			NDB.Covid19.Droid.Shared.Resource.Id.italic = 2131296541;
-			NDB.Covid19.Droid.Shared.Resource.Id.item_touch_helper_previous_elevation = 2131296542;
-			NDB.Covid19.Droid.Shared.Resource.Id.labeled = 2131296543;
-			NDB.Covid19.Droid.Shared.Resource.Id.largeLabel = 2131296544;
-			NDB.Covid19.Droid.Shared.Resource.Id.launcer_icon_imageview = 2131296546;
-			NDB.Covid19.Droid.Shared.Resource.Id.launcher_button = 2131296547;
-			NDB.Covid19.Droid.Shared.Resource.Id.left = 2131296548;
-			NDB.Covid19.Droid.Shared.Resource.Id.light = 2131296549;
-			NDB.Covid19.Droid.Shared.Resource.Id.line1 = 2131296550;
-			NDB.Covid19.Droid.Shared.Resource.Id.line3 = 2131296551;
-			NDB.Covid19.Droid.Shared.Resource.Id.listMode = 2131296553;
-			NDB.Covid19.Droid.Shared.Resource.Id.list_item = 2131296559;
-			NDB.Covid19.Droid.Shared.Resource.Id.masked = 2131296560;
-			NDB.Covid19.Droid.Shared.Resource.Id.media_actions = 2131296561;
-			NDB.Covid19.Droid.Shared.Resource.Id.message = 2131296562;
+			NDB.Covid19.Droid.Shared.Resource.Id.invisible = 2131296542;
+			NDB.Covid19.Droid.Shared.Resource.Id.italic = 2131296543;
+			NDB.Covid19.Droid.Shared.Resource.Id.item_touch_helper_previous_elevation = 2131296544;
+			NDB.Covid19.Droid.Shared.Resource.Id.labeled = 2131296545;
+			NDB.Covid19.Droid.Shared.Resource.Id.largeLabel = 2131296546;
+			NDB.Covid19.Droid.Shared.Resource.Id.launcer_icon_imageview = 2131296548;
+			NDB.Covid19.Droid.Shared.Resource.Id.launcher_button = 2131296549;
+			NDB.Covid19.Droid.Shared.Resource.Id.left = 2131296550;
+			NDB.Covid19.Droid.Shared.Resource.Id.light = 2131296551;
+			NDB.Covid19.Droid.Shared.Resource.Id.line1 = 2131296552;
+			NDB.Covid19.Droid.Shared.Resource.Id.line3 = 2131296553;
+			NDB.Covid19.Droid.Shared.Resource.Id.listMode = 2131296555;
+			NDB.Covid19.Droid.Shared.Resource.Id.list_item = 2131296561;
+			NDB.Covid19.Droid.Shared.Resource.Id.masked = 2131296562;
+			NDB.Covid19.Droid.Shared.Resource.Id.media_actions = 2131296563;
+			NDB.Covid19.Droid.Shared.Resource.Id.message = 2131296564;
 			NDB.Covid19.Droid.Shared.Resource.Id.META = 2131296261;
-			NDB.Covid19.Droid.Shared.Resource.Id.middle = 2131296575;
-			NDB.Covid19.Droid.Shared.Resource.Id.mini = 2131296576;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_grid = 2131296577;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_bar = 2131296578;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_fragment_toggle = 2131296579;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_next = 2131296580;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_previous = 2131296581;
-			NDB.Covid19.Droid.Shared.Resource.Id.month_title = 2131296582;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_days_of_week = 2131296584;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_day_selector_frame = 2131296583;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_frame = 2131296585;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_main_pane = 2131296586;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_months = 2131296587;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_selection_frame = 2131296588;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_text_input_frame = 2131296589;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_year_selector_frame = 2131296590;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_card_checked_layer_id = 2131296591;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_child_content_container = 2131296592;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_internal_children_alpha_tag = 2131296593;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_fullscreen = 2131296594;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header = 2131296595;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_selection_text = 2131296596;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_title_and_selection = 2131296597;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_toggle = 2131296598;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_date = 2131296599;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_range_end = 2131296600;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_range_start = 2131296601;
-			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_title_text = 2131296602;
-			NDB.Covid19.Droid.Shared.Resource.Id.multiply = 2131296603;
-			NDB.Covid19.Droid.Shared.Resource.Id.navigation_header_container = 2131296604;
-			NDB.Covid19.Droid.Shared.Resource.Id.never = 2131296605;
-			NDB.Covid19.Droid.Shared.Resource.Id.none = 2131296610;
-			NDB.Covid19.Droid.Shared.Resource.Id.normal = 2131296611;
-			NDB.Covid19.Droid.Shared.Resource.Id.noScroll = 2131296606;
-			NDB.Covid19.Droid.Shared.Resource.Id.notification_background = 2131296612;
-			NDB.Covid19.Droid.Shared.Resource.Id.notification_main_column = 2131296613;
-			NDB.Covid19.Droid.Shared.Resource.Id.notification_main_column_container = 2131296614;
-			NDB.Covid19.Droid.Shared.Resource.Id.off = 2131296620;
-			NDB.Covid19.Droid.Shared.Resource.Id.om_frame = 2131296621;
-			NDB.Covid19.Droid.Shared.Resource.Id.on = 2131296622;
-			NDB.Covid19.Droid.Shared.Resource.Id.outline = 2131296624;
-			NDB.Covid19.Droid.Shared.Resource.Id.packed = 2131296625;
-			NDB.Covid19.Droid.Shared.Resource.Id.parallax = 2131296626;
-			NDB.Covid19.Droid.Shared.Resource.Id.parent = 2131296627;
-			NDB.Covid19.Droid.Shared.Resource.Id.parentPanel = 2131296628;
-			NDB.Covid19.Droid.Shared.Resource.Id.parent_matrix = 2131296629;
-			NDB.Covid19.Droid.Shared.Resource.Id.password_toggle = 2131296630;
-			NDB.Covid19.Droid.Shared.Resource.Id.peekHeight = 2131296631;
-			NDB.Covid19.Droid.Shared.Resource.Id.percent = 2131296632;
-			NDB.Covid19.Droid.Shared.Resource.Id.pin = 2131296633;
-			NDB.Covid19.Droid.Shared.Resource.Id.progress_circular = 2131296635;
-			NDB.Covid19.Droid.Shared.Resource.Id.progress_horizontal = 2131296636;
-			NDB.Covid19.Droid.Shared.Resource.Id.radio = 2131296647;
-			NDB.Covid19.Droid.Shared.Resource.Id.right = 2131296661;
-			NDB.Covid19.Droid.Shared.Resource.Id.right_icon = 2131296662;
-			NDB.Covid19.Droid.Shared.Resource.Id.right_side = 2131296663;
-			NDB.Covid19.Droid.Shared.Resource.Id.rounded = 2131296664;
-			NDB.Covid19.Droid.Shared.Resource.Id.save_non_transition_alpha = 2131296667;
-			NDB.Covid19.Droid.Shared.Resource.Id.save_overlay_view = 2131296668;
-			NDB.Covid19.Droid.Shared.Resource.Id.scale = 2131296669;
-			NDB.Covid19.Droid.Shared.Resource.Id.screen = 2131296670;
-			NDB.Covid19.Droid.Shared.Resource.Id.scroll = 2131296671;
-			NDB.Covid19.Droid.Shared.Resource.Id.scrollable = 2131296675;
-			NDB.Covid19.Droid.Shared.Resource.Id.scrollIndicatorDown = 2131296672;
-			NDB.Covid19.Droid.Shared.Resource.Id.scrollIndicatorUp = 2131296673;
-			NDB.Covid19.Droid.Shared.Resource.Id.scrollView = 2131296674;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_badge = 2131296676;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_bar = 2131296677;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_button = 2131296678;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_close_btn = 2131296679;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_edit_frame = 2131296680;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_go_btn = 2131296681;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_mag_icon = 2131296682;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_plate = 2131296683;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_src_text = 2131296684;
-			NDB.Covid19.Droid.Shared.Resource.Id.search_voice_btn = 2131296685;
-			NDB.Covid19.Droid.Shared.Resource.Id.selected = 2131296688;
-			NDB.Covid19.Droid.Shared.Resource.Id.select_dialog_listview = 2131296687;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_link = 2131296689;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_scroll_layout = 2131296690;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_text = 2131296691;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_text_layout = 2131296692;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_title = 2131296693;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_version_info_textview = 2131296694;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_behandling_frame = 2131296695;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_consents_layout = 2131296696;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_text = 2131296697;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_text_layout = 2131296698;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_title = 2131296699;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_link = 2131296700;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_scroll_layout = 2131296701;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_text = 2131296702;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_text_layout = 2131296703;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_title = 2131296704;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_hjaelp_frame = 2131296705;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_intro_frame = 2131296706;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_links_layout = 2131296708;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_link_text = 2131296707;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_saddan_frame = 2131296709;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_scroll_frame = 2131296710;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_scroll_help_frame = 2131296711;
-			NDB.Covid19.Droid.Shared.Resource.Id.settings_version_info_textview = 2131296713;
+			NDB.Covid19.Droid.Shared.Resource.Id.middle = 2131296577;
+			NDB.Covid19.Droid.Shared.Resource.Id.mini = 2131296578;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_grid = 2131296579;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_bar = 2131296580;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_fragment_toggle = 2131296581;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_next = 2131296582;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_navigation_previous = 2131296583;
+			NDB.Covid19.Droid.Shared.Resource.Id.month_title = 2131296584;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_days_of_week = 2131296586;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_day_selector_frame = 2131296585;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_frame = 2131296587;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_main_pane = 2131296588;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_months = 2131296589;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_selection_frame = 2131296590;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_text_input_frame = 2131296591;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_calendar_year_selector_frame = 2131296592;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_card_checked_layer_id = 2131296593;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_child_content_container = 2131296594;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_internal_children_alpha_tag = 2131296595;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_fullscreen = 2131296596;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header = 2131296597;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_selection_text = 2131296598;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_title_and_selection = 2131296599;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_header_toggle = 2131296600;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_date = 2131296601;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_range_end = 2131296602;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_text_input_range_start = 2131296603;
+			NDB.Covid19.Droid.Shared.Resource.Id.mtrl_picker_title_text = 2131296604;
+			NDB.Covid19.Droid.Shared.Resource.Id.multiply = 2131296605;
+			NDB.Covid19.Droid.Shared.Resource.Id.navigation_header_container = 2131296606;
+			NDB.Covid19.Droid.Shared.Resource.Id.never = 2131296607;
+			NDB.Covid19.Droid.Shared.Resource.Id.none = 2131296612;
+			NDB.Covid19.Droid.Shared.Resource.Id.normal = 2131296613;
+			NDB.Covid19.Droid.Shared.Resource.Id.noScroll = 2131296608;
+			NDB.Covid19.Droid.Shared.Resource.Id.notification_background = 2131296614;
+			NDB.Covid19.Droid.Shared.Resource.Id.notification_main_column = 2131296615;
+			NDB.Covid19.Droid.Shared.Resource.Id.notification_main_column_container = 2131296616;
+			NDB.Covid19.Droid.Shared.Resource.Id.off = 2131296622;
+			NDB.Covid19.Droid.Shared.Resource.Id.om_frame = 2131296623;
+			NDB.Covid19.Droid.Shared.Resource.Id.on = 2131296624;
+			NDB.Covid19.Droid.Shared.Resource.Id.outline = 2131296626;
+			NDB.Covid19.Droid.Shared.Resource.Id.packed = 2131296627;
+			NDB.Covid19.Droid.Shared.Resource.Id.parallax = 2131296628;
+			NDB.Covid19.Droid.Shared.Resource.Id.parent = 2131296629;
+			NDB.Covid19.Droid.Shared.Resource.Id.parentPanel = 2131296630;
+			NDB.Covid19.Droid.Shared.Resource.Id.parent_matrix = 2131296631;
+			NDB.Covid19.Droid.Shared.Resource.Id.password_toggle = 2131296632;
+			NDB.Covid19.Droid.Shared.Resource.Id.peekHeight = 2131296633;
+			NDB.Covid19.Droid.Shared.Resource.Id.percent = 2131296634;
+			NDB.Covid19.Droid.Shared.Resource.Id.pin = 2131296635;
+			NDB.Covid19.Droid.Shared.Resource.Id.progress_circular = 2131296637;
+			NDB.Covid19.Droid.Shared.Resource.Id.progress_horizontal = 2131296638;
+			NDB.Covid19.Droid.Shared.Resource.Id.radio = 2131296649;
+			NDB.Covid19.Droid.Shared.Resource.Id.right = 2131296663;
+			NDB.Covid19.Droid.Shared.Resource.Id.right_icon = 2131296664;
+			NDB.Covid19.Droid.Shared.Resource.Id.right_side = 2131296665;
+			NDB.Covid19.Droid.Shared.Resource.Id.rounded = 2131296666;
+			NDB.Covid19.Droid.Shared.Resource.Id.save_non_transition_alpha = 2131296669;
+			NDB.Covid19.Droid.Shared.Resource.Id.save_overlay_view = 2131296670;
+			NDB.Covid19.Droid.Shared.Resource.Id.scale = 2131296671;
+			NDB.Covid19.Droid.Shared.Resource.Id.screen = 2131296672;
+			NDB.Covid19.Droid.Shared.Resource.Id.scroll = 2131296673;
+			NDB.Covid19.Droid.Shared.Resource.Id.scrollable = 2131296677;
+			NDB.Covid19.Droid.Shared.Resource.Id.scrollIndicatorDown = 2131296674;
+			NDB.Covid19.Droid.Shared.Resource.Id.scrollIndicatorUp = 2131296675;
+			NDB.Covid19.Droid.Shared.Resource.Id.scrollView = 2131296676;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_badge = 2131296678;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_bar = 2131296679;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_button = 2131296680;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_close_btn = 2131296681;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_edit_frame = 2131296682;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_go_btn = 2131296683;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_mag_icon = 2131296684;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_plate = 2131296685;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_src_text = 2131296686;
+			NDB.Covid19.Droid.Shared.Resource.Id.search_voice_btn = 2131296687;
+			NDB.Covid19.Droid.Shared.Resource.Id.selected = 2131296690;
+			NDB.Covid19.Droid.Shared.Resource.Id.select_dialog_listview = 2131296689;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_link = 2131296691;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_scroll_layout = 2131296692;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_text = 2131296693;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_text_layout = 2131296694;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_title = 2131296695;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_about_version_info_textview = 2131296696;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_behandling_frame = 2131296697;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_consents_layout = 2131296698;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_text = 2131296699;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_text_layout = 2131296700;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_general_title = 2131296701;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_link = 2131296702;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_scroll_layout = 2131296703;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_text = 2131296704;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_text_layout = 2131296705;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_help_title = 2131296706;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_hjaelp_frame = 2131296707;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_intro_frame = 2131296708;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_links_layout = 2131296710;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_link_text = 2131296709;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_saddan_frame = 2131296711;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_scroll_frame = 2131296712;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_scroll_help_frame = 2131296713;
+			NDB.Covid19.Droid.Shared.Resource.Id.settings_version_info_textview = 2131296715;
 			NDB.Covid19.Droid.Shared.Resource.Id.SHIFT = 2131296262;
-			NDB.Covid19.Droid.Shared.Resource.Id.shortcut = 2131296714;
-			NDB.Covid19.Droid.Shared.Resource.Id.showCustom = 2131296715;
-			NDB.Covid19.Droid.Shared.Resource.Id.showHome = 2131296716;
-			NDB.Covid19.Droid.Shared.Resource.Id.showTitle = 2131296717;
-			NDB.Covid19.Droid.Shared.Resource.Id.skipCollapsed = 2131296718;
-			NDB.Covid19.Droid.Shared.Resource.Id.slide = 2131296719;
-			NDB.Covid19.Droid.Shared.Resource.Id.smallLabel = 2131296720;
-			NDB.Covid19.Droid.Shared.Resource.Id.snackbar_action = 2131296721;
-			NDB.Covid19.Droid.Shared.Resource.Id.snackbar_text = 2131296722;
-			NDB.Covid19.Droid.Shared.Resource.Id.snap = 2131296723;
-			NDB.Covid19.Droid.Shared.Resource.Id.snapMargins = 2131296724;
-			NDB.Covid19.Droid.Shared.Resource.Id.spacer = 2131296728;
-			NDB.Covid19.Droid.Shared.Resource.Id.split_action_bar = 2131296729;
-			NDB.Covid19.Droid.Shared.Resource.Id.spread = 2131296730;
-			NDB.Covid19.Droid.Shared.Resource.Id.spread_inside = 2131296731;
-			NDB.Covid19.Droid.Shared.Resource.Id.src_atop = 2131296732;
-			NDB.Covid19.Droid.Shared.Resource.Id.src_in = 2131296733;
-			NDB.Covid19.Droid.Shared.Resource.Id.src_over = 2131296734;
-			NDB.Covid19.Droid.Shared.Resource.Id.standard = 2131296735;
-			NDB.Covid19.Droid.Shared.Resource.Id.start = 2131296736;
-			NDB.Covid19.Droid.Shared.Resource.Id.status_bar_latest_event_content = 2131296737;
-			NDB.Covid19.Droid.Shared.Resource.Id.stretch = 2131296738;
-			NDB.Covid19.Droid.Shared.Resource.Id.submenuarrow = 2131296739;
-			NDB.Covid19.Droid.Shared.Resource.Id.submit_area = 2131296740;
+			NDB.Covid19.Droid.Shared.Resource.Id.shortcut = 2131296716;
+			NDB.Covid19.Droid.Shared.Resource.Id.showCustom = 2131296717;
+			NDB.Covid19.Droid.Shared.Resource.Id.showHome = 2131296718;
+			NDB.Covid19.Droid.Shared.Resource.Id.showTitle = 2131296719;
+			NDB.Covid19.Droid.Shared.Resource.Id.skipCollapsed = 2131296720;
+			NDB.Covid19.Droid.Shared.Resource.Id.slide = 2131296721;
+			NDB.Covid19.Droid.Shared.Resource.Id.smallLabel = 2131296722;
+			NDB.Covid19.Droid.Shared.Resource.Id.snackbar_action = 2131296723;
+			NDB.Covid19.Droid.Shared.Resource.Id.snackbar_text = 2131296724;
+			NDB.Covid19.Droid.Shared.Resource.Id.snap = 2131296725;
+			NDB.Covid19.Droid.Shared.Resource.Id.snapMargins = 2131296726;
+			NDB.Covid19.Droid.Shared.Resource.Id.spacer = 2131296730;
+			NDB.Covid19.Droid.Shared.Resource.Id.split_action_bar = 2131296731;
+			NDB.Covid19.Droid.Shared.Resource.Id.spread = 2131296732;
+			NDB.Covid19.Droid.Shared.Resource.Id.spread_inside = 2131296733;
+			NDB.Covid19.Droid.Shared.Resource.Id.src_atop = 2131296734;
+			NDB.Covid19.Droid.Shared.Resource.Id.src_in = 2131296735;
+			NDB.Covid19.Droid.Shared.Resource.Id.src_over = 2131296736;
+			NDB.Covid19.Droid.Shared.Resource.Id.standard = 2131296737;
+			NDB.Covid19.Droid.Shared.Resource.Id.start = 2131296738;
+			NDB.Covid19.Droid.Shared.Resource.Id.status_bar_latest_event_content = 2131296739;
+			NDB.Covid19.Droid.Shared.Resource.Id.stretch = 2131296740;
+			NDB.Covid19.Droid.Shared.Resource.Id.submenuarrow = 2131296741;
+			NDB.Covid19.Droid.Shared.Resource.Id.submit_area = 2131296742;
 			NDB.Covid19.Droid.Shared.Resource.Id.SYM = 2131296263;
-			NDB.Covid19.Droid.Shared.Resource.Id.tabMode = 2131296743;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_actions = 2131296744;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_clickable_spans = 2131296745;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_heading = 2131296746;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_pane_title = 2131296747;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_screen_reader_focusable = 2131296748;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_transition_group = 2131296749;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_unhandled_key_event_manager = 2131296750;
-			NDB.Covid19.Droid.Shared.Resource.Id.tag_unhandled_key_listeners = 2131296751;
-			NDB.Covid19.Droid.Shared.Resource.Id.test_checkbox_android_button_tint = 2131296753;
-			NDB.Covid19.Droid.Shared.Resource.Id.test_checkbox_app_button_tint = 2131296754;
-			NDB.Covid19.Droid.Shared.Resource.Id.test_frame = 2131296755;
-			NDB.Covid19.Droid.Shared.Resource.Id.text = 2131296756;
-			NDB.Covid19.Droid.Shared.Resource.Id.text2 = 2131296757;
-			NDB.Covid19.Droid.Shared.Resource.Id.textEnd = 2131296758;
-			NDB.Covid19.Droid.Shared.Resource.Id.textinput_counter = 2131296764;
-			NDB.Covid19.Droid.Shared.Resource.Id.textinput_error = 2131296765;
-			NDB.Covid19.Droid.Shared.Resource.Id.textinput_helper_text = 2131296766;
-			NDB.Covid19.Droid.Shared.Resource.Id.textSpacerNoButtons = 2131296759;
-			NDB.Covid19.Droid.Shared.Resource.Id.textSpacerNoTitle = 2131296760;
-			NDB.Covid19.Droid.Shared.Resource.Id.textStart = 2131296761;
-			NDB.Covid19.Droid.Shared.Resource.Id.text_input_end_icon = 2131296762;
-			NDB.Covid19.Droid.Shared.Resource.Id.text_input_start_icon = 2131296763;
-			NDB.Covid19.Droid.Shared.Resource.Id.time = 2131296768;
-			NDB.Covid19.Droid.Shared.Resource.Id.title = 2131296769;
-			NDB.Covid19.Droid.Shared.Resource.Id.titleDividerNoCustom = 2131296770;
-			NDB.Covid19.Droid.Shared.Resource.Id.title_template = 2131296772;
-			NDB.Covid19.Droid.Shared.Resource.Id.top = 2131296773;
-			NDB.Covid19.Droid.Shared.Resource.Id.topPanel = 2131296774;
+			NDB.Covid19.Droid.Shared.Resource.Id.tabMode = 2131296745;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_actions = 2131296746;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_clickable_spans = 2131296747;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_heading = 2131296748;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_accessibility_pane_title = 2131296749;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_screen_reader_focusable = 2131296750;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_transition_group = 2131296751;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_unhandled_key_event_manager = 2131296752;
+			NDB.Covid19.Droid.Shared.Resource.Id.tag_unhandled_key_listeners = 2131296753;
+			NDB.Covid19.Droid.Shared.Resource.Id.test_checkbox_android_button_tint = 2131296755;
+			NDB.Covid19.Droid.Shared.Resource.Id.test_checkbox_app_button_tint = 2131296756;
+			NDB.Covid19.Droid.Shared.Resource.Id.test_frame = 2131296757;
+			NDB.Covid19.Droid.Shared.Resource.Id.text = 2131296758;
+			NDB.Covid19.Droid.Shared.Resource.Id.text2 = 2131296759;
+			NDB.Covid19.Droid.Shared.Resource.Id.textEnd = 2131296760;
+			NDB.Covid19.Droid.Shared.Resource.Id.textinput_counter = 2131296766;
+			NDB.Covid19.Droid.Shared.Resource.Id.textinput_error = 2131296767;
+			NDB.Covid19.Droid.Shared.Resource.Id.textinput_helper_text = 2131296768;
+			NDB.Covid19.Droid.Shared.Resource.Id.textSpacerNoButtons = 2131296761;
+			NDB.Covid19.Droid.Shared.Resource.Id.textSpacerNoTitle = 2131296762;
+			NDB.Covid19.Droid.Shared.Resource.Id.textStart = 2131296763;
+			NDB.Covid19.Droid.Shared.Resource.Id.text_input_end_icon = 2131296764;
+			NDB.Covid19.Droid.Shared.Resource.Id.text_input_start_icon = 2131296765;
+			NDB.Covid19.Droid.Shared.Resource.Id.time = 2131296770;
+			NDB.Covid19.Droid.Shared.Resource.Id.title = 2131296771;
+			NDB.Covid19.Droid.Shared.Resource.Id.titleDividerNoCustom = 2131296772;
+			NDB.Covid19.Droid.Shared.Resource.Id.title_template = 2131296774;
+			NDB.Covid19.Droid.Shared.Resource.Id.top = 2131296775;
+			NDB.Covid19.Droid.Shared.Resource.Id.topPanel = 2131296776;
 			NDB.Covid19.Droid.Shared.Resource.Id.TOP_END = 2131296264;
 			NDB.Covid19.Droid.Shared.Resource.Id.TOP_START = 2131296265;
-			NDB.Covid19.Droid.Shared.Resource.Id.touch_outside = 2131296776;
-			NDB.Covid19.Droid.Shared.Resource.Id.transition_current_scene = 2131296777;
-			NDB.Covid19.Droid.Shared.Resource.Id.transition_layout_save = 2131296778;
-			NDB.Covid19.Droid.Shared.Resource.Id.transition_position = 2131296779;
-			NDB.Covid19.Droid.Shared.Resource.Id.transition_scene_layoutid_cache = 2131296780;
-			NDB.Covid19.Droid.Shared.Resource.Id.transition_transform = 2131296781;
-			NDB.Covid19.Droid.Shared.Resource.Id.@unchecked = 2131296783;
-			NDB.Covid19.Droid.Shared.Resource.Id.uniform = 2131296784;
-			NDB.Covid19.Droid.Shared.Resource.Id.unlabeled = 2131296785;
-			NDB.Covid19.Droid.Shared.Resource.Id.up = 2131296787;
-			NDB.Covid19.Droid.Shared.Resource.Id.useLogo = 2131296788;
-			NDB.Covid19.Droid.Shared.Resource.Id.view_offset_helper = 2131296791;
-			NDB.Covid19.Droid.Shared.Resource.Id.visible = 2131296792;
-			NDB.Covid19.Droid.Shared.Resource.Id.visible_removing_fragment_view_tag = 2131296793;
-			NDB.Covid19.Droid.Shared.Resource.Id.wide = 2131296823;
-			NDB.Covid19.Droid.Shared.Resource.Id.withText = 2131296824;
-			NDB.Covid19.Droid.Shared.Resource.Id.wrap = 2131296826;
-			NDB.Covid19.Droid.Shared.Resource.Id.wrap_content = 2131296827;
+			NDB.Covid19.Droid.Shared.Resource.Id.touch_outside = 2131296778;
+			NDB.Covid19.Droid.Shared.Resource.Id.transition_current_scene = 2131296779;
+			NDB.Covid19.Droid.Shared.Resource.Id.transition_layout_save = 2131296780;
+			NDB.Covid19.Droid.Shared.Resource.Id.transition_position = 2131296781;
+			NDB.Covid19.Droid.Shared.Resource.Id.transition_scene_layoutid_cache = 2131296782;
+			NDB.Covid19.Droid.Shared.Resource.Id.transition_transform = 2131296783;
+			NDB.Covid19.Droid.Shared.Resource.Id.@unchecked = 2131296785;
+			NDB.Covid19.Droid.Shared.Resource.Id.uniform = 2131296786;
+			NDB.Covid19.Droid.Shared.Resource.Id.unlabeled = 2131296787;
+			NDB.Covid19.Droid.Shared.Resource.Id.up = 2131296789;
+			NDB.Covid19.Droid.Shared.Resource.Id.useLogo = 2131296790;
+			NDB.Covid19.Droid.Shared.Resource.Id.view_offset_helper = 2131296793;
+			NDB.Covid19.Droid.Shared.Resource.Id.visible = 2131296794;
+			NDB.Covid19.Droid.Shared.Resource.Id.visible_removing_fragment_view_tag = 2131296795;
+			NDB.Covid19.Droid.Shared.Resource.Id.wide = 2131296832;
+			NDB.Covid19.Droid.Shared.Resource.Id.withText = 2131296833;
+			NDB.Covid19.Droid.Shared.Resource.Id.wrap = 2131296835;
+			NDB.Covid19.Droid.Shared.Resource.Id.wrap_content = 2131296836;
 			NDB.Covid19.Droid.Shared.Resource.Integer.abc_config_activityDefaultDur = 2131361792;
 			NDB.Covid19.Droid.Shared.Resource.Integer.abc_config_activityShortDur = 2131361793;
 			NDB.Covid19.Droid.Shared.Resource.Integer.app_bar_elevation_anim_duration = 2131361794;
@@ -12651,493 +12680,495 @@ namespace NDB.Covid19.Droid.GoogleApi
 			NDB.Covid19.Droid.Shared.Resource.Style.CardView = 2131755231;
 			NDB.Covid19.Droid.Shared.Resource.Style.CardView_Dark = 2131755232;
 			NDB.Covid19.Droid.Shared.Resource.Style.CardView_Light = 2131755233;
-			NDB.Covid19.Droid.Shared.Resource.Style.CheckmarkText = 2131755234;
-			NDB.Covid19.Droid.Shared.Resource.Style.ConsentButton = 2131755235;
-			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButton = 2131755238;
-			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonGreen = 2131755239;
-			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonNoBorder = 2131755240;
-			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonWhite = 2131755241;
-			NDB.Covid19.Droid.Shared.Resource.Style.Divider = 2131755242;
-			NDB.Covid19.Droid.Shared.Resource.Style.Divider_Horizontal = 2131755243;
-			NDB.Covid19.Droid.Shared.Resource.Style.EmptyTheme = 2131755244;
-			NDB.Covid19.Droid.Shared.Resource.Style.ErrorText = 2131755245;
-			NDB.Covid19.Droid.Shared.Resource.Style.ExplanationTextHeader = 2131755246;
-			NDB.Covid19.Droid.Shared.Resource.Style.HeaderText = 2131755247;
-			NDB.Covid19.Droid.Shared.Resource.Style.HelpText = 2131755248;
-			NDB.Covid19.Droid.Shared.Resource.Style.LauncherAppName = 2131755253;
-			NDB.Covid19.Droid.Shared.Resource.Style.LauncherHealthAuth = 2131755254;
-			NDB.Covid19.Droid.Shared.Resource.Style.LauncherSubtitle = 2131755255;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents = 2131755256;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Body_Text = 2131755257;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755258;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755259;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755260;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755261;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755262;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755263;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Text = 2131755264;
-			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755265;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_AppCompat = 2131755273;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_AppCompat_Light = 2131755274;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents = 2131755275;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Dialog = 2131755276;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Light = 2131755277;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Light_Dialog = 2131755278;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat = 2131755279;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat_Dark = 2131755280;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat_Light = 2131755281;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V21_AppCompat = 2131755282;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V21_AppCompat_Light = 2131755283;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V25_AppCompat = 2131755284;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V25_AppCompat_Light = 2131755285;
-			NDB.Covid19.Droid.Shared.Resource.Style.Platform_Widget_AppCompat_Spinner = 2131755286;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryText = 2131755287;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextBold = 2131755288;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextItalic = 2131755289;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextLight = 2131755290;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextRegular = 2131755291;
-			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextSemiBold = 2131755292;
-			NDB.Covid19.Droid.Shared.Resource.Style.RectangleBox = 2131755294;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_DialogWindowTitle_AppCompat = 2131755295;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755296;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755297;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755298;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755299;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755300;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755301;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755302;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755303;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755309;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755304;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755305;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755306;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755307;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755308;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlUnderlay_Widget_AppCompat_ActionButton = 2131755310;
-			NDB.Covid19.Droid.Shared.Resource.Style.RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755311;
-			NDB.Covid19.Droid.Shared.Resource.Style.ScrollbarConsent = 2131755313;
-			NDB.Covid19.Droid.Shared.Resource.Style.ScrollScreen = 2131755312;
-			NDB.Covid19.Droid.Shared.Resource.Style.SecondaryText = 2131755314;
-			NDB.Covid19.Droid.Shared.Resource.Style.settings = 2131755737;
-			NDB.Covid19.Droid.Shared.Resource.Style.settings_general = 2131755738;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay = 2131755320;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755321;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_BottomRightCut = 2131755322;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_Cut = 2131755323;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_DifferentCornerSize = 2131755324;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755325;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755326;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755327;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755328;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755329;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755330;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755331;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755332;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_TopLeftCut = 2131755333;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755334;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents = 2131755315;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_LargeComponent = 2131755316;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_MediumComponent = 2131755317;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_SmallComponent = 2131755318;
-			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_Test = 2131755319;
-			NDB.Covid19.Droid.Shared.Resource.Style.SwitchPlaneStyle = 2131755335;
-			NDB.Covid19.Droid.Shared.Resource.Style.SwitchTextStyle = 2131755336;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithLineHeight = 2131755342;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithLineHeightAppearance = 2131755343;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithoutLineHeight = 2131755345;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithThemeLineHeightAttribute = 2131755344;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestThemeWithLineHeight = 2131755346;
-			NDB.Covid19.Droid.Shared.Resource.Style.TestThemeWithLineHeightDisabled = 2131755347;
-			NDB.Covid19.Droid.Shared.Resource.Style.Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755337;
-			NDB.Covid19.Droid.Shared.Resource.Style.Test_Theme_MaterialComponents_MaterialCalendar = 2131755338;
-			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar = 2131755339;
-			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755340;
-			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755341;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat = 2131755348;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Body1 = 2131755349;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Body2 = 2131755350;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Button = 2131755351;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Caption = 2131755352;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display1 = 2131755353;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display2 = 2131755354;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display3 = 2131755355;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display4 = 2131755356;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Headline = 2131755357;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Inverse = 2131755358;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Large = 2131755359;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Large_Inverse = 2131755360;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755361;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_SearchResult_Title = 2131755362;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755363;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755364;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Medium = 2131755365;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Medium_Inverse = 2131755366;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Menu = 2131755367;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_SearchResult_Subtitle = 2131755368;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_SearchResult_Title = 2131755369;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Small = 2131755370;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Small_Inverse = 2131755371;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Subhead = 2131755372;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Subhead_Inverse = 2131755373;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Title = 2131755374;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Title_Inverse = 2131755375;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Tooltip = 2131755376;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755377;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755378;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755379;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755380;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755381;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755382;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755383;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755384;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755385;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button = 2131755386;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755387;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Colored = 2131755388;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Inverse = 2131755389;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_DropDownItem = 2131755390;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755391;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755392;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755393;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Switch = 2131755394;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755395;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification = 2131755396;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755397;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Info_Media = 2131755398;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755399;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Line2_Media = 2131755400;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Media = 2131755401;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755402;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Time_Media = 2131755403;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755404;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Title_Media = 2131755405;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_CollapsingToolbar_Expanded = 2131755406;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Counter = 2131755407;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Counter_Overflow = 2131755408;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Error = 2131755409;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_HelperText = 2131755410;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Hint = 2131755411;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Snackbar_Message = 2131755412;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Tab = 2131755413;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Badge = 2131755414;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Body1 = 2131755415;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Body2 = 2131755416;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Button = 2131755417;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Caption = 2131755418;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Chip = 2131755419;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline1 = 2131755420;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline2 = 2131755421;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline3 = 2131755422;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline4 = 2131755423;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline5 = 2131755424;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline6 = 2131755425;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Overline = 2131755426;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Subtitle1 = 2131755427;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Subtitle2 = 2131755428;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755429;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755430;
-			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755431;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat = 2131755508;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_ActionBar = 2131755509;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dark = 2131755510;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dark_ActionBar = 2131755511;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_DayNight = 2131755512;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755513;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dialog = 2131755514;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dialog_Alert = 2131755515;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Light = 2131755516;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_Design_TextInputEditText = 2131755517;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents = 2131755518;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar = 2131755519;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755520;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755521;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755522;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755523;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755524;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755525;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755526;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755527;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755528;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755529;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dark = 2131755530;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755531;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755532;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dialog = 2131755533;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755534;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Light = 2131755535;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755536;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755537;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755538;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755539;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755540;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755541;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755542;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755543;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755544;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755545;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText = 2131755546;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755547;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755548;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755549;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755550;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755551;
-			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755552;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat = 2131755432;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_CompactMenu = 2131755433;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight = 2131755434;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_DarkActionBar = 2131755435;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog = 2131755436;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_DialogWhenLarge = 2131755439;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog_Alert = 2131755437;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755438;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_NoActionBar = 2131755440;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog = 2131755441;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DialogWhenLarge = 2131755444;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog_Alert = 2131755442;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog_MinWidth = 2131755443;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light = 2131755445;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_DarkActionBar = 2131755446;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog = 2131755447;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_DialogWhenLarge = 2131755450;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog_Alert = 2131755448;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog_MinWidth = 2131755449;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_NoActionBar = 2131755451;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_NoActionBar = 2131755452;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design = 2131755453;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_BottomSheetDialog = 2131755454;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light = 2131755455;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light_BottomSheetDialog = 2131755456;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light_NoActionBar = 2131755457;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_NoActionBar = 2131755458;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents = 2131755459;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_BottomSheetDialog = 2131755460;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Bridge = 2131755461;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_CompactMenu = 2131755462;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight = 2131755463;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755464;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Bridge = 2131755465;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DarkActionBar = 2131755466;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755467;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog = 2131755468;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755476;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755469;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755470;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755471;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755472;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755473;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755474;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755475;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_NoActionBar = 2131755477;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755478;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog = 2131755479;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DialogWhenLarge = 2131755487;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Alert = 2131755480;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755481;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Bridge = 2131755482;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_FixedSize = 2131755483;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755484;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_MinWidth = 2131755485;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755486;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light = 2131755488;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_BarSize = 2131755489;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_BottomSheetDialog = 2131755490;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Bridge = 2131755491;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DarkActionBar = 2131755492;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755493;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog = 2131755494;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DialogWhenLarge = 2131755502;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Alert = 2131755495;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755496;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Bridge = 2131755497;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755498;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755499;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755500;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755501;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_LargeTouch = 2131755503;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_NoActionBar = 2131755504;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755505;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_NoActionBar = 2131755506;
-			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_NoActionBar_Bridge = 2131755507;
-			NDB.Covid19.Droid.Shared.Resource.Style.TopbarText = 2131755553;
-			NDB.Covid19.Droid.Shared.Resource.Style.WarningText = 2131755555;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar = 2131755556;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_Solid = 2131755557;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabBar = 2131755558;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabText = 2131755559;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabView = 2131755560;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton = 2131755561;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton_CloseMode = 2131755562;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton_Overflow = 2131755563;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionMode = 2131755564;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActivityChooserView = 2131755565;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_AutoCompleteTextView = 2131755566;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button = 2131755567;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ButtonBar = 2131755573;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ButtonBar_AlertDialog = 2131755574;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Borderless = 2131755568;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Borderless_Colored = 2131755569;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755570;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Colored = 2131755571;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Small = 2131755572;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_CheckBox = 2131755575;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_RadioButton = 2131755576;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_Switch = 2131755577;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_DrawerArrowToggle = 2131755578;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_DropDownItem_Spinner = 2131755579;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_EditText = 2131755580;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ImageButton = 2131755581;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar = 2131755582;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_Solid = 2131755583;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755584;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabBar = 2131755585;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755586;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabText = 2131755587;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755588;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabView = 2131755589;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755590;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton = 2131755591;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton_CloseMode = 2131755592;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton_Overflow = 2131755593;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionMode_Inverse = 2131755594;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActivityChooserView = 2131755595;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_AutoCompleteTextView = 2131755596;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_DropDownItem_Spinner = 2131755597;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ListPopupWindow = 2131755598;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ListView_DropDown = 2131755599;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_PopupMenu = 2131755600;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_PopupMenu_Overflow = 2131755601;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_SearchView = 2131755602;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755603;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListMenuView = 2131755604;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListPopupWindow = 2131755605;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView = 2131755606;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView_DropDown = 2131755607;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView_Menu = 2131755608;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupMenu = 2131755609;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupMenu_Overflow = 2131755610;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupWindow = 2131755611;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ProgressBar = 2131755612;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ProgressBar_Horizontal = 2131755613;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar = 2131755614;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar_Indicator = 2131755615;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar_Small = 2131755616;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SearchView = 2131755617;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SearchView_ActionBar = 2131755618;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SeekBar = 2131755619;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SeekBar_Discrete = 2131755620;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner = 2131755621;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_DropDown = 2131755622;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755623;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_Underlined = 2131755624;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_TextView = 2131755625;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_TextView_SpinnerItem = 2131755626;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Toolbar = 2131755627;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Toolbar_Button_Navigation = 2131755628;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755629;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Compat_NotificationActionText = 2131755630;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_AppBarLayout = 2131755631;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_BottomNavigationView = 2131755632;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_BottomSheet_Modal = 2131755633;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_CollapsingToolbar = 2131755634;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_FloatingActionButton = 2131755635;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_NavigationView = 2131755636;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_ScrimInsetsFrameLayout = 2131755637;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_Snackbar = 2131755638;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_TabLayout = 2131755639;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_TextInputLayout = 2131755640;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Primary = 2131755641;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755642;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Solid = 2131755643;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Surface = 2131755644;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_Primary = 2131755645;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755646;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_Surface = 2131755647;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755648;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755649;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755650;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755651;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Badge = 2131755652;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar = 2131755653;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar_Colored = 2131755654;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755655;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView = 2131755656;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView_Colored = 2131755657;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755658;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomSheet = 2131755659;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomSheet_Modal = 2131755660;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button = 2131755661;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_Icon = 2131755662;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_OutlinedButton = 2131755663;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755664;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton = 2131755665;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog = 2131755666;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755667;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755668;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Icon = 2131755669;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755670;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_UnelevatedButton = 2131755671;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755672;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CardView = 2131755673;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CheckedTextView = 2131755674;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ChipGroup = 2131755679;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Action = 2131755675;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Choice = 2131755676;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Entry = 2131755677;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Filter = 2131755678;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_CheckBox = 2131755680;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_RadioButton = 2131755681;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_Switch = 2131755682;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755683;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755684;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_FloatingActionButton = 2131755685;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Light_ActionBar_Solid = 2131755686;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755687;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar = 2131755688;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day = 2131755689;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755693;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755690;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755691;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755692;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755694;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755695;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755696;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755697;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755698;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755699;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755700;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755701;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Item = 2131755702;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year = 2131755703;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755704;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755705;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_NavigationView = 2131755706;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu = 2131755707;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755708;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755709;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_Overflow = 2131755710;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Snackbar = 2131755711;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Snackbar_FullWidth = 2131755712;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout = 2131755713;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout_Colored = 2131755714;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755715;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755716;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755717;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755718;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755719;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755720;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755721;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755722;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755723;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755724;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755725;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755726;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755727;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextView = 2131755728;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar = 2131755729;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_Primary = 2131755730;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755731;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_Surface = 2131755732;
-			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Support_CoordinatorLayout = 2131755733;
+			NDB.Covid19.Droid.Shared.Resource.Style.Checkmark = 2131755234;
+			NDB.Covid19.Droid.Shared.Resource.Style.CheckmarkContainer = 2131755235;
+			NDB.Covid19.Droid.Shared.Resource.Style.CheckmarkText = 2131755236;
+			NDB.Covid19.Droid.Shared.Resource.Style.ConsentButton = 2131755237;
+			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButton = 2131755240;
+			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonGreen = 2131755241;
+			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonNoBorder = 2131755242;
+			NDB.Covid19.Droid.Shared.Resource.Style.DefaultButtonWhite = 2131755243;
+			NDB.Covid19.Droid.Shared.Resource.Style.Divider = 2131755244;
+			NDB.Covid19.Droid.Shared.Resource.Style.Divider_Horizontal = 2131755245;
+			NDB.Covid19.Droid.Shared.Resource.Style.EmptyTheme = 2131755246;
+			NDB.Covid19.Droid.Shared.Resource.Style.ErrorText = 2131755247;
+			NDB.Covid19.Droid.Shared.Resource.Style.ExplanationTextHeader = 2131755248;
+			NDB.Covid19.Droid.Shared.Resource.Style.HeaderText = 2131755249;
+			NDB.Covid19.Droid.Shared.Resource.Style.HelpText = 2131755250;
+			NDB.Covid19.Droid.Shared.Resource.Style.LauncherAppName = 2131755255;
+			NDB.Covid19.Droid.Shared.Resource.Style.LauncherHealthAuth = 2131755256;
+			NDB.Covid19.Droid.Shared.Resource.Style.LauncherSubtitle = 2131755257;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents = 2131755258;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Body_Text = 2131755259;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755260;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755261;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755262;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755263;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755264;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755265;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Text = 2131755266;
+			NDB.Covid19.Droid.Shared.Resource.Style.MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755267;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_AppCompat = 2131755275;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_AppCompat_Light = 2131755276;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents = 2131755277;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Dialog = 2131755278;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Light = 2131755279;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_MaterialComponents_Light_Dialog = 2131755280;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat = 2131755281;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat_Dark = 2131755282;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_ThemeOverlay_AppCompat_Light = 2131755283;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V21_AppCompat = 2131755284;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V21_AppCompat_Light = 2131755285;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V25_AppCompat = 2131755286;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_V25_AppCompat_Light = 2131755287;
+			NDB.Covid19.Droid.Shared.Resource.Style.Platform_Widget_AppCompat_Spinner = 2131755288;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryText = 2131755289;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextBold = 2131755290;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextItalic = 2131755291;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextLight = 2131755292;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextRegular = 2131755293;
+			NDB.Covid19.Droid.Shared.Resource.Style.PrimaryTextSemiBold = 2131755294;
+			NDB.Covid19.Droid.Shared.Resource.Style.RectangleBox = 2131755296;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_DialogWindowTitle_AppCompat = 2131755297;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755298;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755299;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755300;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755301;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755302;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755303;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755304;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755305;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755311;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755306;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755307;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755308;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755309;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755310;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlUnderlay_Widget_AppCompat_ActionButton = 2131755312;
+			NDB.Covid19.Droid.Shared.Resource.Style.RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755313;
+			NDB.Covid19.Droid.Shared.Resource.Style.ScrollbarConsent = 2131755315;
+			NDB.Covid19.Droid.Shared.Resource.Style.ScrollScreen = 2131755314;
+			NDB.Covid19.Droid.Shared.Resource.Style.SecondaryText = 2131755316;
+			NDB.Covid19.Droid.Shared.Resource.Style.settings = 2131755739;
+			NDB.Covid19.Droid.Shared.Resource.Style.settings_general = 2131755740;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay = 2131755322;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755323;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_BottomRightCut = 2131755324;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_Cut = 2131755325;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_DifferentCornerSize = 2131755326;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755327;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755328;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755329;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755330;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755331;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755332;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755333;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755334;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_TopLeftCut = 2131755335;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755336;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents = 2131755317;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_LargeComponent = 2131755318;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_MediumComponent = 2131755319;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_SmallComponent = 2131755320;
+			NDB.Covid19.Droid.Shared.Resource.Style.ShapeAppearance_MaterialComponents_Test = 2131755321;
+			NDB.Covid19.Droid.Shared.Resource.Style.SwitchPlaneStyle = 2131755337;
+			NDB.Covid19.Droid.Shared.Resource.Style.SwitchTextStyle = 2131755338;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithLineHeight = 2131755344;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithLineHeightAppearance = 2131755345;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithoutLineHeight = 2131755347;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestStyleWithThemeLineHeightAttribute = 2131755346;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestThemeWithLineHeight = 2131755348;
+			NDB.Covid19.Droid.Shared.Resource.Style.TestThemeWithLineHeightDisabled = 2131755349;
+			NDB.Covid19.Droid.Shared.Resource.Style.Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755339;
+			NDB.Covid19.Droid.Shared.Resource.Style.Test_Theme_MaterialComponents_MaterialCalendar = 2131755340;
+			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar = 2131755341;
+			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755342;
+			NDB.Covid19.Droid.Shared.Resource.Style.Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755343;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat = 2131755350;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Body1 = 2131755351;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Body2 = 2131755352;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Button = 2131755353;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Caption = 2131755354;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display1 = 2131755355;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display2 = 2131755356;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display3 = 2131755357;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Display4 = 2131755358;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Headline = 2131755359;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Inverse = 2131755360;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Large = 2131755361;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Large_Inverse = 2131755362;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755363;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_SearchResult_Title = 2131755364;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755365;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755366;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Medium = 2131755367;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Medium_Inverse = 2131755368;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Menu = 2131755369;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_SearchResult_Subtitle = 2131755370;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_SearchResult_Title = 2131755371;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Small = 2131755372;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Small_Inverse = 2131755373;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Subhead = 2131755374;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Subhead_Inverse = 2131755375;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Title = 2131755376;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Title_Inverse = 2131755377;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Tooltip = 2131755378;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755379;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755380;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755381;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755382;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755383;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755384;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755385;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755386;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755387;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button = 2131755388;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755389;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Colored = 2131755390;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Button_Inverse = 2131755391;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_DropDownItem = 2131755392;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755393;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755394;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755395;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_Switch = 2131755396;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755397;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification = 2131755398;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755399;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Info_Media = 2131755400;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755401;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Line2_Media = 2131755402;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Media = 2131755403;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755404;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Time_Media = 2131755405;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755406;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Compat_Notification_Title_Media = 2131755407;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_CollapsingToolbar_Expanded = 2131755408;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Counter = 2131755409;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Counter_Overflow = 2131755410;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Error = 2131755411;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_HelperText = 2131755412;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Hint = 2131755413;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Snackbar_Message = 2131755414;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Design_Tab = 2131755415;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Badge = 2131755416;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Body1 = 2131755417;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Body2 = 2131755418;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Button = 2131755419;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Caption = 2131755420;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Chip = 2131755421;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline1 = 2131755422;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline2 = 2131755423;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline3 = 2131755424;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline4 = 2131755425;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline5 = 2131755426;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Headline6 = 2131755427;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Overline = 2131755428;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Subtitle1 = 2131755429;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_MaterialComponents_Subtitle2 = 2131755430;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755431;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755432;
+			NDB.Covid19.Droid.Shared.Resource.Style.TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755433;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat = 2131755510;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_ActionBar = 2131755511;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dark = 2131755512;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dark_ActionBar = 2131755513;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_DayNight = 2131755514;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755515;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dialog = 2131755516;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Dialog_Alert = 2131755517;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_AppCompat_Light = 2131755518;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_Design_TextInputEditText = 2131755519;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents = 2131755520;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar = 2131755521;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755522;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755523;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755524;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755525;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755526;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755527;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755528;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755529;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755530;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755531;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dark = 2131755532;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755533;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755534;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dialog = 2131755535;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755536;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Light = 2131755537;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755538;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755539;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755540;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755541;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755542;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755543;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755544;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755545;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755546;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755547;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText = 2131755548;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755549;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755550;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755551;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755552;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755553;
+			NDB.Covid19.Droid.Shared.Resource.Style.ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755554;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat = 2131755434;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_CompactMenu = 2131755435;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight = 2131755436;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_DarkActionBar = 2131755437;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog = 2131755438;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_DialogWhenLarge = 2131755441;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog_Alert = 2131755439;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755440;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DayNight_NoActionBar = 2131755442;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog = 2131755443;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_DialogWhenLarge = 2131755446;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog_Alert = 2131755444;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Dialog_MinWidth = 2131755445;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light = 2131755447;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_DarkActionBar = 2131755448;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog = 2131755449;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_DialogWhenLarge = 2131755452;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog_Alert = 2131755450;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_Dialog_MinWidth = 2131755451;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_Light_NoActionBar = 2131755453;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_AppCompat_NoActionBar = 2131755454;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design = 2131755455;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_BottomSheetDialog = 2131755456;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light = 2131755457;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light_BottomSheetDialog = 2131755458;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_Light_NoActionBar = 2131755459;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_Design_NoActionBar = 2131755460;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents = 2131755461;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_BottomSheetDialog = 2131755462;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Bridge = 2131755463;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_CompactMenu = 2131755464;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight = 2131755465;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755466;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Bridge = 2131755467;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DarkActionBar = 2131755468;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755469;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog = 2131755470;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755478;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755471;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755472;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755473;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755474;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755475;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755476;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755477;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_NoActionBar = 2131755479;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755480;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog = 2131755481;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_DialogWhenLarge = 2131755489;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Alert = 2131755482;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755483;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_Bridge = 2131755484;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_FixedSize = 2131755485;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755486;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_MinWidth = 2131755487;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755488;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light = 2131755490;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_BarSize = 2131755491;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_BottomSheetDialog = 2131755492;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Bridge = 2131755493;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DarkActionBar = 2131755494;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755495;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog = 2131755496;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_DialogWhenLarge = 2131755504;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Alert = 2131755497;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755498;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_Bridge = 2131755499;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755500;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755501;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755502;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755503;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_LargeTouch = 2131755505;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_NoActionBar = 2131755506;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755507;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_NoActionBar = 2131755508;
+			NDB.Covid19.Droid.Shared.Resource.Style.Theme_MaterialComponents_NoActionBar_Bridge = 2131755509;
+			NDB.Covid19.Droid.Shared.Resource.Style.TopbarText = 2131755555;
+			NDB.Covid19.Droid.Shared.Resource.Style.WarningText = 2131755557;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar = 2131755558;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_Solid = 2131755559;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabBar = 2131755560;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabText = 2131755561;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionBar_TabView = 2131755562;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton = 2131755563;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton_CloseMode = 2131755564;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionButton_Overflow = 2131755565;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActionMode = 2131755566;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ActivityChooserView = 2131755567;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_AutoCompleteTextView = 2131755568;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button = 2131755569;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ButtonBar = 2131755575;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ButtonBar_AlertDialog = 2131755576;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Borderless = 2131755570;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Borderless_Colored = 2131755571;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755572;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Colored = 2131755573;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Button_Small = 2131755574;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_CheckBox = 2131755577;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_RadioButton = 2131755578;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_CompoundButton_Switch = 2131755579;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_DrawerArrowToggle = 2131755580;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_DropDownItem_Spinner = 2131755581;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_EditText = 2131755582;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ImageButton = 2131755583;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar = 2131755584;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_Solid = 2131755585;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755586;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabBar = 2131755587;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755588;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabText = 2131755589;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755590;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabView = 2131755591;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755592;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton = 2131755593;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton_CloseMode = 2131755594;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionButton_Overflow = 2131755595;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActionMode_Inverse = 2131755596;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ActivityChooserView = 2131755597;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_AutoCompleteTextView = 2131755598;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_DropDownItem_Spinner = 2131755599;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ListPopupWindow = 2131755600;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_ListView_DropDown = 2131755601;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_PopupMenu = 2131755602;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_PopupMenu_Overflow = 2131755603;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_SearchView = 2131755604;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755605;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListMenuView = 2131755606;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListPopupWindow = 2131755607;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView = 2131755608;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView_DropDown = 2131755609;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ListView_Menu = 2131755610;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupMenu = 2131755611;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupMenu_Overflow = 2131755612;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_PopupWindow = 2131755613;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ProgressBar = 2131755614;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_ProgressBar_Horizontal = 2131755615;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar = 2131755616;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar_Indicator = 2131755617;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_RatingBar_Small = 2131755618;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SearchView = 2131755619;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SearchView_ActionBar = 2131755620;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SeekBar = 2131755621;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_SeekBar_Discrete = 2131755622;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner = 2131755623;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_DropDown = 2131755624;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755625;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Spinner_Underlined = 2131755626;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_TextView = 2131755627;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_TextView_SpinnerItem = 2131755628;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Toolbar = 2131755629;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_AppCompat_Toolbar_Button_Navigation = 2131755630;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755631;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Compat_NotificationActionText = 2131755632;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_AppBarLayout = 2131755633;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_BottomNavigationView = 2131755634;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_BottomSheet_Modal = 2131755635;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_CollapsingToolbar = 2131755636;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_FloatingActionButton = 2131755637;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_NavigationView = 2131755638;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_ScrimInsetsFrameLayout = 2131755639;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_Snackbar = 2131755640;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_TabLayout = 2131755641;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Design_TextInputLayout = 2131755642;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Primary = 2131755643;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755644;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Solid = 2131755645;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ActionBar_Surface = 2131755646;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_Primary = 2131755647;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755648;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AppBarLayout_Surface = 2131755649;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755650;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755651;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755652;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755653;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Badge = 2131755654;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar = 2131755655;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar_Colored = 2131755656;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755657;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView = 2131755658;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView_Colored = 2131755659;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755660;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomSheet = 2131755661;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_BottomSheet_Modal = 2131755662;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button = 2131755663;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_Icon = 2131755664;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_OutlinedButton = 2131755665;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755666;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton = 2131755667;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog = 2131755668;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755669;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755670;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Icon = 2131755671;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755672;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_UnelevatedButton = 2131755673;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755674;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CardView = 2131755675;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CheckedTextView = 2131755676;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ChipGroup = 2131755681;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Action = 2131755677;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Choice = 2131755678;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Entry = 2131755679;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Chip_Filter = 2131755680;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_CheckBox = 2131755682;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_RadioButton = 2131755683;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_CompoundButton_Switch = 2131755684;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755685;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755686;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_FloatingActionButton = 2131755687;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Light_ActionBar_Solid = 2131755688;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755689;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar = 2131755690;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day = 2131755691;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755695;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755692;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755693;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755694;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755696;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755697;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755698;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755699;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755700;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755701;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755702;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755703;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Item = 2131755704;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year = 2131755705;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755706;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755707;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_NavigationView = 2131755708;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu = 2131755709;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755710;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755711;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_PopupMenu_Overflow = 2131755712;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Snackbar = 2131755713;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Snackbar_FullWidth = 2131755714;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout = 2131755715;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout_Colored = 2131755716;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755717;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755718;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755719;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755720;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755721;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755722;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755723;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755724;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755725;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755726;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755727;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755728;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755729;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_TextView = 2131755730;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar = 2131755731;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_Primary = 2131755732;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755733;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_MaterialComponents_Toolbar_Surface = 2131755734;
+			NDB.Covid19.Droid.Shared.Resource.Style.Widget_Support_CoordinatorLayout = 2131755735;
 			NDB.Covid19.Droid.Shared.Resource.Styleable.ActionBar = Styleable.ActionBar;
 			NDB.Covid19.Droid.Shared.Resource.Styleable.ActionBarLayout = Styleable.ActionBarLayout;
 			NDB.Covid19.Droid.Shared.Resource.Styleable.ActionBarLayout_android_layout_gravity = 0;
@@ -14216,10 +14247,10 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Plugin.Permissions.Resource.Color.browser_actions_divider_color = 2131034151;
 			Plugin.Permissions.Resource.Color.browser_actions_text_color = 2131034152;
 			Plugin.Permissions.Resource.Color.browser_actions_title_color = 2131034153;
-			Plugin.Permissions.Resource.Color.notification_action_color_filter = 2131034316;
-			Plugin.Permissions.Resource.Color.notification_icon_bg_color = 2131034317;
-			Plugin.Permissions.Resource.Color.ripple_material_light = 2131034329;
-			Plugin.Permissions.Resource.Color.secondary_text_default_material_light = 2131034332;
+			Plugin.Permissions.Resource.Color.notification_action_color_filter = 2131034317;
+			Plugin.Permissions.Resource.Color.notification_icon_bg_color = 2131034318;
+			Plugin.Permissions.Resource.Color.ripple_material_light = 2131034330;
+			Plugin.Permissions.Resource.Color.secondary_text_default_material_light = 2131034333;
 			Plugin.Permissions.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
 			Plugin.Permissions.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
 			Plugin.Permissions.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
@@ -14318,32 +14349,32 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Plugin.Permissions.Resource.Id.icon = 2131296503;
 			Plugin.Permissions.Resource.Id.icon_group = 2131296504;
 			Plugin.Permissions.Resource.Id.info = 2131296529;
-			Plugin.Permissions.Resource.Id.italic = 2131296541;
-			Plugin.Permissions.Resource.Id.left = 2131296548;
-			Plugin.Permissions.Resource.Id.line1 = 2131296550;
-			Plugin.Permissions.Resource.Id.line3 = 2131296551;
-			Plugin.Permissions.Resource.Id.none = 2131296610;
-			Plugin.Permissions.Resource.Id.normal = 2131296611;
-			Plugin.Permissions.Resource.Id.notification_background = 2131296612;
-			Plugin.Permissions.Resource.Id.notification_main_column = 2131296613;
-			Plugin.Permissions.Resource.Id.notification_main_column_container = 2131296614;
-			Plugin.Permissions.Resource.Id.right = 2131296661;
-			Plugin.Permissions.Resource.Id.right_icon = 2131296662;
-			Plugin.Permissions.Resource.Id.right_side = 2131296663;
-			Plugin.Permissions.Resource.Id.start = 2131296736;
-			Plugin.Permissions.Resource.Id.tag_accessibility_actions = 2131296744;
-			Plugin.Permissions.Resource.Id.tag_accessibility_clickable_spans = 2131296745;
-			Plugin.Permissions.Resource.Id.tag_accessibility_heading = 2131296746;
-			Plugin.Permissions.Resource.Id.tag_accessibility_pane_title = 2131296747;
-			Plugin.Permissions.Resource.Id.tag_screen_reader_focusable = 2131296748;
-			Plugin.Permissions.Resource.Id.tag_transition_group = 2131296749;
-			Plugin.Permissions.Resource.Id.tag_unhandled_key_event_manager = 2131296750;
-			Plugin.Permissions.Resource.Id.tag_unhandled_key_listeners = 2131296751;
-			Plugin.Permissions.Resource.Id.text = 2131296756;
-			Plugin.Permissions.Resource.Id.text2 = 2131296757;
-			Plugin.Permissions.Resource.Id.time = 2131296768;
-			Plugin.Permissions.Resource.Id.title = 2131296769;
-			Plugin.Permissions.Resource.Id.top = 2131296773;
+			Plugin.Permissions.Resource.Id.italic = 2131296543;
+			Plugin.Permissions.Resource.Id.left = 2131296550;
+			Plugin.Permissions.Resource.Id.line1 = 2131296552;
+			Plugin.Permissions.Resource.Id.line3 = 2131296553;
+			Plugin.Permissions.Resource.Id.none = 2131296612;
+			Plugin.Permissions.Resource.Id.normal = 2131296613;
+			Plugin.Permissions.Resource.Id.notification_background = 2131296614;
+			Plugin.Permissions.Resource.Id.notification_main_column = 2131296615;
+			Plugin.Permissions.Resource.Id.notification_main_column_container = 2131296616;
+			Plugin.Permissions.Resource.Id.right = 2131296663;
+			Plugin.Permissions.Resource.Id.right_icon = 2131296664;
+			Plugin.Permissions.Resource.Id.right_side = 2131296665;
+			Plugin.Permissions.Resource.Id.start = 2131296738;
+			Plugin.Permissions.Resource.Id.tag_accessibility_actions = 2131296746;
+			Plugin.Permissions.Resource.Id.tag_accessibility_clickable_spans = 2131296747;
+			Plugin.Permissions.Resource.Id.tag_accessibility_heading = 2131296748;
+			Plugin.Permissions.Resource.Id.tag_accessibility_pane_title = 2131296749;
+			Plugin.Permissions.Resource.Id.tag_screen_reader_focusable = 2131296750;
+			Plugin.Permissions.Resource.Id.tag_transition_group = 2131296751;
+			Plugin.Permissions.Resource.Id.tag_unhandled_key_event_manager = 2131296752;
+			Plugin.Permissions.Resource.Id.tag_unhandled_key_listeners = 2131296753;
+			Plugin.Permissions.Resource.Id.text = 2131296758;
+			Plugin.Permissions.Resource.Id.text2 = 2131296759;
+			Plugin.Permissions.Resource.Id.time = 2131296770;
+			Plugin.Permissions.Resource.Id.title = 2131296771;
+			Plugin.Permissions.Resource.Id.top = 2131296775;
 			Plugin.Permissions.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Plugin.Permissions.Resource.Layout.browser_actions_context_menu_page = 2131492897;
 			Plugin.Permissions.Resource.Layout.browser_actions_context_menu_row = 2131492898;
@@ -14355,14 +14386,14 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Plugin.Permissions.Resource.Layout.notification_template_part_chronometer = 2131492972;
 			Plugin.Permissions.Resource.Layout.notification_template_part_time = 2131492973;
 			Plugin.Permissions.Resource.String.status_bar_notification_info_overflow = 2131689581;
-			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification = 2131755396;
-			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755397;
-			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755399;
-			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755402;
-			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755404;
-			Plugin.Permissions.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755629;
-			Plugin.Permissions.Resource.Style.Widget_Compat_NotificationActionText = 2131755630;
-			Plugin.Permissions.Resource.Style.Widget_Support_CoordinatorLayout = 2131755733;
+			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification = 2131755398;
+			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755399;
+			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755401;
+			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755404;
+			Plugin.Permissions.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755406;
+			Plugin.Permissions.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755631;
+			Plugin.Permissions.Resource.Style.Widget_Compat_NotificationActionText = 2131755632;
+			Plugin.Permissions.Resource.Style.Widget_Support_CoordinatorLayout = 2131755735;
 			Plugin.Permissions.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Plugin.Permissions.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Plugin.Permissions.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -14431,10 +14462,10 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Auth.Resource.Color.browser_actions_divider_color = 2131034151;
 			Xamarin.Auth.Resource.Color.browser_actions_text_color = 2131034152;
 			Xamarin.Auth.Resource.Color.browser_actions_title_color = 2131034153;
-			Xamarin.Auth.Resource.Color.notification_action_color_filter = 2131034316;
-			Xamarin.Auth.Resource.Color.notification_icon_bg_color = 2131034317;
-			Xamarin.Auth.Resource.Color.ripple_material_light = 2131034329;
-			Xamarin.Auth.Resource.Color.secondary_text_default_material_light = 2131034332;
+			Xamarin.Auth.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.Auth.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.Auth.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.Auth.Resource.Color.secondary_text_default_material_light = 2131034333;
 			Xamarin.Auth.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
 			Xamarin.Auth.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
 			Xamarin.Auth.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
@@ -14489,23 +14520,23 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Auth.Resource.Id.icon = 2131296503;
 			Xamarin.Auth.Resource.Id.icon_group = 2131296504;
 			Xamarin.Auth.Resource.Id.info = 2131296529;
-			Xamarin.Auth.Resource.Id.italic = 2131296541;
-			Xamarin.Auth.Resource.Id.line1 = 2131296550;
-			Xamarin.Auth.Resource.Id.line3 = 2131296551;
-			Xamarin.Auth.Resource.Id.normal = 2131296611;
-			Xamarin.Auth.Resource.Id.notification_background = 2131296612;
-			Xamarin.Auth.Resource.Id.notification_main_column = 2131296613;
-			Xamarin.Auth.Resource.Id.notification_main_column_container = 2131296614;
-			Xamarin.Auth.Resource.Id.right_icon = 2131296662;
-			Xamarin.Auth.Resource.Id.right_side = 2131296663;
-			Xamarin.Auth.Resource.Id.tag_transition_group = 2131296749;
-			Xamarin.Auth.Resource.Id.tag_unhandled_key_event_manager = 2131296750;
-			Xamarin.Auth.Resource.Id.tag_unhandled_key_listeners = 2131296751;
-			Xamarin.Auth.Resource.Id.text = 2131296756;
-			Xamarin.Auth.Resource.Id.text2 = 2131296757;
-			Xamarin.Auth.Resource.Id.time = 2131296768;
-			Xamarin.Auth.Resource.Id.title = 2131296769;
-			Xamarin.Auth.Resource.Id.webview = 2131296798;
+			Xamarin.Auth.Resource.Id.italic = 2131296543;
+			Xamarin.Auth.Resource.Id.line1 = 2131296552;
+			Xamarin.Auth.Resource.Id.line3 = 2131296553;
+			Xamarin.Auth.Resource.Id.normal = 2131296613;
+			Xamarin.Auth.Resource.Id.notification_background = 2131296614;
+			Xamarin.Auth.Resource.Id.notification_main_column = 2131296615;
+			Xamarin.Auth.Resource.Id.notification_main_column_container = 2131296616;
+			Xamarin.Auth.Resource.Id.right_icon = 2131296664;
+			Xamarin.Auth.Resource.Id.right_side = 2131296665;
+			Xamarin.Auth.Resource.Id.tag_transition_group = 2131296751;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_event_manager = 2131296752;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_listeners = 2131296753;
+			Xamarin.Auth.Resource.Id.text = 2131296758;
+			Xamarin.Auth.Resource.Id.text2 = 2131296759;
+			Xamarin.Auth.Resource.Id.time = 2131296770;
+			Xamarin.Auth.Resource.Id.title = 2131296771;
+			Xamarin.Auth.Resource.Id.webview = 2131296800;
 			Xamarin.Auth.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.Auth.Resource.Layout.activity_webview = 2131492896;
 			Xamarin.Auth.Resource.Layout.browser_actions_context_menu_page = 2131492897;
@@ -14518,13 +14549,13 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Auth.Resource.Layout.notification_template_part_time = 2131492973;
 			Xamarin.Auth.Resource.String.status_bar_notification_info_overflow = 2131689581;
 			Xamarin.Auth.Resource.String.title_activity_webview = 2131689582;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification = 2131755396;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755397;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755399;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755402;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755404;
-			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755629;
-			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionText = 2131755630;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification = 2131755398;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755399;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755401;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755404;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755406;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755631;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionText = 2131755632;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -14588,10 +14619,10 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Essentials.Resource.Color.browser_actions_divider_color = 2131034151;
 			Xamarin.Essentials.Resource.Color.browser_actions_text_color = 2131034152;
 			Xamarin.Essentials.Resource.Color.browser_actions_title_color = 2131034153;
-			Xamarin.Essentials.Resource.Color.notification_action_color_filter = 2131034316;
-			Xamarin.Essentials.Resource.Color.notification_icon_bg_color = 2131034317;
-			Xamarin.Essentials.Resource.Color.ripple_material_light = 2131034329;
-			Xamarin.Essentials.Resource.Color.secondary_text_default_material_light = 2131034332;
+			Xamarin.Essentials.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.Essentials.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.Essentials.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.Essentials.Resource.Color.secondary_text_default_material_light = 2131034333;
 			Xamarin.Essentials.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
 			Xamarin.Essentials.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
 			Xamarin.Essentials.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
@@ -14690,32 +14721,32 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Essentials.Resource.Id.icon = 2131296503;
 			Xamarin.Essentials.Resource.Id.icon_group = 2131296504;
 			Xamarin.Essentials.Resource.Id.info = 2131296529;
-			Xamarin.Essentials.Resource.Id.italic = 2131296541;
-			Xamarin.Essentials.Resource.Id.left = 2131296548;
-			Xamarin.Essentials.Resource.Id.line1 = 2131296550;
-			Xamarin.Essentials.Resource.Id.line3 = 2131296551;
-			Xamarin.Essentials.Resource.Id.none = 2131296610;
-			Xamarin.Essentials.Resource.Id.normal = 2131296611;
-			Xamarin.Essentials.Resource.Id.notification_background = 2131296612;
-			Xamarin.Essentials.Resource.Id.notification_main_column = 2131296613;
-			Xamarin.Essentials.Resource.Id.notification_main_column_container = 2131296614;
-			Xamarin.Essentials.Resource.Id.right = 2131296661;
-			Xamarin.Essentials.Resource.Id.right_icon = 2131296662;
-			Xamarin.Essentials.Resource.Id.right_side = 2131296663;
-			Xamarin.Essentials.Resource.Id.start = 2131296736;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_actions = 2131296744;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_clickable_spans = 2131296745;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_heading = 2131296746;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_pane_title = 2131296747;
-			Xamarin.Essentials.Resource.Id.tag_screen_reader_focusable = 2131296748;
-			Xamarin.Essentials.Resource.Id.tag_transition_group = 2131296749;
-			Xamarin.Essentials.Resource.Id.tag_unhandled_key_event_manager = 2131296750;
-			Xamarin.Essentials.Resource.Id.tag_unhandled_key_listeners = 2131296751;
-			Xamarin.Essentials.Resource.Id.text = 2131296756;
-			Xamarin.Essentials.Resource.Id.text2 = 2131296757;
-			Xamarin.Essentials.Resource.Id.time = 2131296768;
-			Xamarin.Essentials.Resource.Id.title = 2131296769;
-			Xamarin.Essentials.Resource.Id.top = 2131296773;
+			Xamarin.Essentials.Resource.Id.italic = 2131296543;
+			Xamarin.Essentials.Resource.Id.left = 2131296550;
+			Xamarin.Essentials.Resource.Id.line1 = 2131296552;
+			Xamarin.Essentials.Resource.Id.line3 = 2131296553;
+			Xamarin.Essentials.Resource.Id.none = 2131296612;
+			Xamarin.Essentials.Resource.Id.normal = 2131296613;
+			Xamarin.Essentials.Resource.Id.notification_background = 2131296614;
+			Xamarin.Essentials.Resource.Id.notification_main_column = 2131296615;
+			Xamarin.Essentials.Resource.Id.notification_main_column_container = 2131296616;
+			Xamarin.Essentials.Resource.Id.right = 2131296663;
+			Xamarin.Essentials.Resource.Id.right_icon = 2131296664;
+			Xamarin.Essentials.Resource.Id.right_side = 2131296665;
+			Xamarin.Essentials.Resource.Id.start = 2131296738;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_actions = 2131296746;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_clickable_spans = 2131296747;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_heading = 2131296748;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_pane_title = 2131296749;
+			Xamarin.Essentials.Resource.Id.tag_screen_reader_focusable = 2131296750;
+			Xamarin.Essentials.Resource.Id.tag_transition_group = 2131296751;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_event_manager = 2131296752;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_listeners = 2131296753;
+			Xamarin.Essentials.Resource.Id.text = 2131296758;
+			Xamarin.Essentials.Resource.Id.text2 = 2131296759;
+			Xamarin.Essentials.Resource.Id.time = 2131296770;
+			Xamarin.Essentials.Resource.Id.title = 2131296771;
+			Xamarin.Essentials.Resource.Id.top = 2131296775;
 			Xamarin.Essentials.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_page = 2131492897;
 			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_row = 2131492898;
@@ -14727,14 +14758,14 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.Essentials.Resource.Layout.notification_template_part_chronometer = 2131492972;
 			Xamarin.Essentials.Resource.Layout.notification_template_part_time = 2131492973;
 			Xamarin.Essentials.Resource.String.status_bar_notification_info_overflow = 2131689581;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification = 2131755396;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755397;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755399;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755402;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755404;
-			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755629;
-			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionText = 2131755630;
-			Xamarin.Essentials.Resource.Style.Widget_Support_CoordinatorLayout = 2131755733;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification = 2131755398;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755399;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755401;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755404;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755406;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755631;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionText = 2131755632;
+			Xamarin.Essentials.Resource.Style.Widget_Support_CoordinatorLayout = 2131755735;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -14831,10 +14862,10 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_focused = 2131034175;
 			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_pressed = 2131034176;
 			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_tint = 2131034177;
-			Xamarin.ExposureNotification.Resource.Color.notification_action_color_filter = 2131034316;
-			Xamarin.ExposureNotification.Resource.Color.notification_icon_bg_color = 2131034317;
-			Xamarin.ExposureNotification.Resource.Color.ripple_material_light = 2131034329;
-			Xamarin.ExposureNotification.Resource.Color.secondary_text_default_material_light = 2131034332;
+			Xamarin.ExposureNotification.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.ExposureNotification.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.ExposureNotification.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.ExposureNotification.Resource.Color.secondary_text_default_material_light = 2131034333;
 			Xamarin.ExposureNotification.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
 			Xamarin.ExposureNotification.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
 			Xamarin.ExposureNotification.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
@@ -14959,35 +14990,35 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.ExposureNotification.Resource.Id.icon_group = 2131296504;
 			Xamarin.ExposureNotification.Resource.Id.icon_only = 2131296505;
 			Xamarin.ExposureNotification.Resource.Id.info = 2131296529;
-			Xamarin.ExposureNotification.Resource.Id.italic = 2131296541;
-			Xamarin.ExposureNotification.Resource.Id.left = 2131296548;
-			Xamarin.ExposureNotification.Resource.Id.light = 2131296549;
-			Xamarin.ExposureNotification.Resource.Id.line1 = 2131296550;
-			Xamarin.ExposureNotification.Resource.Id.line3 = 2131296551;
-			Xamarin.ExposureNotification.Resource.Id.none = 2131296610;
-			Xamarin.ExposureNotification.Resource.Id.normal = 2131296611;
-			Xamarin.ExposureNotification.Resource.Id.notification_background = 2131296612;
-			Xamarin.ExposureNotification.Resource.Id.notification_main_column = 2131296613;
-			Xamarin.ExposureNotification.Resource.Id.notification_main_column_container = 2131296614;
-			Xamarin.ExposureNotification.Resource.Id.right = 2131296661;
-			Xamarin.ExposureNotification.Resource.Id.right_icon = 2131296662;
-			Xamarin.ExposureNotification.Resource.Id.right_side = 2131296663;
-			Xamarin.ExposureNotification.Resource.Id.standard = 2131296735;
-			Xamarin.ExposureNotification.Resource.Id.start = 2131296736;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_actions = 2131296744;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_clickable_spans = 2131296745;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_heading = 2131296746;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_pane_title = 2131296747;
-			Xamarin.ExposureNotification.Resource.Id.tag_screen_reader_focusable = 2131296748;
-			Xamarin.ExposureNotification.Resource.Id.tag_transition_group = 2131296749;
-			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_event_manager = 2131296750;
-			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_listeners = 2131296751;
-			Xamarin.ExposureNotification.Resource.Id.text = 2131296756;
-			Xamarin.ExposureNotification.Resource.Id.text2 = 2131296757;
-			Xamarin.ExposureNotification.Resource.Id.time = 2131296768;
-			Xamarin.ExposureNotification.Resource.Id.title = 2131296769;
-			Xamarin.ExposureNotification.Resource.Id.top = 2131296773;
-			Xamarin.ExposureNotification.Resource.Id.wide = 2131296823;
+			Xamarin.ExposureNotification.Resource.Id.italic = 2131296543;
+			Xamarin.ExposureNotification.Resource.Id.left = 2131296550;
+			Xamarin.ExposureNotification.Resource.Id.light = 2131296551;
+			Xamarin.ExposureNotification.Resource.Id.line1 = 2131296552;
+			Xamarin.ExposureNotification.Resource.Id.line3 = 2131296553;
+			Xamarin.ExposureNotification.Resource.Id.none = 2131296612;
+			Xamarin.ExposureNotification.Resource.Id.normal = 2131296613;
+			Xamarin.ExposureNotification.Resource.Id.notification_background = 2131296614;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column = 2131296615;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column_container = 2131296616;
+			Xamarin.ExposureNotification.Resource.Id.right = 2131296663;
+			Xamarin.ExposureNotification.Resource.Id.right_icon = 2131296664;
+			Xamarin.ExposureNotification.Resource.Id.right_side = 2131296665;
+			Xamarin.ExposureNotification.Resource.Id.standard = 2131296737;
+			Xamarin.ExposureNotification.Resource.Id.start = 2131296738;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_actions = 2131296746;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_clickable_spans = 2131296747;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_heading = 2131296748;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_pane_title = 2131296749;
+			Xamarin.ExposureNotification.Resource.Id.tag_screen_reader_focusable = 2131296750;
+			Xamarin.ExposureNotification.Resource.Id.tag_transition_group = 2131296751;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_event_manager = 2131296752;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_listeners = 2131296753;
+			Xamarin.ExposureNotification.Resource.Id.text = 2131296758;
+			Xamarin.ExposureNotification.Resource.Id.text2 = 2131296759;
+			Xamarin.ExposureNotification.Resource.Id.time = 2131296770;
+			Xamarin.ExposureNotification.Resource.Id.title = 2131296771;
+			Xamarin.ExposureNotification.Resource.Id.top = 2131296775;
+			Xamarin.ExposureNotification.Resource.Id.wide = 2131296832;
 			Xamarin.ExposureNotification.Resource.Integer.google_play_services_version = 2131361800;
 			Xamarin.ExposureNotification.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.ExposureNotification.Resource.Layout.browser_actions_context_menu_page = 2131492897;
@@ -15018,14 +15049,14 @@ namespace NDB.Covid19.Droid.GoogleApi
 			Xamarin.ExposureNotification.Resource.String.common_signin_button_text = 2131689528;
 			Xamarin.ExposureNotification.Resource.String.common_signin_button_text_long = 2131689529;
 			Xamarin.ExposureNotification.Resource.String.status_bar_notification_info_overflow = 2131689581;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification = 2131755396;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755397;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755399;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755402;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755404;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755629;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionText = 2131755630;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Support_CoordinatorLayout = 2131755733;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification = 2131755398;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755399;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755401;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755404;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755406;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755631;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionText = 2131755632;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Support_CoordinatorLayout = 2131755735;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -15124,11 +15155,21 @@ namespace NDB.Covid19.Droid.GoogleApi.OAuth2
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			base.OnCreate(savedInstanceState);
-			Android.Net.Uri data = Intent.Data;
-			System.Uri url = new System.Uri(data.ToString());
-			AuthenticationState.Authenticator.OnPageLoading(url);
-			Finish();
+			try
+			{
+				base.OnCreate(savedInstanceState);
+				Android.Net.Uri data = Intent.Data;
+				System.Uri url = new System.Uri(data.ToString());
+				AuthenticationState.Authenticator.OnPageLoading(url);
+				Finish();
+			}
+			catch (System.Exception e)
+			{
+				string additionalInfo = ((Intent == null) ? "Intent was null" : ((Intent.Data == null) ? "Intent.Data was null" : ("Intent.Data: " + Intent.Data.ToString())));
+				LogUtils.LogException(LogSeverity.WARNING, e, "AuthUrlSchemeInterceptorActivity OnCreate error when redirectin to app after NemID validation", additionalInfo);
+				AuthenticationState.Authenticator.OnPageLoading(new System.Uri("com.netcompany.smittestop:/oauth2redirect"));
+				Finish();
+			}
 		}
 	}
 }
@@ -15137,11 +15178,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views
 	[Activity(MainLauncher = true, Theme = "@style/AppTheme.Launcher", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class InitializerActivity : Activity
 	{
-		private int _minimumGooglePlayServicesVersionNumber = 201300000;
-
 		private Button _launcherButton;
-
-		private bool _isGooglePlayServicesUpToDate => PackageManager.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0).VersionCode >= _minimumGooglePlayServicesVersionNumber;
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
@@ -15151,14 +15188,14 @@ namespace NDB.Covid19.Droid.GoogleApi.Views
 			}
 			base.OnCreate(savedInstanceState);
 			SetContentView(2131492926);
-			_launcherButton = FindViewById<Button>(2131296547);
+			_launcherButton = FindViewById<Button>(2131296549);
 		}
 
 		protected override void OnResume()
 		{
 			base.OnResume();
 			_launcherButton.Click += new StressUtils.SingleClick(launcherButton_Click).Run;
-			if (_isGooglePlayServicesUpToDate)
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
 			{
 				NavigationHelper.GoToStartPage(this);
 			}
@@ -15170,7 +15207,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views
 
 		private void launcherButton_Click(object sender, EventArgs e)
 		{
-			if (_isGooglePlayServicesUpToDate)
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
 			{
 				NavigationHelper.GoToOnBoarding(this, isOnBoarding: true);
 			}
@@ -15292,7 +15329,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 				pager.SetPagingEnabled(enabled: false);
 				pager.AddOnPageChangeListener(this);
 				pager.AnnounceForAccessibility(isOnBoarding ? WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE : WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE);
-				dotLayout = base.FindViewById<TabLayout>(2131296742);
+				dotLayout = base.FindViewById<TabLayout>(2131296744);
 				dotLayout.SetupWithViewPager(pager, autoRefresh: true);
 			}
 		}
@@ -15383,10 +15420,10 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493006, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296806);
-			TextView textView2 = view.FindViewById<TextView>(2131296808);
-			TextView textView3 = view.FindViewById<TextView>(2131296807);
-			TextView textView4 = view.FindViewById<TextView>(2131296809);
+			TextView textView = view.FindViewById<TextView>(2131296808);
+			TextView textView2 = view.FindViewById<TextView>(2131296810);
+			TextView textView3 = view.FindViewById<TextView>(2131296809);
+			TextView textView4 = view.FindViewById<TextView>(2131296814);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_THREE;
@@ -15400,9 +15437,9 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493007, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296811);
-			TextView textView2 = view.FindViewById<TextView>(2131296812);
-			TextView textView3 = view.FindViewById<TextView>(2131296813);
+			TextView textView = view.FindViewById<TextView>(2131296816);
+			TextView textView2 = view.FindViewById<TextView>(2131296817);
+			TextView textView3 = view.FindViewById<TextView>(2131296820);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_ONE_TITLE;
@@ -15432,10 +15469,10 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493008, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296815);
-			TextView textView2 = view.FindViewById<TextView>(2131296816);
-			TextView textView3 = view.FindViewById<TextView>(2131296818);
-			TextView textView4 = view.FindViewById<TextView>(2131296817);
+			TextView textView = view.FindViewById<TextView>(2131296822);
+			TextView textView2 = view.FindViewById<TextView>(2131296823);
+			TextView textView3 = view.FindViewById<TextView>(2131296825);
+			TextView textView4 = view.FindViewById<TextView>(2131296824);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_THREE_TITLE;
@@ -15450,9 +15487,9 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493009, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296819);
-			TextView textView2 = view.FindViewById<TextView>(2131296820);
-			TextView textView3 = view.FindViewById<TextView>(2131296821);
+			TextView textView = view.FindViewById<TextView>(2131296826);
+			TextView textView2 = view.FindViewById<TextView>(2131296827);
+			TextView textView3 = view.FindViewById<TextView>(2131296830);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_TWO_TITLE;
@@ -15475,22 +15512,22 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131493005);
-			TextView textView = base.FindViewById<TextView>(2131296805);
+			TextView textView = base.FindViewById<TextView>(2131296807);
 			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
-			Button button = base.FindViewById<Button>(2131296802);
+			Button button = base.FindViewById<Button>(2131296804);
 			button.Click += new StressUtils.SingleClick(PreviousButtonPressed, 500).Run;
 			button.Text = WelcomeViewModel.PREVIOUS_PAGE_BUTTON_TEXT;
-			Button button2 = base.FindViewById<Button>(2131296799);
+			Button button2 = base.FindViewById<Button>(2131296801);
 			button2.Click += new StressUtils.SingleClick(NextButtonPressed, 500).Run;
 			button2.Text = WelcomeViewModel.NEXT_PAGE_BUTTON_TEXT;
-			switchCustom = base.FindViewById<SwitchCompat>(2131296803);
+			switchCustom = base.FindViewById<SwitchCompat>(2131296805);
 			switchCustom.CheckedChange += OnCheckedChange;
 			switchCustom.ContentDescription = ConsentViewModel.SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR;
-			consentWarning = base.FindViewById<LinearLayout>(2131296800);
+			consentWarning = base.FindViewById<LinearLayout>(2131296802);
 			SetConsentWarningShown(shown: false);
-			consentWarningTextView = base.FindViewById<TextView>(2131296801);
+			consentWarningTextView = base.FindViewById<TextView>(2131296803);
 			consentWarningTextView.Text = ConsentViewModel.CONSENT_REQUIRED;
-			TextView textView2 = base.FindViewById<TextView>(2131296804);
+			TextView textView2 = base.FindViewById<TextView>(2131296806);
 			textView2.Text = ConsentViewModel.GIVE_CONSENT_TEXT;
 			textView2.LabelFor = switchCustom.Id;
 			RelativeLayout relativeLayout = base.FindViewById<RelativeLayout>(2131296390);
@@ -15651,7 +15688,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Settings
 			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
 			_resetConsentsButton = base.FindViewById<Button>(2131296358);
 			_progressBar = base.FindViewById<ProgressBar>(2131296382);
-			TextView textView = base.FindViewById<TextView>(2131296805);
+			TextView textView = base.FindViewById<TextView>(2131296807);
 			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
 			_resetConsentsButton.Text = ConsentViewModel.WITHDRAW_CONSENT_BUTTON_TEXT;
 			button.Click += new StressUtils.SingleClick(delegate
@@ -15827,7 +15864,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.ErrorActivities
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131492895);
-			TextView textView = base.FindViewById<TextView>(2131296782);
+			TextView textView = base.FindViewById<TextView>(2131296784);
 			textView.Text = WelcomeViewModel.TRANSMISSION_ERROR_MSG;
 			_acceptButton = base.FindViewById<Button>(2131296354);
 			_acceptButton.Click += new StressUtils.SingleClick(AcceptButtonClicked).Run;
@@ -15889,13 +15926,13 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 		private void InitLayout()
 		{
 			_closeButton = base.FindViewById<ViewGroup>(2131296377);
-			_nemIdButton = base.FindViewById<Button>(2131296535);
-			_header = base.FindViewById<TextView>(2131296534);
-			_contentText = base.FindViewById<TextView>(2131296532);
-			_subtitleText = base.FindViewById<TextView>(2131296539);
-			_bodyOneText = base.FindViewById<TextView>(2131296530);
-			_bodyTwoText = base.FindViewById<TextView>(2131296531);
-			_contentTwoText = base.FindViewById<TextView>(2131296533);
+			_nemIdButton = base.FindViewById<Button>(2131296537);
+			_header = base.FindViewById<TextView>(2131296536);
+			_contentText = base.FindViewById<TextView>(2131296534);
+			_subtitleText = base.FindViewById<TextView>(2131296541);
+			_bodyOneText = base.FindViewById<TextView>(2131296531);
+			_bodyTwoText = base.FindViewById<TextView>(2131296533);
+			_contentTwoText = base.FindViewById<TextView>(2131296535);
 			_nemIdButton.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_NEMID_BUTTON_TEXT;
 			_header.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_HEADER_TEXT;
 			_contentText.TextFormatted = HtmlCompat.FromHtml(InformationAndConsentViewModel.INFORMATION_CONSENT_CONTENT_TEXT ?? "", 0);
@@ -15909,7 +15946,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 				((Activity)(object)this).Finish();
 			}, 500).Run;
 			_nemIdButton.Click += new StressUtils.SingleClick(nemIdButton_Click, 500).Run;
-			_progressBar = base.FindViewById<ProgressBar>(2131296536);
+			_progressBar = base.FindViewById<ProgressBar>(2131296538);
 		}
 
 		private async void nemIdButton_Click(object sender, EventArgs e)
@@ -15963,9 +16000,6 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 			{
 				switch (error)
 				{
-				case AuthErrorType.AuthenticationFailed:
-					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, null, "nemid auth failed");
-					break;
 				case AuthErrorType.MaxTriesExceeded:
 					AuthErrorUtils.GoToManyTriesError((Activity)(object)this, LogSeverity.ERROR, null, "Max number of tries was exceeded");
 					break;
@@ -15973,7 +16007,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 					AuthErrorUtils.GoToNotInfectedError((Activity)(object)this, LogSeverity.ERROR, null, "User is not infected");
 					break;
 				case AuthErrorType.Unknown:
-					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.WARNING, null, "Unknown auth error or user press backbtn");
+					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.WARNING, null, "User sees Technical error page after NemID login: Unknown auth error or user press backbtn");
 					break;
 				}
 			});
@@ -16015,7 +16049,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 			base.OnCreate(savedInstanceState);
 			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE;
 			((Activity)(object)this).SetContentView(2131492927);
-			base.FindViewById<ProgressBar>(2131296634).Visibility = ViewStates.Visible;
+			base.FindViewById<ProgressBar>(2131296636).Visibility = ViewStates.Visible;
 		}
 
 		protected override void OnResume()
@@ -16096,11 +16130,11 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 			{
 				GoToInfectionStatusActivity();
 			}).Run;
-			TextView textView = base.FindViewById<TextView>(2131296659);
-			TextView textView2 = base.FindViewById<TextView>(2131296658);
-			TextView textView3 = base.FindViewById<TextView>(2131296657);
-			TextView textView4 = base.FindViewById<TextView>(2131296651);
-			TextView textView5 = base.FindViewById<TextView>(2131296653);
+			TextView textView = base.FindViewById<TextView>(2131296661);
+			TextView textView2 = base.FindViewById<TextView>(2131296660);
+			TextView textView3 = base.FindViewById<TextView>(2131296659);
+			TextView textView4 = base.FindViewById<TextView>(2131296653);
+			TextView textView5 = base.FindViewById<TextView>(2131296655);
 			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_HEADER;
 			textView2.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_TEXT;
 			textView3.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION;
@@ -16111,16 +16145,16 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 			textView3.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION;
 			textView4.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER;
 			textView5.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
-			Button button = base.FindViewById<Button>(2131296655);
+			Button button = base.FindViewById<Button>(2131296657);
 			button.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
 			button.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
 			button.Click += new StressUtils.SingleClick(delegate
 			{
 				GoToInfectionStatusActivity();
 			}).Run;
-			base.FindViewById<RelativeLayout>(2131296654).Click += async delegate
+			base.FindViewById<RelativeLayout>(2131296656).Click += async delegate
 			{
-				await Browser.OpenAsync(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_LINK, BrowserLaunchMode.SystemPreferred);
+				await ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_LINK, BrowserLaunchMode.SystemPreferred);
 			};
 			LogUtils.LogMessage(LogSeverity.INFO, "User has succesfully shared their keys");
 		}
@@ -16184,8 +16218,6 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 
 		private Button _closeButton;
 
-		private readonly Android.Icu.Util.TimeZone _timeZone = Android.Icu.Util.TimeZone.GetTimeZone("UTC");
-
 		private QuestionnaireViewModel _questionnaireViewModel;
 
 		private ISpanned GetFormattedText => HtmlCompat.FromHtml(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES + " <input type=\"date\">" + _datePickerTextView.ContentDescription + "</input>", 0);
@@ -16201,16 +16233,16 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 		private void Init()
 		{
 			_questionnaireViewModel = new QuestionnaireViewModel();
-			TextView textView = base.FindViewById<TextView>(2131296646);
+			TextView textView = base.FindViewById<TextView>(2131296648);
 			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
 			textView.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
-			TextView textView2 = base.FindViewById<TextView>(2131296645);
+			TextView textView2 = base.FindViewById<TextView>(2131296647);
 			ISpanned spanned = (ISpanned)(textView2.ContentDescriptionFormatted = (textView2.TextFormatted = HtmlCompat.FromHtml(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT, 0)));
-			_questionnaireButton = base.FindViewById<Button>(2131296643);
+			_questionnaireButton = base.FindViewById<Button>(2131296645);
 			_questionnaireButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
 			_questionnaireButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
 			_questionnaireButton.Click += OnNextButtonClick;
-			_infoButton = base.FindViewById<ImageButton>(2131296644);
+			_infoButton = base.FindViewById<ImageButton>(2131296646);
 			_infoButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON;
 			_infoButton.Click += OnInfoButtonPressed;
 			_closeButton = base.FindViewById<Button>(2131296377);
@@ -16219,15 +16251,15 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 			{
 				ShowAreYouSureToExitDialog();
 			}).Run;
-			LogUtils.LogMessage(LogSeverity.INFO, "Successfully authenticated with NemID");
+			LogUtils.LogMessage(LogSeverity.INFO, "The user is seeing the Questionnaire page");
 			PrepareRadioButtons();
 		}
 
 		private void PrepareRadioButtons()
 		{
 			_firstRadioButton = base.FindViewById<RadioButton>(2131296472);
-			_secondRadioButton = base.FindViewById<RadioButton>(2131296686);
-			_thirdRadioButton = base.FindViewById<RadioButton>(2131296767);
+			_secondRadioButton = base.FindViewById<RadioButton>(2131296688);
+			_thirdRadioButton = base.FindViewById<RadioButton>(2131296769);
 			_fourthRadioButton = base.FindViewById<RadioButton>(2131296480);
 			_fourthRadioButton.Checked = true;
 			_datePickerTextView = base.FindViewById<TextView>(2131296414);
@@ -16269,14 +16301,14 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 					_isChangedFromDatePicker = false;
 				}
 				break;
-			case 2131296686:
+			case 2131296688:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.YesBut);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
 				}
 				break;
-			case 2131296767:
+			case 2131296769:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.No);
 				if (_isChangedFromDatePicker)
 				{
@@ -16302,23 +16334,26 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.AuthenticationFlow
 
 		private void ShowDatePickerDialog()
 		{
-			Calendar instance = Calendar.GetInstance(_timeZone);
-			int num = instance.Get(CalendarField.Date);
-			int num2 = instance.Get(CalendarField.Month);
-			int year = instance.Get(CalendarField.Year);
+			DateTime localSelectedDate = QuestionnaireViewModel.GetLocalSelectedDate();
+			int dayOfMonth = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Day : DateTime.Now.Day);
+			int monthOfYear = (QuestionnaireViewModel.DateHasBeenSet ? (localSelectedDate.Month - 1) : (DateTime.Now.Month - 1));
+			int year = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Year : DateTime.Now.Year);
 			_datePicker = new DatePickerDialog(CrossCurrentActivity.Current.Activity, delegate(object sender, DatePickerDialog.DateSetEventArgs args)
 			{
 				_datePickerTextView.Text = $"{args.DayOfMonth}/{args.Month + 1}/{args.Year}";
 				_datePickerTextView.Ellipsize = TextUtils.TruncateAt.End;
-				_questionnaireViewModel.SetSelectedDateUTC(args.Date);
+				_questionnaireViewModel.SetSelectedDateUTC(args.Date.ToUniversalTime());
 				_firstRadioButton.Checked = true;
 				_firstRadioButton.ContentDescriptionFormatted = GetFormattedText;
-			}, year, num2, num);
-			instance.Set(2020, 0, 1);
-			_datePicker.DatePicker.MinDate = instance.TimeInMillis;
-			instance.Set(year, num2, num);
-			_datePicker.DatePicker.MaxDate = instance.TimeInMillis;
+			}, year, monthOfYear, dayOfMonth);
+			_datePicker.DatePicker.MinDate = DateTimeToAndroidDatePickerLong(_questionnaireViewModel.MinimumDate.ToLocalTime());
+			_datePicker.DatePicker.MaxDate = DateTimeToAndroidDatePickerLong(DateTime.Now);
 			_datePicker.Show();
+		}
+
+		private long DateTimeToAndroidDatePickerLong(DateTime dateTime)
+		{
+			return (long)dateTime.ToUniversalTime().Subtract(DateTime.MinValue.AddYears(1969)).TotalMilliseconds;
 		}
 
 		public override void OnBackPressed()
@@ -16416,12 +16451,10 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.InfectionStatus
 			}
 			catch (System.Exception ex)
 			{
-				if (ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("InfectionStatusActivity", "TurnExposureNotificationsOffIfBluetoothIsOff"))
 				{
-					LogUtils.LogException(LogSeverity.ERROR, ex, "InfectionStatusActivity.TurnExposureNotificationsOffIfBluetoothIsOff: EN API was not available");
-					return;
+					throw ex;
 				}
-				throw ex;
 			}
 		}
 
@@ -16596,7 +16629,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.InfectionStatus
 				await _viewModel.StartBluetooth();
 				if (await _viewModel.IsRunning())
 				{
-					ExposureNotification.Init();
+					BackgroundFetchScheduler.ScheduleBackgroundFetch();
 				}
 			}
 			finally
@@ -16610,7 +16643,6 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.InfectionStatus
 			try
 			{
 				await _viewModel.StopBluetooth();
-				new BackgroundServiceStopper().StopBackgroundService();
 			}
 			finally
 			{
@@ -16914,7 +16946,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 
 			public async void OnItemClick(AdapterView parent, View view, int position, long id)
 			{
-				await Browser.OpenAsync(_adapterMessages[position].MessageLink, BrowserLaunchMode.SystemPreferred);
+				await ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(_adapterMessages[position].MessageLink, BrowserLaunchMode.SystemPreferred);
 				_adapterMessages[position].IsRead = true;
 				_adapterMessages.NotifyDataSetChanged();
 			}
@@ -16963,12 +16995,12 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 		private void Init()
 		{
 			MessagesViewModel.SubscribeMessages(this, ClearAndAddNewMessages);
-			base.FindViewById<TextView>(2131296574).Text = MessagesViewModel.MESSAGES_HEADER;
-			base.FindViewById<TextView>(2131296565).Text = MessagesViewModel.LastUpdateString;
-			base.FindViewById<TextView>(2131296609).Text = MessagesViewModel.MESSAGES_NO_ITEMS_TITLE;
-			base.FindViewById<TextView>(2131296607).Text = MessagesViewModel.MESSAGES_NO_ITEMS_DESCRIPTION;
-			_messagesList = base.FindViewById<ListView>(2131296573);
-			_noItemsLayout = base.FindViewById<LinearLayout>(2131296608);
+			base.FindViewById<TextView>(2131296576).Text = MessagesViewModel.MESSAGES_HEADER;
+			base.FindViewById<TextView>(2131296567).Text = MessagesViewModel.LastUpdateString;
+			base.FindViewById<TextView>(2131296611).Text = MessagesViewModel.MESSAGES_NO_ITEMS_TITLE;
+			base.FindViewById<TextView>(2131296609).Text = MessagesViewModel.MESSAGES_NO_ITEMS_DESCRIPTION;
+			_messagesList = base.FindViewById<ListView>(2131296575);
+			_noItemsLayout = base.FindViewById<LinearLayout>(2131296610);
 			_closeButton = base.FindViewById<ViewGroup>(2131296377);
 			_closeButton.Click += new StressUtils.SingleClick(OnCloseBtnClicked).Run;
 			_closeButton.ContentDescription = MessagesViewModel.MESSAGES_ACCESSIBILITY_CLOSE_BUTTON;
@@ -17000,7 +17032,7 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 			_adapterMessages.ClearList();
 			ShowList(messages.Count > 0);
 			_adapterMessages.AddItems(messages);
-			base.FindViewById<TextView>(2131296565).Text = MessagesViewModel.LastUpdateString;
+			base.FindViewById<TextView>(2131296567).Text = MessagesViewModel.LastUpdateString;
 		}
 
 		public async void Update()
@@ -17044,9 +17076,9 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 		public override View GetView(int position, View convertView, ViewGroup parent)
 		{
 			View view = convertView ?? _context.LayoutInflater.Inflate(2131492929, null);
-			view.FindViewById<TextView>(2131296572).Text = _items[position].Title;
-			view.FindViewById<TextView>(2131296570).Text = _items[position].DayAndMonthString;
-			view.FindViewById<TextView>(2131296571).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
+			view.FindViewById<TextView>(2131296574).Text = _items[position].Title;
+			view.FindViewById<TextView>(2131296572).Text = _items[position].DayAndMonthString;
+			view.FindViewById<TextView>(2131296573).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
 			view.FindViewById<View>(2131296430).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
 			view.SetBackgroundResource(_items[position].IsRead ? 2131165379 : 2131165380);
 			return view;
@@ -17131,12 +17163,10 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 				}
 				catch (System.Exception ex)
 				{
-					if (ex.ExposureNotificationApiNotAvailable())
+					if (!ex.HandleExposureNotificationException("BackgroundFetchScheduler", "DoAsyncWork"))
 					{
-						LogUtils.LogException(LogSeverity.ERROR, ex, "BackgroundFetchScheduler.DoAsyncWork: EN API was not available");
-						return;
+						throw ex;
 					}
-					throw ex;
 				}
 			}
 		}
@@ -17309,12 +17339,11 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			}
 			catch (System.Exception ex)
 			{
-				if (ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("PermissionUtils", "HasExposureApiPermissions"))
 				{
-					LogUtils.LogException(LogSeverity.ERROR, ex, "PermissionUtils.HasExposureApiPermissions: EN API was not available");
-					return false;
+					throw ex;
 				}
-				throw ex;
+				return false;
 			}
 		}
 
@@ -17452,12 +17481,18 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			}).Run;
 		}
 	}
-	public class BackgroundServiceStopper : IStopBackgroundService
+	public abstract class PlayServicesVersionUtils
 	{
-		public void StopBackgroundService()
+		public static bool PlayServicesVersionNumberIsLargeEnough(PackageManager packageManager)
 		{
-			WorkManager instance = WorkManager.GetInstance(Platform.AppContext);
-			instance.CancelAllWorkByTag("exposurenotification");
+			long num = 201300000L;
+			long longVersionCode = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.Current.AppContext.PackageManager.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0));
+			bool flag = longVersionCode >= num;
+			if (!flag)
+			{
+				LogUtils.LogMessage(LogSeverity.INFO, "PlayServicesVersionUtils: User is prevented from using the app because of too low GPS version");
+			}
+			return flag;
 		}
 	}
 }
@@ -17494,11 +17529,10 @@ namespace NDB.Covid19.Droid.GoogleApi.HardwareServices
 			}
 			catch (System.Exception ex)
 			{
-				if (!ex.ExposureNotificationApiNotAvailable())
+				if (!ex.HandleExposureNotificationException("PermissionsBroadcastReceiver", "NotifyAboutPermissionsChange"))
 				{
 					throw ex;
 				}
-				LogUtils.LogException(LogSeverity.ERROR, ex, "PermissionsBroadcastReceiver.NotifyAboutPermissionsChange: EN API was not available");
 				flag = false;
 			}
 			if (!_permissionsUtils.HasPermissionsWithoutDialogs() && flag)
@@ -17544,7 +17578,7 @@ namespace NDB.Covid19.Droid.GoogleApi.HardwareServices
 
 		public string GetBackGroundServicVersionLogString()
 		{
-			return " (GPS: " + GetBackGroudServiceVersion() + ")";
+			return "(GPS: " + GetBackGroudServiceVersion() + ")";
 		}
 	}
 }
