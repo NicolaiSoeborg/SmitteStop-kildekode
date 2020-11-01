@@ -16,6 +16,7 @@ using Android.Gms.Common;
 using Android.Gms.SafetyNet;
 using Android.Icu.Util;
 using Android.Locations;
+using Android.Net;
 using Android.OS;
 using Android.Provider;
 using Android.Runtime;
@@ -29,6 +30,7 @@ using AndroidX.AppCompat.App;
 using AndroidX.AppCompat.Widget;
 using AndroidX.ConstraintLayout.Widget;
 using AndroidX.Core.App;
+using AndroidX.Core.Content.PM;
 using AndroidX.Core.Text;
 using AndroidX.Fragment.App;
 using AndroidX.ViewPager.Widget;
@@ -138,7 +140,8 @@ namespace NDB.Covid19.Droid.GoogleApi
 			if (e?.Exception != null)
 			{
 				string contextDescription = "MainApplication.OnUnhandledAndroidException: " + ((!e.Handled) ? "Native unhandled crash" : "Native unhandled exception - not crashing");
-				LogUtils.LogException(e.Handled ? LogSeverity.WARNING : LogSeverity.ERROR, e.Exception, contextDescription);
+				LogSeverity severity = (e.Handled ? LogSeverity.WARNING : LogSeverity.ERROR);
+				LogUtils.LogException(severity, e.Exception, contextDescription);
 			}
 		}
 
@@ -15122,7 +15125,8 @@ namespace NDB.Covid19.Droid.GoogleApi.OAuth2
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
 			base.OnCreate(savedInstanceState);
-			Uri url = new Uri(Intent.Data.ToString());
+			Android.Net.Uri data = Intent.Data;
+			System.Uri url = new System.Uri(data.ToString());
 			AuthenticationState.Authenticator.OnPageLoading(url);
 			Finish();
 		}
@@ -15471,7 +15475,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131493005);
-			base.FindViewById<TextView>(2131296805).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			TextView textView = base.FindViewById<TextView>(2131296805);
+			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
 			Button button = base.FindViewById<Button>(2131296802);
 			button.Click += new StressUtils.SingleClick(PreviousButtonPressed, 500).Run;
 			button.Text = WelcomeViewModel.PREVIOUS_PAGE_BUTTON_TEXT;
@@ -15485,9 +15490,9 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 			SetConsentWarningShown(shown: false);
 			consentWarningTextView = base.FindViewById<TextView>(2131296801);
 			consentWarningTextView.Text = ConsentViewModel.CONSENT_REQUIRED;
-			TextView textView = base.FindViewById<TextView>(2131296804);
-			textView.Text = ConsentViewModel.GIVE_CONSENT_TEXT;
-			textView.LabelFor = switchCustom.Id;
+			TextView textView2 = base.FindViewById<TextView>(2131296804);
+			textView2.Text = ConsentViewModel.GIVE_CONSENT_TEXT;
+			textView2.LabelFor = switchCustom.Id;
 			RelativeLayout relativeLayout = base.FindViewById<RelativeLayout>(2131296390);
 			RelativeLayout relativeLayout2 = base.FindViewById<RelativeLayout>(2131296397);
 			RelativeLayout relativeLayout3 = base.FindViewById<RelativeLayout>(2131296391);
@@ -15497,33 +15502,33 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Welcome
 			RelativeLayout relativeLayout7 = base.FindViewById<RelativeLayout>(2131296394);
 			RelativeLayout relativeLayout8 = base.FindViewById<RelativeLayout>(2131296389);
 			RelativeLayout relativeLayout9 = base.FindViewById<RelativeLayout>(2131296388);
-			TextView textView2 = relativeLayout.FindViewById<TextView>(2131296387);
-			TextView textView3 = relativeLayout2.FindViewById<TextView>(2131296387);
-			TextView textView4 = relativeLayout3.FindViewById<TextView>(2131296387);
-			TextView textView5 = relativeLayout4.FindViewById<TextView>(2131296387);
-			TextView textView6 = relativeLayout5.FindViewById<TextView>(2131296387);
-			TextView textView7 = relativeLayout6.FindViewById<TextView>(2131296387);
-			TextView textView8 = relativeLayout7.FindViewById<TextView>(2131296387);
-			TextView textView9 = relativeLayout8.FindViewById<TextView>(2131296387);
-			TextView textView10 = relativeLayout9.FindViewById<TextView>(2131296387);
-			textView2.Text = ConsentViewModel.CONSENT_ONE_TITLE;
-			textView3.Text = ConsentViewModel.CONSENT_TWO_TITLE;
-			textView4.Text = ConsentViewModel.CONSENT_THREE_TITLE;
-			textView5.Text = ConsentViewModel.CONSENT_FOUR_TITLE;
-			textView6.Text = ConsentViewModel.CONSENT_FIVE_TITLE;
-			textView7.Text = ConsentViewModel.CONSENT_SIX_TITLE;
-			textView8.Text = ConsentViewModel.CONSENT_SEVEN_TITLE;
-			textView9.Text = ConsentViewModel.CONSENT_EIGHT_TITLE;
-			textView10.Text = ConsentViewModel.CONSENT_NINE_TITLE;
-			textView2.ContentDescription = ConsentViewModel.CONSENT_ONE_TITLE.ToLower();
-			textView3.ContentDescription = ConsentViewModel.CONSENT_TWO_TITLE.ToLower();
-			textView4.ContentDescription = ConsentViewModel.CONSENT_THREE_TITLE.ToLower();
-			textView5.ContentDescription = ConsentViewModel.CONSENT_FOUR_TITLE.ToLower();
-			textView6.ContentDescription = ConsentViewModel.CONSENT_FIVE_TITLE.ToLower();
-			textView7.ContentDescription = ConsentViewModel.CONSENT_SIX_TITLE.ToLower();
-			textView8.ContentDescription = ConsentViewModel.CONSENT_SEVEN_TITLE.ToLower();
-			textView9.ContentDescription = ConsentViewModel.CONSENT_EIGHT_TITLE.ToLower();
-			textView10.ContentDescription = ConsentViewModel.CONSENT_NINE_TITLE.ToLower();
+			TextView textView3 = relativeLayout.FindViewById<TextView>(2131296387);
+			TextView textView4 = relativeLayout2.FindViewById<TextView>(2131296387);
+			TextView textView5 = relativeLayout3.FindViewById<TextView>(2131296387);
+			TextView textView6 = relativeLayout4.FindViewById<TextView>(2131296387);
+			TextView textView7 = relativeLayout5.FindViewById<TextView>(2131296387);
+			TextView textView8 = relativeLayout6.FindViewById<TextView>(2131296387);
+			TextView textView9 = relativeLayout7.FindViewById<TextView>(2131296387);
+			TextView textView10 = relativeLayout8.FindViewById<TextView>(2131296387);
+			TextView textView11 = relativeLayout9.FindViewById<TextView>(2131296387);
+			textView3.Text = ConsentViewModel.CONSENT_ONE_TITLE;
+			textView4.Text = ConsentViewModel.CONSENT_TWO_TITLE;
+			textView5.Text = ConsentViewModel.CONSENT_THREE_TITLE;
+			textView6.Text = ConsentViewModel.CONSENT_FOUR_TITLE;
+			textView7.Text = ConsentViewModel.CONSENT_FIVE_TITLE;
+			textView8.Text = ConsentViewModel.CONSENT_SIX_TITLE;
+			textView9.Text = ConsentViewModel.CONSENT_SEVEN_TITLE;
+			textView10.Text = ConsentViewModel.CONSENT_EIGHT_TITLE;
+			textView11.Text = ConsentViewModel.CONSENT_NINE_TITLE;
+			textView3.ContentDescription = ConsentViewModel.CONSENT_ONE_TITLE.ToLower();
+			textView4.ContentDescription = ConsentViewModel.CONSENT_TWO_TITLE.ToLower();
+			textView5.ContentDescription = ConsentViewModel.CONSENT_THREE_TITLE.ToLower();
+			textView6.ContentDescription = ConsentViewModel.CONSENT_FOUR_TITLE.ToLower();
+			textView7.ContentDescription = ConsentViewModel.CONSENT_FIVE_TITLE.ToLower();
+			textView8.ContentDescription = ConsentViewModel.CONSENT_SIX_TITLE.ToLower();
+			textView9.ContentDescription = ConsentViewModel.CONSENT_SEVEN_TITLE.ToLower();
+			textView10.ContentDescription = ConsentViewModel.CONSENT_EIGHT_TITLE.ToLower();
+			textView11.ContentDescription = ConsentViewModel.CONSENT_NINE_TITLE.ToLower();
 			relativeLayout.FindViewById<TextView>(2131296386).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_ONE_PARAGRAPH, 0);
 			relativeLayout2.FindViewById<TextView>(2131296386).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_TWO_PARAGRAPH, 0);
 			relativeLayout3.FindViewById<TextView>(2131296386).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_THREE_PARAGRAPH, 0);
@@ -15646,7 +15651,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Settings
 			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
 			_resetConsentsButton = base.FindViewById<Button>(2131296358);
 			_progressBar = base.FindViewById<ProgressBar>(2131296382);
-			base.FindViewById<TextView>(2131296805).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			TextView textView = base.FindViewById<TextView>(2131296805);
+			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
 			_resetConsentsButton.Text = ConsentViewModel.WITHDRAW_CONSENT_BUTTON_TEXT;
 			button.Click += new StressUtils.SingleClick(delegate
 			{
@@ -15821,7 +15827,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.ErrorActivities
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131492895);
-			base.FindViewById<TextView>(2131296782).Text = WelcomeViewModel.TRANSMISSION_ERROR_MSG;
+			TextView textView = base.FindViewById<TextView>(2131296782);
+			textView.Text = WelcomeViewModel.TRANSMISSION_ERROR_MSG;
 			_acceptButton = base.FindViewById<Button>(2131296354);
 			_acceptButton.Click += new StressUtils.SingleClick(AcceptButtonClicked).Run;
 		}
@@ -16949,7 +16956,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 
 		private void CloseLocalNotification()
 		{
-			NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity).Cancel(616);
+			NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity);
+			notificationManagerCompat.Cancel(616);
 		}
 
 		private void Init()
@@ -17035,13 +17043,13 @@ namespace NDB.Covid19.Droid.GoogleApi.Views.Messages
 
 		public override View GetView(int position, View convertView, ViewGroup parent)
 		{
-			View obj = convertView ?? _context.LayoutInflater.Inflate(2131492929, null);
-			obj.FindViewById<TextView>(2131296572).Text = _items[position].Title;
-			obj.FindViewById<TextView>(2131296570).Text = _items[position].DayAndMonthString;
-			obj.FindViewById<TextView>(2131296571).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
-			obj.FindViewById<View>(2131296430).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
-			obj.SetBackgroundResource(_items[position].IsRead ? 2131165379 : 2131165380);
-			return obj;
+			View view = convertView ?? _context.LayoutInflater.Inflate(2131492929, null);
+			view.FindViewById<TextView>(2131296572).Text = _items[position].Title;
+			view.FindViewById<TextView>(2131296570).Text = _items[position].DayAndMonthString;
+			view.FindViewById<TextView>(2131296571).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
+			view.FindViewById<View>(2131296430).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
+			view.SetBackgroundResource(_items[position].IsRead ? 2131165379 : 2131165380);
+			return view;
 		}
 
 		public void ClearList()
@@ -17138,7 +17146,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 			PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(typeof(BackgroundFetchWorker), Conf.BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID);
 			builder.SetPeriodStartTime(TimeSpan.FromSeconds(1.0)).SetConstraints(new AndroidX.Work.Constraints.Builder().SetRequiredNetworkType(NetworkType.Connected).Build());
 			PeriodicWorkRequest p = builder.Build();
-			WorkManager.GetInstance(Platform.AppContext).EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.Replace, p);
+			WorkManager instance = WorkManager.GetInstance(Platform.AppContext);
+			instance.EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.Replace, p);
 		}
 	}
 	public class GoogleApiNavigationServiceDroid : INavigationServiceDroid
@@ -17285,9 +17294,11 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 		{
 			if (Build.VERSION.SdkInt >= BuildVersionCodes.P)
 			{
-				return ((LocationManager)CrossCurrentActivity.Current.AppContext.GetSystemService("location")).IsLocationEnabled;
+				LocationManager locationManager = (LocationManager)CrossCurrentActivity.Current.AppContext.GetSystemService("location");
+				return locationManager.IsLocationEnabled;
 			}
-			return Settings.Secure.GetInt(CrossCurrentActivity.Current.AppContext.ContentResolver, "location_mode", 0) != 0;
+			int @int = Settings.Secure.GetInt(CrossCurrentActivity.Current.AppContext.ContentResolver, "location_mode", 0);
+			return @int != 0;
 		}
 
 		public async Task<bool> HasExposureApiPermissions()
@@ -17392,7 +17403,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 					Description = string2
 				};
 				notificationChannel.SetShowBadge(showBadge: false);
-				((NotificationManager)CrossCurrentActivity.Current.Activity.GetSystemService("notification")).CreateNotificationChannel(notificationChannel);
+				NotificationManager notificationManager = (NotificationManager)CrossCurrentActivity.Current.Activity.GetSystemService("notification");
+				notificationManager.CreateNotificationChannel(notificationChannel);
 			}
 		}
 
@@ -17426,9 +17438,9 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 	{
 		public static void SetArrowVisibility(View view)
 		{
-			bool num = (CrossCurrentActivity.Current.Activity as WelcomeActivity)?.isOnBoarding ?? false;
+			bool flag = (CrossCurrentActivity.Current.Activity as WelcomeActivity)?.isOnBoarding ?? false;
 			Button button = view.FindViewById<Button>(2131296331);
-			if (num)
+			if (flag)
 			{
 				button.Visibility = ViewStates.Gone;
 				return;
@@ -17444,7 +17456,8 @@ namespace NDB.Covid19.Droid.GoogleApi.Utils
 	{
 		public void StopBackgroundService()
 		{
-			WorkManager.GetInstance(Platform.AppContext).CancelAllWorkByTag("exposurenotification");
+			WorkManager instance = WorkManager.GetInstance(Platform.AppContext);
+			instance.CancelAllWorkByTag("exposurenotification");
 		}
 	}
 }
@@ -17508,11 +17521,30 @@ namespace NDB.Covid19.Droid.GoogleApi.HardwareServices
 
 		public static OperationModeEnum GetOperationModeState()
 		{
-			foreach (ActivityManager.RunningServiceInfo runningService in ((ActivityManager)CrossCurrentActivity.Current.Activity.GetSystemService("activity")).GetRunningServices(2147483647))
+			ActivityManager activityManager = (ActivityManager)CrossCurrentActivity.Current.Activity.GetSystemService("activity");
+			foreach (ActivityManager.RunningServiceInfo runningService in activityManager.GetRunningServices(2147483647))
 			{
-				_ = runningService;
 			}
 			return OperationModeEnum.Stopped;
+		}
+
+		public string GetBackGroudServiceVersion()
+		{
+			string result = "";
+			try
+			{
+				result = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.Current.AppContext.PackageManager.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0)).ToString();
+				return result;
+			}
+			catch (Java.Lang.Exception)
+			{
+				return result;
+			}
+		}
+
+		public string GetBackGroundServicVersionLogString()
+		{
+			return " (GPS: " + GetBackGroudServiceVersion() + ")";
 		}
 	}
 }

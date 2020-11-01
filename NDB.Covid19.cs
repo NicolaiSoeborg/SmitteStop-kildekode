@@ -2239,7 +2239,8 @@ namespace NDB.Covid19.Models.Logging
 			Description = Anonymizer.RedactText(logMessage);
 			ReportedTime = DateTime.Now;
 			ApiVersion = SharedConf.APIVersion;
-			AdditionalInfo = Anonymizer.RedactText(additionalInfo);
+			string backGroundServicVersionLogString = ServiceLocator.Current.GetInstance<IApiDataHelper>().GetBackGroundServicVersionLogString();
+			AdditionalInfo = Anonymizer.RedactText(additionalInfo) + backGroundServicVersionLogString;
 			BuildNumber = AppInfo.BuildString;
 			BuildVersion = AppInfo.VersionString;
 			DeviceOSVersion = DeviceInfo.VersionString;
@@ -2508,6 +2509,8 @@ namespace NDB.Covid19.HardwareServices.SupportServices
 		OperationModeEnum GetOperationMode();
 
 		bool IsGoogleServiceEnabled();
+
+		string GetBackGroundServicVersionLogString();
 	}
 }
 namespace NDB.Covid19.Enums

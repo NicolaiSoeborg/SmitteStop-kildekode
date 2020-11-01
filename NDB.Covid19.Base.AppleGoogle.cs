@@ -4323,8 +4323,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			}
 			if (StoredValueHelper.TooManySubmitBatches())
 			{
-				SaveAndShowLastPullResult("Pull aborted. We have done submitBatches too many times in 24 hours");
-				return;
+				LogUtils.LogMessage(LogSeverity.WARNING, "User had too many submit batches. Deleting value in preferences.");
+				StoredValueHelper.DeleteBatchesValue();
 			}
 			IEnumerable<string> zips = await new ZipDownloader().DownloadZips(cancellationToken);
 			await SubmitZips(zips, submitBatches);
@@ -4341,7 +4341,6 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			StoredValueHelper.StoreLastProvidedFiles(zips);
 			try
 			{
-				StoredValueHelper.AddSubmitBatchesCall();
 				SaveAndShowLastPullResult("Zip files submitted");
 				return submitBatches(zips);
 			}
@@ -4442,7 +4441,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 		{
 			string defaultValue = DateTime.UtcNow.AddDays(-123.0).Date.ToString();
 			DateTime d = DateTime.Parse(Preferences.Get(LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, defaultValue));
-			return DateTime.UtcNow - d < TimeSpan.FromHours(Conf.FETCH_MIN_HOURS_BETWEEN_PULL);
+			return DateTime.UtcNow - d < Conf.FETCH_MIN_HOURS_BETWEEN_PULL;
 		}
 
 		public static bool TooManySubmitBatches()
@@ -4470,43 +4469,18 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 			return source.Last() - d < TimeSpan.FromHours(24.0);
 		}
 
-		public static void AddSubmitBatchesCall()
+		public static void DeleteBatchesValue()
 		{
-			string text = Preferences.Get(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, "");
-			List<DateTime> list;
-			if (text == "")
-			{
-				list = new List<DateTime>();
-			}
-			else
-			{
-				try
-				{
-					list = JsonConvert.DeserializeObject<IEnumerable<DateTime>>(text).ToList();
-				}
-				catch (Exception e)
-				{
-					LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deserialising submitBatchesCallsString in AddSubmitBatchesCall");
-					list = new List<DateTime>();
-				}
-			}
-			if (list.Count() < 15)
-			{
-				list.Add(DateTime.UtcNow);
-			}
-			else
-			{
-				list = list.Skip(1).ToList();
-				list.Add(DateTime.UtcNow);
-			}
 			try
 			{
-				string value = JsonConvert.SerializeObject(list);
-				Preferences.Set(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, value);
+				if (Preferences.ContainsKey(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC))
+				{
+					Preferences.Remove(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC);
+				}
 			}
-			catch (Exception e2)
+			catch (Exception e)
 			{
-				LogUtils.LogException(LogSeverity.ERROR, e2, "Failed at saving a JSON serialization of submitBatchesCalls in AddSubmitBatchesCall");
+				LogUtils.LogException(LogSeverity.ERROR, e, "Failed at deleting TooManySubmitBatchesValue");
 			}
 		}
 
@@ -4765,6 +4739,8 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static readonly string BaseUrl = "https://app.smittestop.dk/API/";
 
+		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(120.0);
+
 		public static int MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = MESSAGE_RETENTION_TIME_IN_MINUTES_LONG;
 
 		public static readonly Tuple<int, int>[] DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION = new Tuple<int, int>[8]
@@ -4830,13 +4806,9 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static int MOCK_FETCH_BATCHCOUNT => 20;
 
-		public static double FETCH_MIN_HOURS_BETWEEN_PULL => 0.5;
-
 		public static long FETCH_MIN_TICKS_BETWEEN_PULL => 7200 * TICKS_IN_SECOND;
 
 		private static int TICKS_IN_SECOND => 10000000;
-
-		public static int MAX_SUBMIT_BATCHES_PER_24_HOURS => 15;
 
 		public static int MESSAGE_RETENTION_TIME_IN_MINUTES_SHORT => 15;
 
