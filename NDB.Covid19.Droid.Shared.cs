@@ -23,7 +23,6 @@ using AndroidX.AppCompat.App;
 using AndroidX.ConstraintLayout.Widget;
 using AndroidX.Core.Text;
 using CommonServiceLocator;
-using Java.Lang;
 using Java.Util.Regex;
 using NDB.Covid19.Configuration;
 using NDB.Covid19.Droid.Shared.Utils;
@@ -5014,6 +5013,8 @@ namespace NDB.Covid19.Droid.Shared
 
 			public static int consent_paragraph_mere;
 
+			public static int consent_paragraph_policy_btn;
+
 			public static int consent_paragraph_ret;
 
 			public static int consent_paragraph_sadan_fungerer_appen;
@@ -5653,269 +5654,270 @@ namespace NDB.Covid19.Droid.Shared
 				consent_paragraph_hvordan_accepterer = 2131296371;
 				consent_paragraph_kontaktregistringer = 2131296372;
 				consent_paragraph_mere = 2131296373;
-				consent_paragraph_ret = 2131296374;
-				consent_paragraph_sadan_fungerer_appen = 2131296375;
-				container = 2131296376;
-				content = 2131296377;
-				contentPanel = 2131296378;
-				coordinator = 2131296379;
+				consent_paragraph_policy_btn = 2131296374;
+				consent_paragraph_ret = 2131296375;
+				consent_paragraph_sadan_fungerer_appen = 2131296376;
+				container = 2131296377;
+				content = 2131296378;
+				contentPanel = 2131296379;
+				coordinator = 2131296380;
 				CTRL = 2131296259;
-				custom = 2131296380;
-				customPanel = 2131296381;
-				cut = 2131296382;
-				dark = 2131296383;
-				date_picker_actions = 2131296384;
-				decor_content_parent = 2131296385;
-				default_activity_button = 2131296386;
-				design_bottom_sheet = 2131296387;
-				design_menu_item_action_area = 2131296388;
-				design_menu_item_action_area_stub = 2131296389;
-				design_menu_item_text = 2131296390;
-				design_navigation_view = 2131296391;
-				dialog_button = 2131296392;
-				dimensions = 2131296393;
-				direct = 2131296394;
-				disableHome = 2131296395;
-				dropdown_menu = 2131296396;
-				edit_query = 2131296397;
-				end = 2131296398;
-				end_padder = 2131296399;
-				enterAlways = 2131296400;
-				enterAlwaysCollapsed = 2131296401;
-				exitUntilCollapsed = 2131296402;
-				expanded_menu = 2131296404;
-				expand_activities_button = 2131296403;
-				fab = 2131296405;
-				fade = 2131296406;
-				fill = 2131296407;
-				filled = 2131296410;
-				fill_horizontal = 2131296408;
-				fill_vertical = 2131296409;
-				filter_chip = 2131296411;
-				fitToContents = 2131296412;
-				@fixed = 2131296413;
-				force_update_button = 2131296414;
-				force_update_label = 2131296415;
-				forever = 2131296416;
-				fragment_container_view_tag = 2131296417;
+				custom = 2131296381;
+				customPanel = 2131296382;
+				cut = 2131296383;
+				dark = 2131296384;
+				date_picker_actions = 2131296385;
+				decor_content_parent = 2131296386;
+				default_activity_button = 2131296387;
+				design_bottom_sheet = 2131296388;
+				design_menu_item_action_area = 2131296389;
+				design_menu_item_action_area_stub = 2131296390;
+				design_menu_item_text = 2131296391;
+				design_navigation_view = 2131296392;
+				dialog_button = 2131296393;
+				dimensions = 2131296394;
+				direct = 2131296395;
+				disableHome = 2131296396;
+				dropdown_menu = 2131296397;
+				edit_query = 2131296398;
+				end = 2131296399;
+				end_padder = 2131296400;
+				enterAlways = 2131296401;
+				enterAlwaysCollapsed = 2131296402;
+				exitUntilCollapsed = 2131296403;
+				expanded_menu = 2131296405;
+				expand_activities_button = 2131296404;
+				fab = 2131296406;
+				fade = 2131296407;
+				fill = 2131296408;
+				filled = 2131296411;
+				fill_horizontal = 2131296409;
+				fill_vertical = 2131296410;
+				filter_chip = 2131296412;
+				fitToContents = 2131296413;
+				@fixed = 2131296414;
+				force_update_button = 2131296415;
+				force_update_label = 2131296416;
+				forever = 2131296417;
+				fragment_container_view_tag = 2131296418;
 				FUNCTION = 2131296260;
-				ghost_view = 2131296418;
-				ghost_view_holder = 2131296419;
-				gone = 2131296420;
-				groups = 2131296422;
-				group_divider = 2131296421;
-				guideline = 2131296423;
-				guideline_about_left = 2131296424;
-				guideline_about_right = 2131296425;
-				guideline_help_left = 2131296426;
-				guideline_help_right = 2131296427;
-				guideline_left = 2131296428;
-				guideline_right = 2131296429;
-				hideable = 2131296430;
-				home = 2131296431;
-				homeAsUp = 2131296432;
-				icon = 2131296435;
-				icon_group = 2131296436;
-				icon_only = 2131296437;
-				ic_close_white = 2131296433;
-				ic_start_logo = 2131296434;
-				ifRoom = 2131296438;
-				image = 2131296439;
-				info = 2131296440;
-				invisible = 2131296441;
-				italic = 2131296442;
-				item_touch_helper_previous_elevation = 2131296443;
-				labeled = 2131296444;
-				largeLabel = 2131296445;
-				launcer_icon_imageview = 2131296446;
-				launcher_button = 2131296447;
-				left = 2131296448;
-				light = 2131296449;
-				line1 = 2131296450;
-				line3 = 2131296451;
-				listMode = 2131296452;
-				list_item = 2131296453;
-				masked = 2131296454;
-				media_actions = 2131296455;
-				message = 2131296456;
+				ghost_view = 2131296419;
+				ghost_view_holder = 2131296420;
+				gone = 2131296421;
+				groups = 2131296423;
+				group_divider = 2131296422;
+				guideline = 2131296424;
+				guideline_about_left = 2131296425;
+				guideline_about_right = 2131296426;
+				guideline_help_left = 2131296427;
+				guideline_help_right = 2131296428;
+				guideline_left = 2131296429;
+				guideline_right = 2131296430;
+				hideable = 2131296431;
+				home = 2131296432;
+				homeAsUp = 2131296433;
+				icon = 2131296436;
+				icon_group = 2131296437;
+				icon_only = 2131296438;
+				ic_close_white = 2131296434;
+				ic_start_logo = 2131296435;
+				ifRoom = 2131296439;
+				image = 2131296440;
+				info = 2131296441;
+				invisible = 2131296442;
+				italic = 2131296443;
+				item_touch_helper_previous_elevation = 2131296444;
+				labeled = 2131296445;
+				largeLabel = 2131296446;
+				launcer_icon_imageview = 2131296447;
+				launcher_button = 2131296448;
+				left = 2131296449;
+				light = 2131296450;
+				line1 = 2131296451;
+				line3 = 2131296452;
+				listMode = 2131296453;
+				list_item = 2131296454;
+				masked = 2131296455;
+				media_actions = 2131296456;
+				message = 2131296457;
 				META = 2131296261;
-				middle = 2131296457;
-				mini = 2131296458;
-				month_grid = 2131296459;
-				month_navigation_bar = 2131296460;
-				month_navigation_fragment_toggle = 2131296461;
-				month_navigation_next = 2131296462;
-				month_navigation_previous = 2131296463;
-				month_title = 2131296464;
-				mtrl_calendar_days_of_week = 2131296466;
-				mtrl_calendar_day_selector_frame = 2131296465;
-				mtrl_calendar_frame = 2131296467;
-				mtrl_calendar_main_pane = 2131296468;
-				mtrl_calendar_months = 2131296469;
-				mtrl_calendar_selection_frame = 2131296470;
-				mtrl_calendar_text_input_frame = 2131296471;
-				mtrl_calendar_year_selector_frame = 2131296472;
-				mtrl_card_checked_layer_id = 2131296473;
-				mtrl_child_content_container = 2131296474;
-				mtrl_internal_children_alpha_tag = 2131296475;
-				mtrl_picker_fullscreen = 2131296476;
-				mtrl_picker_header = 2131296477;
-				mtrl_picker_header_selection_text = 2131296478;
-				mtrl_picker_header_title_and_selection = 2131296479;
-				mtrl_picker_header_toggle = 2131296480;
-				mtrl_picker_text_input_date = 2131296481;
-				mtrl_picker_text_input_range_end = 2131296482;
-				mtrl_picker_text_input_range_start = 2131296483;
-				mtrl_picker_title_text = 2131296484;
-				multiply = 2131296485;
-				navigation_header_container = 2131296486;
-				never = 2131296487;
-				none = 2131296489;
-				normal = 2131296490;
-				noScroll = 2131296488;
-				notification_background = 2131296491;
-				notification_main_column = 2131296492;
-				notification_main_column_container = 2131296493;
-				off = 2131296494;
-				om_frame = 2131296495;
-				on = 2131296496;
-				outline = 2131296497;
-				packed = 2131296498;
-				parallax = 2131296499;
-				parent = 2131296500;
-				parentPanel = 2131296501;
-				parent_matrix = 2131296502;
-				password_toggle = 2131296503;
-				peekHeight = 2131296504;
-				percent = 2131296505;
-				pin = 2131296506;
-				progress_circular = 2131296507;
-				progress_horizontal = 2131296508;
-				radio = 2131296509;
-				right = 2131296510;
-				right_icon = 2131296511;
-				right_side = 2131296512;
-				rounded = 2131296513;
-				save_non_transition_alpha = 2131296514;
-				save_overlay_view = 2131296515;
-				scale = 2131296516;
-				screen = 2131296517;
-				scroll = 2131296518;
-				scrollable = 2131296522;
-				scrollIndicatorDown = 2131296519;
-				scrollIndicatorUp = 2131296520;
-				scrollView = 2131296521;
-				search_badge = 2131296523;
-				search_bar = 2131296524;
-				search_button = 2131296525;
-				search_close_btn = 2131296526;
-				search_edit_frame = 2131296527;
-				search_go_btn = 2131296528;
-				search_mag_icon = 2131296529;
-				search_plate = 2131296530;
-				search_src_text = 2131296531;
-				search_voice_btn = 2131296532;
-				selected = 2131296534;
-				select_dialog_listview = 2131296533;
-				settings_about_link = 2131296535;
-				settings_about_scroll_layout = 2131296536;
-				settings_about_text = 2131296537;
-				settings_about_text_layout = 2131296538;
-				settings_about_title = 2131296539;
-				settings_about_version_info_textview = 2131296540;
-				settings_behandling_frame = 2131296541;
-				settings_consents_layout = 2131296542;
-				settings_general_text = 2131296543;
-				settings_general_text_layout = 2131296544;
-				settings_general_title = 2131296545;
-				settings_help_link = 2131296546;
-				settings_help_scroll_layout = 2131296547;
-				settings_help_text = 2131296548;
-				settings_help_text_layout = 2131296549;
-				settings_help_title = 2131296550;
-				settings_hjaelp_frame = 2131296551;
-				settings_intro_frame = 2131296552;
-				settings_links_layout = 2131296554;
-				settings_link_text = 2131296553;
-				settings_saddan_frame = 2131296555;
-				settings_scroll_frame = 2131296556;
-				settings_scroll_help_frame = 2131296557;
-				settings_version_info_textview = 2131296558;
+				middle = 2131296458;
+				mini = 2131296459;
+				month_grid = 2131296460;
+				month_navigation_bar = 2131296461;
+				month_navigation_fragment_toggle = 2131296462;
+				month_navigation_next = 2131296463;
+				month_navigation_previous = 2131296464;
+				month_title = 2131296465;
+				mtrl_calendar_days_of_week = 2131296467;
+				mtrl_calendar_day_selector_frame = 2131296466;
+				mtrl_calendar_frame = 2131296468;
+				mtrl_calendar_main_pane = 2131296469;
+				mtrl_calendar_months = 2131296470;
+				mtrl_calendar_selection_frame = 2131296471;
+				mtrl_calendar_text_input_frame = 2131296472;
+				mtrl_calendar_year_selector_frame = 2131296473;
+				mtrl_card_checked_layer_id = 2131296474;
+				mtrl_child_content_container = 2131296475;
+				mtrl_internal_children_alpha_tag = 2131296476;
+				mtrl_picker_fullscreen = 2131296477;
+				mtrl_picker_header = 2131296478;
+				mtrl_picker_header_selection_text = 2131296479;
+				mtrl_picker_header_title_and_selection = 2131296480;
+				mtrl_picker_header_toggle = 2131296481;
+				mtrl_picker_text_input_date = 2131296482;
+				mtrl_picker_text_input_range_end = 2131296483;
+				mtrl_picker_text_input_range_start = 2131296484;
+				mtrl_picker_title_text = 2131296485;
+				multiply = 2131296486;
+				navigation_header_container = 2131296487;
+				never = 2131296488;
+				none = 2131296490;
+				normal = 2131296491;
+				noScroll = 2131296489;
+				notification_background = 2131296492;
+				notification_main_column = 2131296493;
+				notification_main_column_container = 2131296494;
+				off = 2131296495;
+				om_frame = 2131296496;
+				on = 2131296497;
+				outline = 2131296498;
+				packed = 2131296499;
+				parallax = 2131296500;
+				parent = 2131296501;
+				parentPanel = 2131296502;
+				parent_matrix = 2131296503;
+				password_toggle = 2131296504;
+				peekHeight = 2131296505;
+				percent = 2131296506;
+				pin = 2131296507;
+				progress_circular = 2131296508;
+				progress_horizontal = 2131296509;
+				radio = 2131296510;
+				right = 2131296511;
+				right_icon = 2131296512;
+				right_side = 2131296513;
+				rounded = 2131296514;
+				save_non_transition_alpha = 2131296515;
+				save_overlay_view = 2131296516;
+				scale = 2131296517;
+				screen = 2131296518;
+				scroll = 2131296519;
+				scrollable = 2131296523;
+				scrollIndicatorDown = 2131296520;
+				scrollIndicatorUp = 2131296521;
+				scrollView = 2131296522;
+				search_badge = 2131296524;
+				search_bar = 2131296525;
+				search_button = 2131296526;
+				search_close_btn = 2131296527;
+				search_edit_frame = 2131296528;
+				search_go_btn = 2131296529;
+				search_mag_icon = 2131296530;
+				search_plate = 2131296531;
+				search_src_text = 2131296532;
+				search_voice_btn = 2131296533;
+				selected = 2131296535;
+				select_dialog_listview = 2131296534;
+				settings_about_link = 2131296536;
+				settings_about_scroll_layout = 2131296537;
+				settings_about_text = 2131296538;
+				settings_about_text_layout = 2131296539;
+				settings_about_title = 2131296540;
+				settings_about_version_info_textview = 2131296541;
+				settings_behandling_frame = 2131296542;
+				settings_consents_layout = 2131296543;
+				settings_general_text = 2131296544;
+				settings_general_text_layout = 2131296545;
+				settings_general_title = 2131296546;
+				settings_help_link = 2131296547;
+				settings_help_scroll_layout = 2131296548;
+				settings_help_text = 2131296549;
+				settings_help_text_layout = 2131296550;
+				settings_help_title = 2131296551;
+				settings_hjaelp_frame = 2131296552;
+				settings_intro_frame = 2131296553;
+				settings_links_layout = 2131296555;
+				settings_link_text = 2131296554;
+				settings_saddan_frame = 2131296556;
+				settings_scroll_frame = 2131296557;
+				settings_scroll_help_frame = 2131296558;
+				settings_version_info_textview = 2131296559;
 				SHIFT = 2131296262;
-				shortcut = 2131296559;
-				showCustom = 2131296560;
-				showHome = 2131296561;
-				showTitle = 2131296562;
-				skipCollapsed = 2131296563;
-				slide = 2131296564;
-				smallLabel = 2131296565;
-				snackbar_action = 2131296566;
-				snackbar_text = 2131296567;
-				snap = 2131296568;
-				snapMargins = 2131296569;
-				spacer = 2131296570;
-				split_action_bar = 2131296571;
-				spread = 2131296572;
-				spread_inside = 2131296573;
-				src_atop = 2131296574;
-				src_in = 2131296575;
-				src_over = 2131296576;
-				standard = 2131296577;
-				start = 2131296578;
-				status_bar_latest_event_content = 2131296579;
-				stretch = 2131296580;
-				submenuarrow = 2131296581;
-				submit_area = 2131296582;
+				shortcut = 2131296560;
+				showCustom = 2131296561;
+				showHome = 2131296562;
+				showTitle = 2131296563;
+				skipCollapsed = 2131296564;
+				slide = 2131296565;
+				smallLabel = 2131296566;
+				snackbar_action = 2131296567;
+				snackbar_text = 2131296568;
+				snap = 2131296569;
+				snapMargins = 2131296570;
+				spacer = 2131296571;
+				split_action_bar = 2131296572;
+				spread = 2131296573;
+				spread_inside = 2131296574;
+				src_atop = 2131296575;
+				src_in = 2131296576;
+				src_over = 2131296577;
+				standard = 2131296578;
+				start = 2131296579;
+				status_bar_latest_event_content = 2131296580;
+				stretch = 2131296581;
+				submenuarrow = 2131296582;
+				submit_area = 2131296583;
 				SYM = 2131296263;
-				tabMode = 2131296583;
-				tag_accessibility_actions = 2131296584;
-				tag_accessibility_clickable_spans = 2131296585;
-				tag_accessibility_heading = 2131296586;
-				tag_accessibility_pane_title = 2131296587;
-				tag_screen_reader_focusable = 2131296588;
-				tag_transition_group = 2131296589;
-				tag_unhandled_key_event_manager = 2131296590;
-				tag_unhandled_key_listeners = 2131296591;
-				test_checkbox_android_button_tint = 2131296592;
-				test_checkbox_app_button_tint = 2131296593;
-				test_frame = 2131296594;
-				text = 2131296595;
-				text2 = 2131296596;
-				textEnd = 2131296597;
-				textinput_counter = 2131296603;
-				textinput_error = 2131296604;
-				textinput_helper_text = 2131296605;
-				textSpacerNoButtons = 2131296598;
-				textSpacerNoTitle = 2131296599;
-				textStart = 2131296600;
-				text_input_end_icon = 2131296601;
-				text_input_start_icon = 2131296602;
-				time = 2131296606;
-				title = 2131296607;
-				titleDividerNoCustom = 2131296608;
-				title_template = 2131296609;
-				top = 2131296610;
-				topPanel = 2131296611;
+				tabMode = 2131296584;
+				tag_accessibility_actions = 2131296585;
+				tag_accessibility_clickable_spans = 2131296586;
+				tag_accessibility_heading = 2131296587;
+				tag_accessibility_pane_title = 2131296588;
+				tag_screen_reader_focusable = 2131296589;
+				tag_transition_group = 2131296590;
+				tag_unhandled_key_event_manager = 2131296591;
+				tag_unhandled_key_listeners = 2131296592;
+				test_checkbox_android_button_tint = 2131296593;
+				test_checkbox_app_button_tint = 2131296594;
+				test_frame = 2131296595;
+				text = 2131296596;
+				text2 = 2131296597;
+				textEnd = 2131296598;
+				textinput_counter = 2131296604;
+				textinput_error = 2131296605;
+				textinput_helper_text = 2131296606;
+				textSpacerNoButtons = 2131296599;
+				textSpacerNoTitle = 2131296600;
+				textStart = 2131296601;
+				text_input_end_icon = 2131296602;
+				text_input_start_icon = 2131296603;
+				time = 2131296607;
+				title = 2131296608;
+				titleDividerNoCustom = 2131296609;
+				title_template = 2131296610;
+				top = 2131296611;
+				topPanel = 2131296612;
 				TOP_END = 2131296264;
 				TOP_START = 2131296265;
-				touch_outside = 2131296612;
-				transition_current_scene = 2131296613;
-				transition_layout_save = 2131296614;
-				transition_position = 2131296615;
-				transition_scene_layoutid_cache = 2131296616;
-				transition_transform = 2131296617;
-				@unchecked = 2131296618;
-				uniform = 2131296619;
-				unlabeled = 2131296620;
-				up = 2131296621;
-				useLogo = 2131296622;
-				view_offset_helper = 2131296623;
-				visible = 2131296624;
-				visible_removing_fragment_view_tag = 2131296625;
-				wide = 2131296626;
-				withText = 2131296627;
-				wrap = 2131296628;
-				wrap_content = 2131296629;
+				touch_outside = 2131296613;
+				transition_current_scene = 2131296614;
+				transition_layout_save = 2131296615;
+				transition_position = 2131296616;
+				transition_scene_layoutid_cache = 2131296617;
+				transition_transform = 2131296618;
+				@unchecked = 2131296619;
+				uniform = 2131296620;
+				unlabeled = 2131296621;
+				up = 2131296622;
+				useLogo = 2131296623;
+				view_offset_helper = 2131296624;
+				visible = 2131296625;
+				visible_removing_fragment_view_tag = 2131296626;
+				wide = 2131296627;
+				withText = 2131296628;
+				wrap = 2131296629;
+				wrap_content = 2131296630;
 				ResourceIdManager.UpdateIdValues();
 			}
 
@@ -13230,7 +13232,6 @@ namespace NDB.Covid19.Droid.Shared
 	{
 		public static Color ToColor(this string hexString)
 		{
-			//IL_0072: Unknown result type (might be due to invalid IL or missing references)
 			hexString = hexString.Replace("#", "");
 			if (hexString.Length == 3)
 			{
@@ -13240,10 +13241,10 @@ namespace NDB.Covid19.Droid.Shared
 			{
 				throw new Exception("Invalid hex string");
 			}
-			int num = int.Parse(hexString.Substring(0, 2), NumberStyles.AllowHexSpecifier);
-			int num2 = int.Parse(hexString.Substring(2, 2), NumberStyles.AllowHexSpecifier);
-			int num3 = int.Parse(hexString.Substring(4, 2), NumberStyles.AllowHexSpecifier);
-			return new Color(num, num2, num3);
+			int r = int.Parse(hexString.Substring(0, 2), NumberStyles.AllowHexSpecifier);
+			int g = int.Parse(hexString.Substring(2, 2), NumberStyles.AllowHexSpecifier);
+			int b = int.Parse(hexString.Substring(4, 2), NumberStyles.AllowHexSpecifier);
+			return new Color(r, g, b);
 		}
 	}
 	public class DroidDependencyInjectionConfig
@@ -13252,16 +13253,10 @@ namespace NDB.Covid19.Droid.Shared
 
 		public static void Init()
 		{
-			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000f: Expected O, but got Unknown
-			//IL_001f: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0029: Expected O, but got Unknown
-			//IL_002f: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0039: Expected O, but got Unknown
 			unityContainer = new UnityContainer();
 			CommonDependencyInjectionConfig.Init(unityContainer);
-			UnityServiceLocator unityServiceLocalter = new UnityServiceLocator((IUnityContainer)(object)unityContainer);
-			ServiceLocator.SetLocatorProvider((ServiceLocatorProvider)(() => (IServiceLocator)(object)unityServiceLocalter));
+			UnityServiceLocator unityServiceLocalter = new UnityServiceLocator(unityContainer);
+			ServiceLocator.SetLocatorProvider(() => unityServiceLocalter);
 		}
 	}
 }
@@ -13274,15 +13269,14 @@ namespace NDB.Covid19.Droid.Shared.Services
 			Activity current;
 			if (platformArguments != null && platformArguments.Context != null)
 			{
-				object context = platformArguments.Context;
-				Activity val = context as Activity;
-				if (val != null)
+				Activity activity = platformArguments.Context as Activity;
+				if (activity != null)
 				{
-					current = val;
+					current = activity;
 					goto IL_002c;
 				}
 			}
-			current = CrossCurrentActivity.get_Current().get_Activity();
+			current = CrossCurrentActivity.Current.Activity;
 			goto IL_002c;
 			IL_002c:
 			DialogUtils.DisplayDialog(current, title, message, okBtn);
@@ -13291,16 +13285,16 @@ namespace NDB.Covid19.Droid.Shared.Services
 }
 namespace NDB.Covid19.Droid.Shared.Views
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class ForceUpdateActivity : AppCompatActivity
 	{
 		private bool IsGoogleHuawei
 		{
 			get
 			{
-				if (DeviceInfo.get_Manufacturer() != null && DeviceInfo.get_Manufacturer().ToLower() == "huawei")
+				if (DeviceInfo.Manufacturer != null && DeviceInfo.Manufacturer.ToLower() == "huawei")
 				{
-					return !ServiceLocator.get_Current().GetInstance<ApiDataHelper>().ApiDataHelperInstance.IsGoogleServiceEnabled();
+					return !ServiceLocator.Current.GetInstance<ApiDataHelper>().ApiDataHelperInstance.IsGoogleServiceEnabled();
 				}
 				return false;
 			}
@@ -13308,45 +13302,36 @@ namespace NDB.Covid19.Droid.Shared.Views
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(Resource.Layout.force_update);
-			((Activity)this).FindViewById<TextView>(Resource.Id.force_update_label).set_Text(ForceUpdateViewModel.FORCE_UPDATE_MESSAGE);
-			Button val = ((Activity)this).FindViewById<Button>(Resource.Id.force_update_button);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(Resource.Layout.force_update);
+			base.FindViewById<TextView>(Resource.Id.force_update_label).Text = ForceUpdateViewModel.FORCE_UPDATE_MESSAGE;
+			Button button = base.FindViewById<Button>(Resource.Id.force_update_button);
 			if (IsGoogleHuawei)
 			{
-				((TextView)val).set_Text(ForceUpdateViewModel.FORCE_UPDATE_BUTTON_HUAWEI_ANDROID);
-				((View)val).set_ContentDescription(ForceUpdateViewModel.FORCE_UPDATE_BUTTON_HUAWEI_ANDROID);
-				((View)val).add_Click((EventHandler)new StressUtils.SingleClick(GoToHuaweiAppGallery).Run);
+				button.Text = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_HUAWEI_ANDROID;
+				button.ContentDescription = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_HUAWEI_ANDROID;
+				button.Click += new StressUtils.SingleClick(GoToHuaweiAppGallery).Run;
 			}
 			else
 			{
-				((TextView)val).set_Text(ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID);
-				((View)val).set_ContentDescription(ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID);
-				((View)val).add_Click((EventHandler)new StressUtils.SingleClick(GoToGooglePlay).Run);
+				button.Text = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
+				button.ContentDescription = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
+				button.Click += new StressUtils.SingleClick(GoToGooglePlay).Run;
 			}
 		}
 
 		private void GoToGooglePlay(object o, EventArgs eventArgs)
 		{
-			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
-			Intent val = new Intent("android.intent.action.VIEW");
-			val.SetData(Uri.Parse(SharedConf.GooglePlayAppLink));
-			((Context)this).StartActivity(val);
+			Intent intent = new Intent("android.intent.action.VIEW");
+			intent.SetData(Android.Net.Uri.Parse(SharedConf.GooglePlayAppLink));
+			((Context)(object)this).StartActivity(intent);
 		}
 
 		private void GoToHuaweiAppGallery(object o, EventArgs eventArgs)
 		{
-			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
-			Intent val = new Intent("android.intent.action.VIEW");
-			val.SetData(Uri.Parse(SharedConf.HuaweiAppGalleryLink));
-			((Context)this).StartActivity(val);
-		}
-
-		public ForceUpdateActivity()
-			: this()
-		{
+			Intent intent = new Intent("android.intent.action.VIEW");
+			intent.SetData(Android.Net.Uri.Parse(SharedConf.HuaweiAppGalleryLink));
+			((Context)(object)this).StartActivity(intent);
 		}
 	}
 	public class BaseAppCompatActivity : AppCompatActivity
@@ -13363,18 +13348,18 @@ namespace NDB.Covid19.Droid.Shared.Views
 		{
 			if (State(savedInstanceState) == AppState.IsDestroyed)
 			{
-				((Activity)this).OnCreate((Bundle)null);
+				base.OnCreate((Bundle)null);
 				Intent startingNewIntent = GetStartingNewIntent();
 				if (startingNewIntent != null)
 				{
-					startingNewIntent.AddFlags((ActivityFlags)268468224);
-					((Context)this).StartActivity(startingNewIntent);
+					startingNewIntent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+					((Context)(object)this).StartActivity(startingNewIntent);
 				}
-				((Activity)this).Finish();
+				((Activity)(object)this).Finish();
 			}
 			else
 			{
-				((Activity)this).OnCreate(savedInstanceState);
+				base.OnCreate(savedInstanceState);
 			}
 		}
 
@@ -13385,7 +13370,7 @@ namespace NDB.Covid19.Droid.Shared.Views
 
 		public AppState State(Bundle savedInstanceState)
 		{
-			if (savedInstanceState != null && ((BaseBundle)savedInstanceState).GetInt("SavedInstance") > 0)
+			if (savedInstanceState != null && savedInstanceState.GetInt("SavedInstance") > 0)
 			{
 				return AppState.IsDestroyed;
 			}
@@ -13394,189 +13379,162 @@ namespace NDB.Covid19.Droid.Shared.Views
 
 		protected override void OnSaveInstanceState(Bundle outState)
 		{
-			((Activity)this).OnSaveInstanceState(outState);
-			((BaseBundle)outState).PutInt("SavedInstance", 1);
-		}
-
-		public BaseAppCompatActivity()
-			: this()
-		{
+			base.OnSaveInstanceState(outState);
+			outState.PutInt("SavedInstance", 1);
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Shared.Views.Settings
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsActivity : AppCompatActivity
 	{
 		private static SettingsViewModel _settingsViewModel = new SettingsViewModel();
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(Resource.Layout.settings_page);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(Resource.Layout.settings_page);
 			Init();
 		}
 
 		private void Init()
 		{
-			ConstraintLayout obj = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.settings_intro_frame);
-			ConstraintLayout val = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.settings_saddan_frame);
-			ConstraintLayout val2 = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.settings_behandling_frame);
-			ConstraintLayout val3 = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.settings_hjaelp_frame);
-			ConstraintLayout val4 = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.om_frame);
-			ConstraintLayout val5 = ((Activity)this).FindViewById<ConstraintLayout>(Resource.Id.test_frame);
-			((View)obj).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[0].Text);
-			((View)val).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[1].Text);
-			((View)val2).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[2].Text);
-			((View)val3).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[3].Text);
-			((View)val4).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[4].Text);
+			ConstraintLayout constraintLayout = base.FindViewById<ConstraintLayout>(Resource.Id.settings_intro_frame);
+			ConstraintLayout constraintLayout2 = base.FindViewById<ConstraintLayout>(Resource.Id.settings_saddan_frame);
+			ConstraintLayout constraintLayout3 = base.FindViewById<ConstraintLayout>(Resource.Id.settings_behandling_frame);
+			ConstraintLayout constraintLayout4 = base.FindViewById<ConstraintLayout>(Resource.Id.settings_hjaelp_frame);
+			ConstraintLayout constraintLayout5 = base.FindViewById<ConstraintLayout>(Resource.Id.om_frame);
+			ConstraintLayout constraintLayout6 = base.FindViewById<ConstraintLayout>(Resource.Id.test_frame);
+			constraintLayout.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[0].Text;
+			constraintLayout2.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[1].Text;
+			constraintLayout3.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[2].Text;
+			constraintLayout4.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[3].Text;
+			constraintLayout5.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[4].Text;
 			if (_settingsViewModel.ShowDebugItem)
 			{
-				((View)val5).FindViewById<TextView>(Resource.Id.settings_link_text).set_Text(_settingsViewModel.SettingItemList[5].Text);
-				((View)val5).set_Visibility((ViewStates)0);
+				constraintLayout6.FindViewById<TextView>(Resource.Id.settings_link_text).Text = _settingsViewModel.SettingItemList[5].Text;
+				constraintLayout6.Visibility = ViewStates.Visible;
 			}
-			ViewGroup obj2 = ((Activity)this).FindViewById<ViewGroup>(Resource.Id.ic_close_white);
-			((View)obj2).set_ContentDescription(SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON);
-			((View)obj2).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			ViewGroup viewGroup = base.FindViewById<ViewGroup>(Resource.Id.ic_close_white);
+			viewGroup.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
+			viewGroup.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			((View)obj).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				((Activity)(object)this).Finish();
+			}).Run;
+			constraintLayout.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToOnBoarding((Activity)(object)this, isOnBoarding: false);
-			}).Run);
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			constraintLayout2.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsHowItWorksPage((Activity)(object)this);
-			}).Run);
-			((View)val3).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			constraintLayout4.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsHelpPage((Activity)(object)this);
-			}).Run);
-			((View)val4).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			constraintLayout5.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsAboutPage((Activity)(object)this);
-			}).Run);
-			((View)val2).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			constraintLayout3.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToConsentsWithdrawPage((Activity)(object)this);
-			}).Run);
-			((View)val5).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			constraintLayout6.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToDebugPage((Activity)(object)this);
-			}).Run);
-		}
-
-		public SettingsActivity()
-			: this()
-		{
+			}).Run;
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsHelpActivity : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage4ViewModel.HEADER);
-			((Activity)this).SetContentView(Resource.Layout.settings_help);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage4ViewModel.HEADER;
+			((Activity)(object)this).SetContentView(Resource.Layout.settings_help);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(Resource.Id.arrow_back_help);
-			((View)val).set_ContentDescription(SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON);
-			TextView val2 = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_help_text);
-			TextView obj = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_help_title);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_help_link);
-			obj.set_Text(SettingsPage4ViewModel.HEADER);
-			val2.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0));
-			((View)val2).set_ContentDescriptionFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM_ACCESSIBILITY + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU_ACCESSIBILITY + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE_ACCESSIBILITY + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0));
-			val2.set_MovementMethod(LinkMovementMethod.get_Instance());
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(Resource.Id.arrow_back_help);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(Resource.Id.settings_help_text);
+			TextView textView2 = base.FindViewById<TextView>(Resource.Id.settings_help_title);
+			TextView textView3 = base.FindViewById<TextView>(Resource.Id.settings_help_link);
+			textView2.Text = SettingsPage4ViewModel.HEADER;
+			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0);
+			textView.ContentDescriptionFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM_ACCESSIBILITY + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU_ACCESSIBILITY + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE_ACCESSIBILITY + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0);
+			textView.MovementMethod = LinkMovementMethod.Instance;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			val3.set_Text(SettingsPage4ViewModel.SUPPORT_LINK);
-			((View)val3).set_ContentDescription(SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT);
-			LinkUtil.LinkifyTextView(val3);
-		}
-
-		public SettingsHelpActivity()
-			: this()
-		{
+				((Activity)(object)this).Finish();
+			}).Run;
+			textView3.Text = SettingsPage4ViewModel.SUPPORT_LINK;
+			textView3.ContentDescription = SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT;
+			LinkUtil.LinkifyTextView(textView3);
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop, WindowSoftInputMode = SoftInput.AdjustResize)]
 	internal class SettingsAbout : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER);
-			((Activity)this).SetContentView(Resource.Layout.settings_about);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER;
+			((Activity)(object)this).SetContentView(Resource.Layout.settings_about);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button obj = ((Activity)this).FindViewById<Button>(Resource.Id.arrow_back_about);
-			((View)obj).set_ContentDescription(SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON);
-			TextView val = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_about_title);
-			TextView obj2 = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_about_text);
-			TextView val2 = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_about_link);
-			((Activity)this).FindViewById<TextView>(Resource.Id.settings_about_version_info_textview).set_Text(SettingsPage5ViewModel.GetVersionInfo());
-			val.set_Text(SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER);
-			obj2.set_Text(SettingsPage5ViewModel.SETTINGS_PAGE_5_CONTENT + " " + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK);
-			((View)obj).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(Resource.Id.arrow_back_about);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(Resource.Id.settings_about_title);
+			TextView textView2 = base.FindViewById<TextView>(Resource.Id.settings_about_text);
+			TextView textView3 = base.FindViewById<TextView>(Resource.Id.settings_about_link);
+			base.FindViewById<TextView>(Resource.Id.settings_about_version_info_textview).Text = SettingsPage5ViewModel.GetVersionInfo();
+			textView.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER;
+			textView2.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_CONTENT + " " + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			val2.set_Text(SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK);
-			LinkUtil.LinkifyTextView(val2);
+				((Activity)(object)this).Finish();
+			}).Run;
+			textView3.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK;
+			LinkUtil.LinkifyTextView(textView3);
 		}
 
 		private void GoToUrl()
 		{
-			//IL_001a: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0024: Expected O, but got Unknown
-			((Context)this).StartActivity(new Intent("android.intent.action.VIEW", Uri.Parse("https://" + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK)));
-		}
-
-		public SettingsAbout()
-			: this()
-		{
+			((Context)(object)this).StartActivity(new Intent("android.intent.action.VIEW", Android.Net.Uri.Parse("https://" + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK)));
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsHowItWorksActivity : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER);
-			((Activity)this).SetContentView(Resource.Layout.settings_general_page);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER;
+			((Activity)(object)this).SetContentView(Resource.Layout.settings_general_page);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button obj = ((Activity)this).FindViewById<Button>(Resource.Id.arrow_back);
-			((View)obj).set_ContentDescription(SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON);
-			TextView obj2 = ((Activity)this).FindViewById<TextView>(Resource.Id.settings_general_text);
-			((Activity)this).FindViewById<TextView>(Resource.Id.settings_general_title).set_Text(SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER);
-			obj2.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT, 0));
-			((View)obj).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(Resource.Id.arrow_back);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(Resource.Id.settings_general_text);
+			base.FindViewById<TextView>(Resource.Id.settings_general_title).Text = SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER;
+			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT, 0);
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-		}
-
-		public SettingsHowItWorksActivity()
-			: this()
-		{
+				((Activity)(object)this).Finish();
+			}).Run;
 		}
 	}
 }
@@ -13587,49 +13545,46 @@ namespace NDB.Covid19.Droid.Shared.Utils
 		[Obsolete("Use DisplayDialogAsync instead")]
 		public static void DisplayDialog(Activity current, string title, string message, string okBtnText, Action action = null)
 		{
-			//IL_0014: Unknown result type (might be due to invalid IL or missing references)
-			new Builder((Context)(object)current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, (EventHandler<DialogClickEventArgs>)delegate
+			new AlertDialog.Builder(current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, delegate
 			{
 				action?.Invoke();
 			})
-				.SetCancelable(false)
+				.SetCancelable(cancelable: false)
 				.Show();
 		}
 
 		public static void DisplayBubbleDialog(Activity current, string message, string buttonText)
 		{
-			//IL_003f: Unknown result type (might be due to invalid IL or missing references)
-			View val = LayoutInflater.From((Context)(object)current).Inflate(Resource.Layout.bubble_layout, (ViewGroup)null);
-			TextView val2 = val.FindViewById<TextView>(Resource.Id.bubble_message);
-			Button obj = val.FindViewById<Button>(Resource.Id.buttonBubble);
-			val2.set_Text(message);
-			((TextView)obj).set_Text(buttonText);
-			AlertDialog dialog = new Builder((Context)(object)current).SetView(val).SetCancelable(true).Create();
-			((View)obj).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			View view = LayoutInflater.From(current).Inflate(Resource.Layout.bubble_layout, null);
+			TextView textView = view.FindViewById<TextView>(Resource.Id.bubble_message);
+			Button button = view.FindViewById<Button>(Resource.Id.buttonBubble);
+			textView.Text = message;
+			button.Text = buttonText;
+			AlertDialog dialog = new AlertDialog.Builder(current).SetView(view).SetCancelable(cancelable: true).Create();
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Dialog)dialog).Dismiss();
-			}).Run);
-			((Dialog)dialog).get_Window().SetLayout(-2, -2);
-			((Dialog)dialog).Show();
+				dialog.Dismiss();
+			}).Run;
+			dialog.Window.SetLayout(-2, -2);
+			dialog.Show();
 		}
 
 		public static Task<bool> DisplayDialogAsync(Activity activity, string title, string message, string okBtnText = null, string noBtnText = null, int? okBtnTextResourceId = null, int? noBtnTextResourceId = null)
 		{
-			//IL_0017: Unknown result type (might be due to invalid IL or missing references)
 			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-			Builder val = new Builder((Context)(object)activity, 16974126).SetTitle(title).SetMessage(message).SetCancelable(false);
+			AlertDialog.Builder builder = new AlertDialog.Builder(activity, 16974126).SetTitle(title).SetMessage(message).SetCancelable(cancelable: false);
 			if (!string.IsNullOrEmpty(okBtnText) || okBtnTextResourceId.HasValue)
 			{
 				if (!string.IsNullOrEmpty(okBtnText))
 				{
-					val.SetPositiveButton(okBtnText, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetPositiveButton(okBtnText, delegate
 					{
 						tcs.SetResult(result: true);
 					});
 				}
 				if (okBtnTextResourceId.HasValue)
 				{
-					val.SetPositiveButton(okBtnTextResourceId.Value, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetPositiveButton(okBtnTextResourceId.Value, delegate
 					{
 						tcs.SetResult(result: true);
 					});
@@ -13639,59 +13594,57 @@ namespace NDB.Covid19.Droid.Shared.Utils
 			{
 				if (!string.IsNullOrEmpty(noBtnText))
 				{
-					val.SetNegativeButton(noBtnText, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetNegativeButton(noBtnText, delegate
 					{
 						tcs.SetResult(result: false);
 					});
 				}
 				if (noBtnTextResourceId.HasValue)
 				{
-					val.SetNegativeButton(noBtnTextResourceId.Value, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetNegativeButton(noBtnTextResourceId.Value, delegate
 					{
 						tcs.SetResult(result: false);
 					});
 				}
 			}
-			val.Show();
+			builder.Show();
 			return tcs.Task;
 		}
 
 		[Obsolete("Use DisplayDialogAsync instead")]
 		public static void DisplayDialogExtended(Activity current, string title, string message, string okBtnText, string noBtnText, Action actionOk = null, Action actionNotOk = null)
 		{
-			//IL_001c: Unknown result type (might be due to invalid IL or missing references)
-			new Builder((Context)(object)current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, (EventHandler<DialogClickEventArgs>)delegate
+			new AlertDialog.Builder(current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, delegate
 			{
 				actionOk?.Invoke();
 			})
-				.SetNegativeButton(noBtnText, (EventHandler<DialogClickEventArgs>)delegate
+				.SetNegativeButton(noBtnText, delegate
 				{
 					actionNotOk?.Invoke();
 				})
-				.SetCancelable(false)
+				.SetCancelable(cancelable: false)
 				.Show();
 		}
 
 		[Obsolete("Use DisplayDialogAsync instead")]
 		public static void DisplayDialogExtended(Activity current, DialogViewModel viewModel, Action actionOk = null, Action actionNotOk = null)
 		{
-			//IL_001a: Unknown result type (might be due to invalid IL or missing references)
-			Builder val = new Builder((Context)(object)current, 16974126).SetTitle(viewModel.Title).SetMessage(viewModel.Body).SetCancelable(!string.IsNullOrEmpty(viewModel.OkBtnTxt) || !string.IsNullOrEmpty(viewModel.CancelbtnTxt));
+			AlertDialog.Builder builder = new AlertDialog.Builder(current, 16974126).SetTitle(viewModel.Title).SetMessage(viewModel.Body).SetCancelable(!string.IsNullOrEmpty(viewModel.OkBtnTxt) || !string.IsNullOrEmpty(viewModel.CancelbtnTxt));
 			if (!string.IsNullOrEmpty(viewModel.OkBtnTxt))
 			{
-				val.SetPositiveButton(viewModel.OkBtnTxt, (EventHandler<DialogClickEventArgs>)delegate
+				builder.SetPositiveButton(viewModel.OkBtnTxt, delegate
 				{
 					actionOk?.Invoke();
 				});
 			}
 			if (!string.IsNullOrEmpty(viewModel.CancelbtnTxt))
 			{
-				val.SetNegativeButton(viewModel.CancelbtnTxt, (EventHandler<DialogClickEventArgs>)delegate
+				builder.SetNegativeButton(viewModel.CancelbtnTxt, delegate
 				{
 					actionNotOk?.Invoke();
 				});
 			}
-			val.Show();
+			builder.Show();
 		}
 
 		public static async Task<bool> DisplayDialogAsync(Activity current, DialogViewModel viewModel, Action actionOk = null, Action actionNotOk = null)
@@ -13738,11 +13691,10 @@ namespace NDB.Covid19.Droid.Shared.Utils
 
 			private void Reset()
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				new Handler().PostDelayed((Action)delegate
+				new Handler().PostDelayed(delegate
 				{
 					_hasStarted = false;
-				}, (long)_delayMilliseconds);
+				}, _delayMilliseconds);
 			}
 		}
 
@@ -13780,11 +13732,10 @@ namespace NDB.Covid19.Droid.Shared.Utils
 
 			private void Reset()
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				new Handler().PostDelayed((Action)delegate
+				new Handler().PostDelayed(delegate
 				{
 					_hasStarted = false;
-				}, (long)_delayMilliseconds);
+				}, _delayMilliseconds);
 			}
 		}
 
@@ -13822,59 +13773,51 @@ namespace NDB.Covid19.Droid.Shared.Utils
 	{
 		public static void GoToStartPage(Activity parent)
 		{
-			ServiceLocator.get_Current().GetInstance<INavigationServiceDroid>().GoToStartPageIfIsOnboarded(parent);
+			ServiceLocator.Current.GetInstance<INavigationServiceDroid>().GoToStartPageIfIsOnboarded(parent);
 		}
 
 		public static void GoToSettingsPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToSettingsHowItWorksPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsHowItWorksActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsHowItWorksActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToOnBoarding(Activity parent, bool isOnBoarding)
 		{
-			ServiceLocator.get_Current().GetInstance<INavigationServiceDroid>().GoToOnBoarding(parent, isOnBoarding);
+			ServiceLocator.Current.GetInstance<INavigationServiceDroid>().GoToOnBoarding(parent, isOnBoarding);
 		}
 
 		public static void GoToSettingsHelpPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsHelpActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsHelpActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToSettingsAboutPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsAbout));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsAbout));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToConsentsWithdrawPage(Activity parent)
 		{
-			ServiceLocator.get_Current().GetInstance<INavigationServiceDroid>().GoToConsentsWithdrawPage(parent);
+			ServiceLocator.Current.GetInstance<INavigationServiceDroid>().GoToConsentsWithdrawPage(parent);
 		}
 
 		public static void GoToResultPage(Activity parent)
 		{
-			ServiceLocator.get_Current().GetInstance<INavigationServiceDroid>().GoToResultPage(parent);
+			ServiceLocator.Current.GetInstance<INavigationServiceDroid>().GoToResultPage(parent);
 		}
 
 		public static void GoToDebugPage(Activity parent)
 		{
-			ServiceLocator.get_Current().GetInstance<INavigationServiceDroid>().GoToDebugPage(parent);
+			ServiceLocator.Current.GetInstance<INavigationServiceDroid>().GoToDebugPage(parent);
 		}
 	}
 	public interface IPermissionUtils
@@ -13913,21 +13856,21 @@ namespace NDB.Covid19.Droid.Shared.Utils
 	{
 		public static int ConvertDpToPixels(float dp)
 		{
-			return (int)TypedValue.ApplyDimension((ComplexUnitType)1, dp, Application.get_Context().get_Resources().get_DisplayMetrics());
+			return (int)TypedValue.ApplyDimension(ComplexUnitType.Dip, dp, Application.Context.Resources.DisplayMetrics);
 		}
 
 		public static int ConvertSpToPixels(float sp)
 		{
-			return (int)TypedValue.ApplyDimension((ComplexUnitType)2, sp, Application.get_Context().get_Resources().get_DisplayMetrics());
+			return (int)TypedValue.ApplyDimension(ComplexUnitType.Sp, sp, Application.Context.Resources.DisplayMetrics);
 		}
 	}
 	public class LinkUtil
 	{
 		public static void LinkifyTextView(TextView textView)
 		{
-			Pattern val = Pattern.Compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)");
-			Linkify.AddLinks(textView, val, "https://");
-			textView.set_MovementMethod(LinkMovementMethod.get_Instance());
+			Pattern pattern = Pattern.Compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)");
+			Linkify.AddLinks(textView, pattern, "https://");
+			textView.MovementMethod = LinkMovementMethod.Instance;
 		}
 	}
 }

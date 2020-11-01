@@ -5,7 +5,6 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -80,30 +79,26 @@ namespace NDB.Covid19.Base.AppleGoogle
 	{
 		public static void Init(UnityContainer unityContainer)
 		{
-			UnityContainerExtensions.RegisterType<ISharedConfInterface, Conf>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterType<IHeaderService, HeaderService>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterSingleton<MessagesManager>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterSingleton<SecureStorageService>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<ISharedConfInterface, Conf>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IHeaderService, HeaderService>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterSingleton<MessagesManager>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterSingleton<SecureStorageService>(Array.Empty<InjectionMember>());
 		}
 	}
 	public static class LocalesService
 	{
 		public static void Initialize()
 		{
-			//IL_002c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_003b: Expected O, but got Unknown
-			II18N current = I18N.get_Current();
-			if (((current != null) ? current.get_Locale() : null) == null)
+			if (I18N.Current?.Locale == null)
 			{
-				I18N.get_Current().SetNotFoundSymbol("$").SetFallbackLocale("dk")
-					.AddLocaleReader((ILocaleReader)new JsonKvpReader(), ".json")
+				I18N.Current.SetNotFoundSymbol("$").SetFallbackLocale("dk").AddLocaleReader(new JsonKvpReader(), ".json")
 					.Init(typeof(LocalesService).GetTypeInfo().Assembly);
 			}
 		}
 
 		public static void SetInternationalization(string conf)
 		{
-			I18N.get_Current().set_Locale(conf);
+			I18N.Current.Locale = conf;
 		}
 	}
 }
@@ -130,7 +125,7 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices
 	}
 	public class ExposureNotificationWebService : BaseWebService
 	{
-		public async Task<bool> PostSelvExposureKeys(IEnumerable<TemporaryExposureKey> temporaryExposureKeys)
+		public async Task<bool> PostSelvExposureKeys(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> temporaryExposureKeys)
 		{
 			SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO = new SelfDiagnosisSubmissionDTO(temporaryExposureKeys);
 			if (selfDiagnosisSubmissionDTO.DeviceVerificationPayload == null)
@@ -151,13 +146,13 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices
 			return apiResponse.IsSuccessfull;
 		}
 
-		public async Task<Configuration> GetExposureConfiguration()
+		public async Task<Xamarin.ExposureNotifications.Configuration> GetExposureConfiguration()
 		{
 			if (Conf.MOCK_EXPOSURE_CONFIGURATION)
 			{
-				return JsonConvert.DeserializeObject<Configuration>("{    'minimumRiskScore': 20,\n    'attenuationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'attenuationWeight': 50,\n    'daysSinceLastExposureScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'daysSinceLastExposureWeight': 50,\n    'durationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'durationWeight': 50,\n    'transmissionRiskScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'transmissionRiskWeight': 50,\n    'durationAtAttenuationThresholds': [\n        85,\n        170\n    ]\n}");
+				return JsonConvert.DeserializeObject<Xamarin.ExposureNotifications.Configuration>("{    'minimumRiskScore': 20,\n    'attenuationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'attenuationWeight': 50,\n    'daysSinceLastExposureScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'daysSinceLastExposureWeight': 50,\n    'durationScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'durationWeight': 50,\n    'transmissionRiskScores': [\n        1,\n        2,\n        3,\n        4,\n        5,\n        6,\n        7,\n        8\n    ],\n    'transmissionRiskWeight': 50,\n    'durationAtAttenuationThresholds': [\n        85,\n        170\n    ]\n}");
 			}
-			ApiResponse<Configuration> response = await Get<Configuration>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
+			ApiResponse<Xamarin.ExposureNotifications.Configuration> response = await Get<Xamarin.ExposureNotifications.Configuration>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
 			BaseWebService.HandleErrorsSilently(response);
 			if (response.IsSuccessfull && response.Data != null)
 			{
@@ -203,9 +198,9 @@ namespace NDB.Covid19.Base.AppleGoogle.WebServices.Helpers
 {
 	public abstract class RedactedTekListHelper
 	{
-		public static string CreateRedactedTekList(IEnumerable<TemporaryExposureKey> teks)
+		public static string CreateRedactedTekList(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> teks)
 		{
-			return JsonConvert.SerializeObject((object)teks.Select((Func<TemporaryExposureKey, TemporaryExposureKey>)((TemporaryExposureKey tek) => new TemporaryExposureKey(new byte[1], tek.get_RollingStart(), tek.get_RollingDuration(), tek.get_TransmissionRiskLevel()))), BaseWebService.JsonSerializerSettings);
+			return JsonConvert.SerializeObject(teks.Select((Xamarin.ExposureNotifications.TemporaryExposureKey tek) => new Xamarin.ExposureNotifications.TemporaryExposureKey(new byte[1], tek.RollingStart, tek.RollingDuration, tek.TransmissionRiskLevel)), BaseWebService.JsonSerializerSettings);
 		}
 	}
 }
@@ -243,74 +238,83 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public bool ConsentIsGiven;
 
-		public static string WELCOME_PAGE_CONSENT_TITLE => Extensions.Translate("WELCOME_PAGE_FIVE_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_CONSENT_TITLE => "WELCOME_PAGE_FIVE_TITLE".Translate();
 
-		public static string CONSENT_ONE_TITLE => Extensions.Translate("CONSENT_ONE_TITLE", Array.Empty<object>());
+		public static string CONSENT_ONE_TITLE => "CONSENT_ONE_TITLE".Translate();
 
-		public static string CONSENT_ONE_PARAGRAPH => Extensions.Translate("CONSENT_ONE_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_ONE_PARAGRAPH => "CONSENT_ONE_PARAGRAPH".Translate();
 
-		public static string CONSENT_TWO_TITLE => Extensions.Translate("CONSENT_TWO_TITLE", Array.Empty<object>());
+		public static string CONSENT_TWO_TITLE => "CONSENT_TWO_TITLE".Translate();
 
-		public static string CONSENT_TWO_PARAGRAPH => Extensions.Translate("CONSENT_TWO_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_TWO_PARAGRAPH => "CONSENT_TWO_PARAGRAPH".Translate();
 
-		public static string CONSENT_THREE_TITLE => Extensions.Translate("CONSENT_THREE_TITLE", Array.Empty<object>());
+		public static string CONSENT_THREE_TITLE => "CONSENT_THREE_TITLE".Translate();
 
-		public static string CONSENT_THREE_PARAGRAPH => Extensions.Translate("CONSENT_THREE_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_THREE_PARAGRAPH => "CONSENT_THREE_PARAGRAPH".Translate();
 
-		public static string CONSENT_FOUR_TITLE => Extensions.Translate("CONSENT_FOUR_TITLE", Array.Empty<object>());
+		public static string CONSENT_FOUR_TITLE => "CONSENT_FOUR_TITLE".Translate();
 
-		public static string CONSENT_FOUR_PARAGRAPH => Extensions.Translate("CONSENT_FOUR_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_FOUR_PARAGRAPH => "CONSENT_FOUR_PARAGRAPH".Translate();
 
-		public static string CONSENT_FIVE_TITLE => Extensions.Translate("CONSENT_FIVE_TITLE", Array.Empty<object>());
+		public static string CONSENT_FIVE_TITLE => "CONSENT_FIVE_TITLE".Translate();
 
-		public static string CONSENT_FIVE_PARAGRAPH => Extensions.Translate("CONSENT_FIVE_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_FIVE_PARAGRAPH => "CONSENT_FIVE_PARAGRAPH".Translate();
 
-		public static string CONSENT_SIX_TITLE => Extensions.Translate("CONSENT_SIX_TITLE", Array.Empty<object>());
+		public static string CONSENT_SIX_TITLE => "CONSENT_SIX_TITLE".Translate();
 
-		public static string CONSENT_SIX_PARAGRAPH => Extensions.Translate("CONSENT_SIX_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_SIX_PARAGRAPH => "CONSENT_SIX_PARAGRAPH".Translate();
 
-		public static string CONSENT_SEVEN_TITLE => Extensions.Translate("CONSENT_SEVEN_TITLE", Array.Empty<object>());
+		public static string CONSENT_SEVEN_TITLE => "CONSENT_SEVEN_TITLE".Translate();
 
-		public static string CONSENT_SEVEN_PARAGRAPH => Extensions.Translate("CONSENT_SEVEN_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_SEVEN_PARAGRAPH => "CONSENT_SEVEN_PARAGRAPH".Translate();
 
-		public static string CONSENT_EIGHT_TITLE => Extensions.Translate("CONSENT_EIGHT_TITLE", Array.Empty<object>());
+		public static string CONSENT_SEVEN_BUTTON_TEXT => "CONSENT_SEVEN_BUTTON_TEXT".Translate();
 
-		public static string CONSENT_EIGHT_PARAGRAPH => Extensions.Translate("CONSENT_EIGHT_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_SEVEN_BUTTON_URL => "CONSENT_SEVEN_BUTTON_URL".Translate();
 
-		public static string CONSENT_NINE_TITLE => Extensions.Translate("CONSENT_NINE_TITLE", Array.Empty<object>());
+		public static string CONSENT_EIGHT_TITLE => "CONSENT_EIGHT_TITLE".Translate();
 
-		public static string CONSENT_NINE_PARAGRAPH => Extensions.Translate("CONSENT_NINE_PARAGRAPH", Array.Empty<object>());
+		public static string CONSENT_EIGHT_PARAGRAPH => "CONSENT_EIGHT_PARAGRAPH".Translate();
 
-		public static string CONSENT_REMOVE_TITLE => Extensions.Translate("CONSENT_REMOVE_TITLE", Array.Empty<object>());
+		public static string CONSENT_NINE_TITLE => "CONSENT_NINE_TITLE".Translate();
 
-		public static string CONSENT_REMOVE_MESSAGE => Extensions.Translate("CONSENT_REMOVE_MESSAGE", Array.Empty<object>());
+		public static string CONSENT_NINE_PARAGRAPH => "CONSENT_NINE_PARAGRAPH".Translate();
 
-		public static string CONSENT_OK_BUTTON_TEXT => Extensions.Translate("CONSENT_OK_BUTTON_TEXT", Array.Empty<object>());
+		public static string CONSENT_REMOVE_TITLE => "CONSENT_REMOVE_TITLE".Translate();
 
-		public static string CONSENT_NO_BUTTON_TEXT => Extensions.Translate("CONSENT_NO_BUTTON_TEXT", Array.Empty<object>());
+		public static string CONSENT_REMOVE_MESSAGE => "CONSENT_REMOVE_MESSAGE".Translate();
 
-		public static string GIVE_CONSENT_TEXT => Extensions.Translate("CONSENT_GIVE_CONSENT", Array.Empty<object>());
+		public static string CONSENT_OK_BUTTON_TEXT => "CONSENT_OK_BUTTON_TEXT".Translate();
 
-		public static string WITHDRAW_CONSENT_BUTTON_TEXT => Extensions.Translate("CONSENT_WITHDRAW_BUTTON_TEXT", Array.Empty<object>());
+		public static string CONSENT_NO_BUTTON_TEXT => "CONSENT_NO_BUTTON_TEXT".Translate();
 
-		public static string WITHDRAW_CONSENT_SUCCESS_TITLE => Extensions.Translate("CONSENT_WITHDRAW_SUCCES_TITLE", Array.Empty<object>());
+		public static string GIVE_CONSENT_TEXT => "CONSENT_GIVE_CONSENT".Translate();
 
-		public static string WITHDRAW_CONSENT_SUCCESS_TEXT => Extensions.Translate("CONSENT_WITHDRAW_SUCCES_BODY", Array.Empty<object>());
+		public static string WITHDRAW_CONSENT_BUTTON_TEXT => "CONSENT_WITHDRAW_BUTTON_TEXT".Translate();
 
-		public static string SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR => Extensions.Translate("WELCOME_PAGE_FIVE_ACCESSIBILITY_CONSENT_SWITCH", Array.Empty<object>());
+		public static string WITHDRAW_CONSENT_SUCCESS_TITLE => "CONSENT_WITHDRAW_SUCCES_TITLE".Translate();
 
-		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN => Extensions.Translate("WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN", Array.Empty<object>());
+		public static string WITHDRAW_CONSENT_SUCCESS_TEXT => "CONSENT_WITHDRAW_SUCCES_BODY".Translate();
 
-		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN => Extensions.Translate("WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN", Array.Empty<object>());
+		public static string SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR => "WELCOME_PAGE_FIVE_ACCESSIBILITY_CONSENT_SWITCH".Translate();
 
-		public static string CONSENT_THREE_PARAGRAPH_ACCESSIBILITY => Extensions.Translate("CONSENT_THREE_PARAGRAPH_ACCESSIBILITY", Array.Empty<object>());
+		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN".Translate();
 
-		public static string CONSENT_REQUIRED => Extensions.Translate("CONSENT_REQUIRED", Array.Empty<object>());
+		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN".Translate();
+
+		public static string CONSENT_THREE_PARAGRAPH_ACCESSIBILITY => "CONSENT_THREE_PARAGRAPH_ACCESSIBILITY".Translate();
+
+		public static string CONSENT_REQUIRED => "CONSENT_REQUIRED".Translate();
 
 		public async Task<bool> WithDrawConsents()
 		{
 			new DeviceUtils().CleanDataFromDevice();
 			return true;
+		}
+
+		public static void OpenPrivacyPolicyLink()
+		{
+			Browser.OpenAsync(CONSENT_SEVEN_BUTTON_URL);
 		}
 
 		public List<ConsentSectionTexts> GetConsentSectionsTexts()
@@ -376,13 +380,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		private static void ParseKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings, ENOperation varAssignCheck)
 		{
-			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0029: Unknown result type (might be due to invalid IL or missing references)
-			//IL_002f: Expected O, but got Unknown
-			foreach (JObject item in (JArray)JObject.Parse(JsonConvert.SerializeObject((object)selfDiagnosisSubmissionDTO, settings)).get_Item("keys"))
+			foreach (JObject item in (JArray)JObject.Parse(JsonConvert.SerializeObject(selfDiagnosisSubmissionDTO, settings))["keys"])
 			{
-				JObject val = item;
-				string text = string.Format("Key: {0} , rollingStart: {1}, rollingDuration: {2}, transmissionRiskLevel: {3}\n\n", val.get_Item("key"), val.get_Item("rollingStart"), val.get_Item("rollingDuration"), val.get_Item("transmissionRiskLevel"));
+				string text = string.Format("Key: {0} , rollingStart: {1}, rollingDuration: {2}, transmissionRiskLevel: {3}\n\n", item["key"], item["rollingStart"], item["rollingDuration"], item["transmissionRiskLevel"]);
 				if (varAssignCheck == ENOperation.PULL)
 				{
 					PullKeysInfo += text;
@@ -452,7 +452,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			bool processedAnyFiles = false;
 			try
 			{
-				await ExposureNotification.UpdateKeysFromServer(default(CancellationToken));
+				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
 				return processedAnyFiles;
 			}
 			catch (Exception ex)
@@ -468,10 +468,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			DEV_TOOLS_OUTPUT = GetLastPullResult();
 			bool processedAnyFiles = false;
-			Preferences.Set(ExposureDetectedHelper.SHOULD_SAVE_EXPOSURE_INFOS_PREF, true);
+			Preferences.Set(ExposureDetectedHelper.SHOULD_SAVE_EXPOSURE_INFOS_PREF, value: true);
 			try
 			{
-				await ExposureNotification.UpdateKeysFromServer(default(CancellationToken));
+				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
 				return processedAnyFiles;
 			}
 			catch (Exception ex)
@@ -485,7 +485,6 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public string GetExposureInfosFromLastPull()
 		{
-			//IL_00e9: Unknown result type (might be due to invalid IL or missing references)
 			string lastExposureInfos = DeveloperToolsSingleton.Instance.LastExposureInfos;
 			string text = "";
 			if (lastExposureInfos == "")
@@ -501,11 +500,11 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 						string str = ((text == "") ? "" : "\n");
 						text += str;
 						text += "[ExposureInfo with ";
-						text += $"AttenuationValue: {item.get_AttenuationValue()},";
-						text += $"Duration: {item.get_Duration()},";
-						text += $"Timestamp: {item.get_Timestamp()},";
-						text += $"TotalRiskScore: {item.get_TotalRiskScore()},";
-						text += $"TransmissionRiskLevel: {item.get_TransmissionRiskLevel()}";
+						text += $"AttenuationValue: {item.AttenuationValue},";
+						text += $"Duration: {item.Duration},";
+						text += $"Timestamp: {item.Timestamp},";
+						text += $"TotalRiskScore: {item.TotalRiskScore},";
+						text += $"TransmissionRiskLevel: {item.TransmissionRiskLevel}";
 						text += "]";
 					}
 				}
@@ -522,8 +521,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public async Task<string> FetchExposureConfigurationAsync()
 		{
-			Configuration val = await new ExposureNotificationHandler().GetConfigurationAsync();
-			string text2 = (DEV_TOOLS_OUTPUT = $"Exposure Configuration: (mock: {Conf.MOCK_EXPOSURE_CONFIGURATION})\n" + $" AttenuationWeight: {val.get_AttenuationWeight()}, Values: {EnConfArrayString(val.get_AttenuationScores())} \n" + $" DaysSinceLastExposureWeight: {val.get_DaysSinceLastExposureWeight()}, Values: {EnConfArrayString(val.get_DaysSinceLastExposureScores())} \n" + $" DurationWeight: {val.get_DurationWeight()}, Values: {EnConfArrayString(val.get_DurationScores())} \n" + $" TransmissionWeight: {val.get_TransmissionWeight()}, Values: {EnConfArrayString(val.get_TransmissionRiskScores())} \n" + $" MinimumRiskScore: {val.get_MinimumRiskScore()}" + $" DurationAtAttenuationThresholds: [{val.get_DurationAtAttenuationThresholds()[0]},{val.get_DurationAtAttenuationThresholds()[1]}]");
+			Xamarin.ExposureNotifications.Configuration configuration = await new ExposureNotificationHandler().GetConfigurationAsync();
+			string text2 = (DEV_TOOLS_OUTPUT = $"Exposure Configuration: (mock: {Conf.MOCK_EXPOSURE_CONFIGURATION})\n" + $" AttenuationWeight: {configuration.AttenuationWeight}, Values: {EnConfArrayString(configuration.AttenuationScores)} \n" + $" DaysSinceLastExposureWeight: {configuration.DaysSinceLastExposureWeight}, Values: {EnConfArrayString(configuration.DaysSinceLastExposureScores)} \n" + $" DurationWeight: {configuration.DurationWeight}, Values: {EnConfArrayString(configuration.DurationScores)} \n" + $" TransmissionWeight: {configuration.TransmissionWeight}, Values: {EnConfArrayString(configuration.TransmissionRiskScores)} \n" + $" MinimumRiskScore: {configuration.MinimumRiskScore}" + $" DurationAtAttenuationThresholds: [{configuration.DurationAtAttenuationThresholds[0]},{configuration.DurationAtAttenuationThresholds[1]}]");
 			devToolUpdateOutput?.Invoke();
 			Clipboard.SetTextAsync(text2);
 			return text2;
@@ -602,7 +601,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public string GetLastExposureSummary()
 		{
-			string text = ((!ServiceLocator.get_Current().GetInstance<SecureStorageService>().KeyExists(SecureStorageKeys.LAST_SUMMARY_KEY)) ? "No summary yet" : ("Last exposure summary: " + ServiceLocator.get_Current().GetInstance<SecureStorageService>().GetValue(SecureStorageKeys.LAST_SUMMARY_KEY)));
+			string text = ((!ServiceLocator.Current.GetInstance<SecureStorageService>().KeyExists(SecureStorageKeys.LAST_SUMMARY_KEY)) ? "No summary yet" : ("Last exposure summary: " + ServiceLocator.Current.GetInstance<SecureStorageService>().GetValue(SecureStorageKeys.LAST_SUMMARY_KEY)));
 			Clipboard.SetTextAsync(text);
 			return text;
 		}
@@ -641,33 +640,33 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	}
 	public static class ErrorViewModel
 	{
-		public static readonly string REGISTER_ERROR_NOMATCH_HEADER = Extensions.Translate("REGISTER_ERROR_NOMATCH_HEADER", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_NOMATCH_HEADER = "REGISTER_ERROR_NOMATCH_HEADER".Translate();
 
-		public static readonly string REGISTER_ERROR_NOMATCH_DESCRIPTION = Extensions.Translate("REGISTER_ERROR_NOMATCH_DESCRIPTION", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_NOMATCH_DESCRIPTION = "REGISTER_ERROR_NOMATCH_DESCRIPTION".Translate();
 
-		public static readonly string REGISTER_ERROR_TOOMANYTRIES_HEADER = Extensions.Translate("REGISTER_ERROR_TOOMANYTRIES_HEADER", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_TOOMANYTRIES_HEADER = "REGISTER_ERROR_TOOMANYTRIES_HEADER".Translate();
 
-		public static readonly string REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION = Extensions.Translate("REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION = "REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION".Translate();
 
-		public static readonly string REGISTER_ERROR_HEADER = Extensions.Translate("REGISTER_ERROR_HEADER", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_HEADER = "REGISTER_ERROR_HEADER".Translate();
 
-		public static readonly string REGISTER_ERROR_DESCRIPTION = Extensions.Translate("REGISTER_ERROR_DESCRIPTION", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_DESCRIPTION = "REGISTER_ERROR_DESCRIPTION".Translate();
 
-		public static readonly string REGISTER_ERROR_DISMISS = Extensions.Translate("REGISTER_ERROR_DISMISS", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_DISMISS = "REGISTER_ERROR_DISMISS".Translate();
 
-		public static readonly string REGISTER_LEAVE_HEADER = Extensions.Translate("REGISTER_LEAVE_HEADER", Array.Empty<object>());
+		public static readonly string REGISTER_LEAVE_HEADER = "REGISTER_LEAVE_HEADER".Translate();
 
-		public static readonly string REGISTER_LEAVE_DESCRIPTION = Extensions.Translate("REGISTER_LEAVE_DESCRIPTION", Array.Empty<object>());
+		public static readonly string REGISTER_LEAVE_DESCRIPTION = "REGISTER_LEAVE_DESCRIPTION".Translate();
 
-		public static readonly string REGISTER_LEAVE_CANCEL = Extensions.Translate("REGISTER_LEAVE_CANCEL", Array.Empty<object>());
+		public static readonly string REGISTER_LEAVE_CANCEL = "REGISTER_LEAVE_CANCEL".Translate();
 
-		public static readonly string REGISTER_LEAVE_CONFIRM = Extensions.Translate("REGISTER_LEAVE_CONFIRM", Array.Empty<object>());
+		public static readonly string REGISTER_LEAVE_CONFIRM = "REGISTER_LEAVE_CONFIRM".Translate();
 
-		public static readonly string REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT = Extensions.Translate("REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT = "REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
 
-		public static readonly string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER = Extensions.Translate("REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER = "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER".Translate();
 
-		public static readonly string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION = Extensions.Translate("REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION", Array.Empty<object>());
+		public static readonly string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION = "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION".Translate();
 	}
 	public class InfectionStatusViewModel
 	{
@@ -683,35 +682,35 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public DialogViewModel ReportingIllDialogViewModel;
 
-		public static string INFECTION_STATUS_PAGE_TITLE => Extensions.Translate("SMITTESPORING_PAGE_TITLE", Array.Empty<object>());
+		public static string INFECTION_STATUS_PAGE_TITLE => "SMITTESPORING_PAGE_TITLE".Translate();
 
-		public static string INFECTION_STATUS_ACTIVE_TEXT => Extensions.Translate("SMITTESPORING_ACTIVE_HEADER", Array.Empty<object>());
+		public static string INFECTION_STATUS_ACTIVE_TEXT => "SMITTESPORING_ACTIVE_HEADER".Translate();
 
-		public static string INFECTION_STATUS_INACTIVE_TEXT => Extensions.Translate("SMITTESPORING_INACTIVE_HEADER", Array.Empty<object>());
+		public static string INFECTION_STATUS_INACTIVE_TEXT => "SMITTESPORING_INACTIVE_HEADER".Translate();
 
-		public static string INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT => Extensions.Translate("SMITTESPORING_ACTIVE_DESCRIPTION", Array.Empty<object>());
+		public static string INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT => "SMITTESPORING_ACTIVE_DESCRIPTION".Translate();
 
-		public static string SMITTESPORING_INACTIVE_DESCRIPTION => Extensions.Translate("SMITTESPORING_INACTIVE_DESCRIPTION", Array.Empty<object>());
+		public static string SMITTESPORING_INACTIVE_DESCRIPTION => "SMITTESPORING_INACTIVE_DESCRIPTION".Translate();
 
-		public static string INFECTION_STATUS_MESSAGE_HEADER_TEXT => Extensions.Translate("SMITTESPORING_MESSAGE_HEADER", Array.Empty<object>());
+		public static string INFECTION_STATUS_MESSAGE_HEADER_TEXT => "SMITTESPORING_MESSAGE_HEADER".Translate();
 
-		public static string INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT => Extensions.Translate("SMITTESPORING_MESSAGE_HEADER_ACCESSIBILITY", Array.Empty<object>());
+		public static string INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT => "SMITTESPORING_MESSAGE_HEADER_ACCESSIBILITY".Translate();
 
-		public static string INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT => Extensions.Translate("SMITTESPORING_MESSAGE_DESCRIPTION", Array.Empty<object>());
+		public static string INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_MESSAGE_DESCRIPTION".Translate();
 
-		public static string INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT => Extensions.Translate("SMITTESPORING_NO_NEW_MESSAGE_DESCRIPTION", Array.Empty<object>());
+		public static string INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_NO_NEW_MESSAGE_DESCRIPTION".Translate();
 
-		public static string INFECTION_STATUS_REGISTRATION_HEADER_TEXT => Extensions.Translate("SMITTESPORING_REGISTER_HEADER", Array.Empty<object>());
+		public static string INFECTION_STATUS_REGISTRATION_HEADER_TEXT => "SMITTESPORING_REGISTER_HEADER".Translate();
 
-		public static string INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT => Extensions.Translate("SMITTESPORING_REGISTER_DESCRIPTION", Array.Empty<object>());
+		public static string INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT => "SMITTESPORING_REGISTER_DESCRIPTION".Translate();
 
-		public static string INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT => Extensions.Translate("MENU_TEXT", Array.Empty<object>());
+		public static string INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT => "MENU_TEXT".Translate();
 
-		public static string INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT => Extensions.Translate("SMITTESPORING_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY", Array.Empty<object>());
+		public static string INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT => "SMITTESPORING_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY".Translate();
 
-		public static string INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT => Extensions.Translate("SMITTESPORING_START_BUTTON_ACCESSIBILITY", Array.Empty<object>());
+		public static string INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_START_BUTTON_ACCESSIBILITY".Translate();
 
-		public static string INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT => Extensions.Translate("SMITTESPORING_STOP_BUTTON_ACCESSIBILITY", Array.Empty<object>());
+		public static string INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_STOP_BUTTON_ACCESSIBILITY".Translate();
 
 		public bool ShowNewMessageIcon
 		{
@@ -755,7 +754,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			try
 			{
-				return (int)(await ExposureNotification.GetStatusAsync()) == 2;
+				return await Xamarin.ExposureNotifications.ExposureNotification.GetStatusAsync() == Status.Active;
 			}
 			catch (Exception ex)
 			{
@@ -776,7 +775,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			try
 			{
-				return await ExposureNotification.IsEnabledAsync();
+				return await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync();
 			}
 			catch (Exception ex)
 			{
@@ -799,7 +798,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			try
 			{
-				await ExposureNotification.StartAsync();
+				await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
 			}
 			catch (Exception ex)
 			{
@@ -814,7 +813,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		public async Task<bool> StopBluetooth()
 		{
-			await ExposureNotification.StopAsync();
+			await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
 			return await IsRunning();
 		}
 
@@ -846,29 +845,29 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 		{
 			OffDialogViewModel = new DialogViewModel
 			{
-				Title = Extensions.Translate("SMITTESPORING_TOGGLE_OFF_HEADER", Array.Empty<object>()),
-				Body = Extensions.Translate("SMITTESPORING_TOGGLE_OFF_DESCRIPTION", Array.Empty<object>()),
-				OkBtnTxt = Extensions.Translate("SMITTESPORING_TOGGLE_OFF_CONFIRM", Array.Empty<object>()),
-				CancelbtnTxt = Extensions.Translate("SMITTESPORING_TOGGLE_OFF_CANCEL", Array.Empty<object>())
+				Title = "SMITTESPORING_TOGGLE_OFF_HEADER".Translate(),
+				Body = "SMITTESPORING_TOGGLE_OFF_DESCRIPTION".Translate(),
+				OkBtnTxt = "SMITTESPORING_TOGGLE_OFF_CONFIRM".Translate(),
+				CancelbtnTxt = "SMITTESPORING_TOGGLE_OFF_CANCEL".Translate()
 			};
 			OnDialogViewModel = new DialogViewModel
 			{
-				Title = Extensions.Translate("SMITTESPORING_TOGGLE_ON_HEADER", Array.Empty<object>()),
-				Body = Extensions.Translate("SMITTESPORING_TOGGLE_ON_DESCRIPTION", Array.Empty<object>()),
-				OkBtnTxt = Extensions.Translate("SMITTESPORING_TOGGLE_ON_CONFIRM", Array.Empty<object>()),
-				CancelbtnTxt = Extensions.Translate("SMITTESPORING_TOGGLE_ON_CANCEL", Array.Empty<object>())
+				Title = "SMITTESPORING_TOGGLE_ON_HEADER".Translate(),
+				Body = "SMITTESPORING_TOGGLE_ON_DESCRIPTION".Translate(),
+				OkBtnTxt = "SMITTESPORING_TOGGLE_ON_CONFIRM".Translate(),
+				CancelbtnTxt = "SMITTESPORING_TOGGLE_ON_CANCEL".Translate()
 			};
 			PermissionViewModel = new DialogViewModel
 			{
-				Title = Extensions.Translate("SMITTESPORING_EN_PERMISSION_DENIED_HEADER", Array.Empty<object>()),
-				Body = Extensions.Translate("SMITTESPORING_EN_PERMISSION_DENIED_BODY", Array.Empty<object>()),
-				OkBtnTxt = Extensions.Translate("SMITTESPORING_EN_PERMISSION_DENIED_OK_BTN", Array.Empty<object>())
+				Title = "SMITTESPORING_EN_PERMISSION_DENIED_HEADER".Translate(),
+				Body = "SMITTESPORING_EN_PERMISSION_DENIED_BODY".Translate(),
+				OkBtnTxt = "SMITTESPORING_EN_PERMISSION_DENIED_OK_BTN".Translate()
 			};
 			ReportingIllDialogViewModel = new DialogViewModel
 			{
-				Title = Extensions.Translate("SMITTESPORING_REPORTING_ILL_DIALOG_HEADER", Array.Empty<object>()),
-				Body = Extensions.Translate("SMITTESPORING_REPORTING_ILL_DIALOG_BODY", Array.Empty<object>()),
-				OkBtnTxt = Extensions.Translate("SMITTESPORING_REPORTING_ILL_DIALOG_OK_BTN", Array.Empty<object>())
+				Title = "SMITTESPORING_REPORTING_ILL_DIALOG_HEADER".Translate(),
+				Body = "SMITTESPORING_REPORTING_ILL_DIALOG_BODY".Translate(),
+				OkBtnTxt = "SMITTESPORING_REPORTING_ILL_DIALOG_OK_BTN".Translate()
 			};
 		}
 	}
@@ -880,27 +879,27 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		private EventHandler<AuthErrorType> _onError;
 
-		public static string INFORMATION_CONSENT_HEADER_TEXT => Extensions.Translate("INFOCONSENT_HEADER", Array.Empty<object>());
+		public static string INFORMATION_CONSENT_HEADER_TEXT => "INFOCONSENT_HEADER".Translate();
 
-		public static string INFORMATION_CONSENT_CONTENT_TEXT => Extensions.Translate("INFOCONSENT_DESCRIPTION", Array.Empty<object>());
+		public static string INFORMATION_CONSENT_CONTENT_TEXT => "INFOCONSENT_DESCRIPTION".Translate();
 
-		public static string INFORMATION_CONSENT_NEMID_BUTTON_TEXT => Extensions.Translate("INFOCONSENT_LOGIN", Array.Empty<object>());
+		public static string INFORMATION_CONSENT_NEMID_BUTTON_TEXT => "INFOCONSENT_LOGIN".Translate();
 
-		public static string VERIFICATION_ERROR_TITLE => Extensions.Translate("BASE_ERROR_TITLE", Array.Empty<object>());
+		public static string VERIFICATION_ERROR_TITLE => "BASE_ERROR_TITLE".Translate();
 
-		public static string VERIFICATION_ERROR_MESSAGE => Extensions.Translate("BASE_ERROR_MESSAGE", Array.Empty<object>());
+		public static string VERIFICATION_ERROR_MESSAGE => "BASE_ERROR_MESSAGE".Translate();
 
-		public static string VERIFICATION_ERROR_BUTTON_TEXT => Extensions.Translate("ERROR_OK_BTN", Array.Empty<object>());
+		public static string VERIFICATION_ERROR_BUTTON_TEXT => "ERROR_OK_BTN".Translate();
 
-		public static string CLOSE_BUTTON_ACCESSIBILITY_LABEL => Extensions.Translate("SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON", Array.Empty<object>());
+		public static string CLOSE_BUTTON_ACCESSIBILITY_LABEL => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
 
-		public static string INFOCONSENT_TITLE => Extensions.Translate("INFOCONSENT_TITLE", Array.Empty<object>());
+		public static string INFOCONSENT_TITLE => "INFOCONSENT_TITLE".Translate();
 
-		public static string INFOCONSENT_BODY_ONE => Extensions.Translate("INFOCONSENT_BODY_ONE", Array.Empty<object>());
+		public static string INFOCONSENT_BODY_ONE => "INFOCONSENT_BODY_ONE".Translate();
 
-		public static string INFOCONSENT_BODY_TWO => Extensions.Translate("INFOCONSENT_BODY_TWO", Array.Empty<object>());
+		public static string INFOCONSENT_BODY_TWO => "INFOCONSENT_BODY_TWO".Translate();
 
-		public static string INFOCONSENT_DESCRIPTION_ONE => Extensions.Translate("INFOCONSENT_DESCRIPTION_ONE", Array.Empty<object>());
+		public static string INFOCONSENT_DESCRIPTION_ONE => "INFOCONSENT_DESCRIPTION_ONE".Translate();
 
 		public event EventHandler<AuthErrorType> OnError;
 
@@ -957,48 +956,45 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 
 		private void OnAuthCompleted(object sender, AuthenticatorCompletedEventArgs e)
 		{
-			if (e != null && e.get_IsAuthenticated())
+			if (e != null && e.IsAuthenticated && e.Account?.Properties != null && e.Account.Properties.ContainsKey("access_token"))
 			{
-				Account account = e.get_Account();
-				if (((account != null) ? account.get_Properties() : null) != null && e.get_Account().get_Properties().ContainsKey("access_token"))
+				string accessToken = e.Account?.Properties["access_token"];
+				PersonalDataModel payloadValidateJWTToken = _authManager.GetPayloadValidateJWTToken(accessToken);
+				if (payloadValidateJWTToken == null)
 				{
-					Account account2 = e.get_Account();
-					string accessToken = ((account2 != null) ? account2.get_Properties()["access_token"] : null);
-					PersonalDataModel payloadValidateJWTToken = _authManager.GetPayloadValidateJWTToken(accessToken);
-					if (payloadValidateJWTToken == null)
-					{
-						this.OnError?.Invoke(this, AuthErrorType.Unknown);
-						return;
-					}
-					if (e.get_Account().get_Properties().TryGetValue("expires_in", out var value))
-					{
-						int.TryParse(value, out var result);
-						if (result > 0 && payloadValidateJWTToken != null)
-						{
-							payloadValidateJWTToken.TokenExpiration = DateTime.Now.AddSeconds(result);
-						}
-					}
-					SaveCovidRelatedAttributes(payloadValidateJWTToken);
-					if (AuthenticationState.PersonalData.Covid19_blokeret == "true")
-					{
-						this.OnError?.Invoke(this, AuthErrorType.MaxTriesExceeded);
-					}
-					else if (AuthenticationState.PersonalData.Covid19_status == "negativ")
-					{
-						this.OnError?.Invoke(this, AuthErrorType.NotInfected);
-					}
-					else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.Covid19_status == "ukendt")
-					{
-						this.OnError?.Invoke(this, AuthErrorType.Unknown);
-					}
-					else
-					{
-						this.OnSuccess?.Invoke(this, null);
-					}
+					this.OnError?.Invoke(this, AuthErrorType.Unknown);
 					return;
 				}
+				if (e.Account.Properties.TryGetValue("expires_in", out var value))
+				{
+					int.TryParse(value, out var result);
+					if (result > 0 && payloadValidateJWTToken != null)
+					{
+						payloadValidateJWTToken.TokenExpiration = DateTime.Now.AddSeconds(result);
+					}
+				}
+				SaveCovidRelatedAttributes(payloadValidateJWTToken);
+				if (AuthenticationState.PersonalData.Covid19_blokeret == "true")
+				{
+					this.OnError?.Invoke(this, AuthErrorType.MaxTriesExceeded);
+				}
+				else if (AuthenticationState.PersonalData.Covid19_status == "negativ")
+				{
+					this.OnError?.Invoke(this, AuthErrorType.NotInfected);
+				}
+				else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.Covid19_status == "ukendt")
+				{
+					this.OnError?.Invoke(this, AuthErrorType.Unknown);
+				}
+				else
+				{
+					this.OnSuccess?.Invoke(this, null);
+				}
 			}
-			Restart();
+			else
+			{
+				Restart();
+			}
 		}
 
 		private void Restart()
@@ -1019,9 +1015,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	}
 	public class MessageItemViewModel
 	{
-		public static readonly string MESSAGES_RECOMMENDATIONS = Extensions.Translate("MESSAGES_RECOMMENDATIONS_", Array.Empty<object>());
+		public static readonly string MESSAGES_RECOMMENDATIONS = "MESSAGES_RECOMMENDATIONS_".Translate();
 
-		public static readonly string MESSAGES_MESSAGE_HEADER = Extensions.Translate("MESSAGES_MESSAGE_HEADER", Array.Empty<object>());
+		public static readonly string MESSAGES_MESSAGE_HEADER = "MESSAGES_MESSAGE_HEADER".Translate();
 
 		private bool _isRead;
 
@@ -1075,15 +1071,15 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	}
 	public class MessagesViewModel
 	{
-		public static readonly string MESSAGES_HEADER = Extensions.Translate("MESSAGES_HEADER", Array.Empty<object>());
+		public static readonly string MESSAGES_HEADER = "MESSAGES_HEADER".Translate();
 
-		public static readonly string MESSAGES_NO_ITEMS_TITLE = Extensions.Translate("MESSAGES_NOMESSAGES_HEADER", Array.Empty<object>());
+		public static readonly string MESSAGES_NO_ITEMS_TITLE = "MESSAGES_NOMESSAGES_HEADER".Translate();
 
-		public static readonly string MESSAGES_NO_ITEMS_DESCRIPTION = Extensions.Translate("MESSAGES_NOMESSAGES_LABEL", Array.Empty<object>());
+		public static readonly string MESSAGES_NO_ITEMS_DESCRIPTION = "MESSAGES_NOMESSAGES_LABEL".Translate();
 
-		public static string MESSAGES_LAST_UPDATED_LABEL => Extensions.Translate("MESSAGES_LAST_UPDATED_LABEL", Array.Empty<object>());
+		public static string MESSAGES_LAST_UPDATED_LABEL => "MESSAGES_LAST_UPDATED_LABEL".Translate();
 
-		public static string MESSAGES_ACCESSIBILITY_CLOSE_BUTTON => Extensions.Translate("MESSAGES_ACCESSIBILITY_CLOSE_BUTTON", Array.Empty<object>());
+		public static string MESSAGES_ACCESSIBILITY_CLOSE_BUTTON => "MESSAGES_ACCESSIBILITY_CLOSE_BUTTON".Translate();
 
 		public static DateTime LastUpdateDateTime => MessageUtils.GetUpdatedDateTime();
 
@@ -1130,73 +1126,73 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	}
 	public class NotificationViewModel
 	{
-		public static string Title => Extensions.Translate("NOTIFICATION_HEADER", Array.Empty<object>());
+		public static string Title => "NOTIFICATION_HEADER".Translate();
 
-		public static string Body => Extensions.Translate("NOTIFICATION_DESCRIPTION", Array.Empty<object>());
+		public static string Body => "NOTIFICATION_DESCRIPTION".Translate();
 	}
 	public class QuestionnaireViewModel
 	{
-		public static string REGISTER_QUESTIONAIRE_HEADER = Extensions.Translate("REGISTER_QUESTIONAIRE_HEADER", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_HEADER = "REGISTER_QUESTIONAIRE_HEADER".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP = Extensions.Translate("REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP = "REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_NEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_NEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_NEXT = "REGISTER_QUESTIONAIRE_NEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SHARING_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_SHARING_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SHARING_TEXT = "REGISTER_QUESTIONAIRE_SHARING_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES = Extensions.Translate("REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES = "REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO = Extensions.Translate("REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO = "REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP = Extensions.Translate("REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP = "REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_SUBMIT = Extensions.Translate("REGISTER_QUESTIONAIRE_SUBMIT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_SUBMIT = "REGISTER_QUESTIONAIRE_SUBMIT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_HEADER = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_HEADER", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_HEADER = "REGISTER_QUESTIONAIRE_RECEIPT_HEADER".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_TEXT = "REGISTER_QUESTIONAIRE_RECEIPT_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION = "REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_DISMISS = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_DISMISS", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_DISMISS = "REGISTER_QUESTIONAIRE_RECEIPT_DISMISS".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER = "REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE = "REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_LINK = Extensions.Translate("REGISTER_QUESTIONAIRE_RECEIPT_LINK", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_LINK = "REGISTER_QUESTIONAIRE_RECEIPT_LINK".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATEPICKER = Extensions.Translate("REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATEPICKER = "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER".Translate();
 
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER = Extensions.Translate("REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER", Array.Empty<object>());
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER = "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER".Translate();
 
 		public DialogViewModel CloseDialogViewModel;
 
@@ -1280,7 +1276,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 			{
 				if (_selectedDateUTC == DateTime.MinValue)
 				{
-					ServiceLocator.get_Current().GetInstance<IDialogService>().ShowMessageDialog(null, Extensions.Translate("REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP", Array.Empty<object>()), Extensions.Translate("ERROR_OK_BTN", Array.Empty<object>()), platformDialogServiceArguments);
+					ServiceLocator.Current.GetInstance<IDialogService>().ShowMessageDialog(null, "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate(), "ERROR_OK_BTN".Translate(), platformDialogServiceArguments);
 					onValidationFail?.Invoke();
 					return;
 				}
@@ -1316,71 +1312,71 @@ namespace NDB.Covid19.Base.AppleGoogle.ViewModels
 	{
 		private DeviceGuidService deviceGuidService;
 
-		public static string NEXT_PAGE_BUTTON_TEXT => Extensions.Translate("WELCOME_PAGE_NEXT_BUTTON_TEXT", Array.Empty<object>());
+		public static string NEXT_PAGE_BUTTON_TEXT => "WELCOME_PAGE_NEXT_BUTTON_TEXT".Translate();
 
-		public static string PREVIOUS_PAGE_BUTTON_TEXT => Extensions.Translate("WELCOME_PAGE_PREVIOUS_BUTTON_TEXT", Array.Empty<object>());
+		public static string PREVIOUS_PAGE_BUTTON_TEXT => "WELCOME_PAGE_PREVIOUS_BUTTON_TEXT".Translate();
 
-		public static string WELCOME_PAGE_ONE_TITLE => Extensions.Translate("WELCOME_PAGE_ONE_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_ONE_TITLE => "WELCOME_PAGE_ONE_TITLE".Translate();
 
-		public static string WELCOME_PAGE_ONE_BODY_ONE => Extensions.Translate("WELCOME_PAGE_ONE_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_ONE_BODY_ONE => "WELCOME_PAGE_ONE_BODY_ONE".Translate();
 
-		public static string WELCOME_PAGE_ONE_BODY_TWO => Extensions.Translate("WELCOME_PAGE_ONE_BODY_TWO", Array.Empty<object>());
+		public static string WELCOME_PAGE_ONE_BODY_TWO => "WELCOME_PAGE_ONE_BODY_TWO".Translate();
 
-		public static string WELCOME_PAGE_TWO_TITLE => Extensions.Translate("WELCOME_PAGE_TWO_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_TWO_TITLE => "WELCOME_PAGE_TWO_TITLE".Translate();
 
-		public static string WELCOME_PAGE_TWO_BODY_ONE => Extensions.Translate("WELCOME_PAGE_TWO_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_TWO_BODY_ONE => "WELCOME_PAGE_TWO_BODY_ONE".Translate();
 
-		public static string WELCOME_PAGE_TWO_BODY_TWO => Extensions.Translate("WELCOME_PAGE_TWO_BODY_TWO", Array.Empty<object>());
+		public static string WELCOME_PAGE_TWO_BODY_TWO => "WELCOME_PAGE_TWO_BODY_TWO".Translate();
 
-		public static string WELCOME_PAGE_THREE_TITLE => Extensions.Translate("WELCOME_PAGE_THREE_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_THREE_TITLE => "WELCOME_PAGE_THREE_TITLE".Translate();
 
-		public static string WELCOME_PAGE_THREE_BODY_ONE => Extensions.Translate("WELCOME_PAGE_THREE_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_THREE_BODY_ONE => "WELCOME_PAGE_THREE_BODY_ONE".Translate();
 
-		public static string WELCOME_PAGE_THREE_BODY_TWO => Extensions.Translate("WELCOME_PAGE_THREE_BODY_TWO", Array.Empty<object>());
+		public static string WELCOME_PAGE_THREE_BODY_TWO => "WELCOME_PAGE_THREE_BODY_TWO".Translate();
 
-		public static string WELCOME_PAGE_THREE_INFOBOX_BODY => Extensions.Translate("WELCOME_PAGE_THREE_INFOBOX_BODY", Array.Empty<object>());
+		public static string WELCOME_PAGE_THREE_INFOBOX_BODY => "WELCOME_PAGE_THREE_INFOBOX_BODY".Translate();
 
-		public static string WELCOME_PAGE_FOUR_TITLE => Extensions.Translate("WELCOME_PAGE_FOUR_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_FOUR_TITLE => "WELCOME_PAGE_FOUR_TITLE".Translate();
 
-		public static string WELCOME_PAGE_FOUR_BODY_ONE => Extensions.Translate("WELCOME_PAGE_FOUR_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_FOUR_BODY_ONE => "WELCOME_PAGE_FOUR_BODY_ONE".Translate();
 
-		public static string WELCOME_PAGE_FOUR_BODY_TWO => Extensions.Translate("WELCOME_PAGE_FOUR_BODY_TWO", Array.Empty<object>());
+		public static string WELCOME_PAGE_FOUR_BODY_TWO => "WELCOME_PAGE_FOUR_BODY_TWO".Translate();
 
-		public static string WELCOME_PAGE_FOUR_BODY_THREE => Extensions.Translate("WELCOME_PAGE_FOUR_BODY_THREE", Array.Empty<object>());
+		public static string WELCOME_PAGE_FOUR_BODY_THREE => "WELCOME_PAGE_FOUR_BODY_THREE".Translate();
 
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE => Extensions.Translate("WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE".Translate();
 
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE => Extensions.Translate("WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE".Translate();
 
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO => Extensions.Translate("WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO", Array.Empty<object>());
+		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO".Translate();
 
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON => Extensions.Translate("WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON", Array.Empty<object>());
+		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON".Translate();
 
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_ONE => Extensions.Translate("WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE", Array.Empty<object>());
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_ONE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE".Translate();
 
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_TWO => Extensions.Translate("WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_TWO", Array.Empty<object>());
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_TWO => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_TWO".Translate();
 
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_THREE => Extensions.Translate("WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_THREE", Array.Empty<object>());
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_THREE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_THREE".Translate();
 
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR => Extensions.Translate("WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR", Array.Empty<object>());
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR".Translate();
 
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FIVE => Extensions.Translate("WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FIVE", Array.Empty<object>());
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FIVE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FIVE".Translate();
 
-		public static string CONTENT_DESCRIPTOR_NEXT_BUTTON_ENABLED => Extensions.Translate("WELCOME_PAGE_CONTENT_DESCRIPTOR_NEXT_BUTTON_ENABLED", Array.Empty<object>());
+		public static string CONTENT_DESCRIPTOR_NEXT_BUTTON_ENABLED => "WELCOME_PAGE_CONTENT_DESCRIPTOR_NEXT_BUTTON_ENABLED".Translate();
 
-		public static string CONTENT_DESCRIPTOR_NEXT_BUTTON_DISABLED => Extensions.Translate("WELCOME_PAGE_CONTENT_DESCRIPTOR_NEXT_BUTTON_DISABLED", Array.Empty<object>());
+		public static string CONTENT_DESCRIPTOR_NEXT_BUTTON_DISABLED => "WELCOME_PAGE_CONTENT_DESCRIPTOR_NEXT_BUTTON_DISABLED".Translate();
 
-		public static string TRANSMISSION_ERROR_MSG => Extensions.Translate("TRANSMISSION_ERROR_MSG", Array.Empty<object>());
+		public static string TRANSMISSION_ERROR_MSG => "TRANSMISSION_ERROR_MSG".Translate();
 
-		public static string TRANSMISSION_ERROR_MSG_NOTIFICATION_TEXT => Extensions.Translate("TRANSMISSION_ERROR_MSG_NOTIFICATION_TEXT", Array.Empty<object>());
+		public static string TRANSMISSION_ERROR_MSG_NOTIFICATION_TEXT => "TRANSMISSION_ERROR_MSG_NOTIFICATION_TEXT".Translate();
 
-		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE => Extensions.Translate("WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE", Array.Empty<object>());
+		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE => "WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE".Translate();
 
-		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE => Extensions.Translate("WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE", Array.Empty<object>());
+		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE => "WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE".Translate();
 
 		public WelcomeViewModel()
 		{
-			deviceGuidService = ServiceLocator.get_Current().GetInstance<DeviceGuidService>();
+			deviceGuidService = ServiceLocator.Current.GetInstance<DeviceGuidService>();
 		}
 	}
 }
@@ -1408,10 +1404,8 @@ namespace NDB.Covid19.Base.AppleGoogle.PersistedStorage.SQLite
 
 		public MessagesManager()
 		{
-			//IL_0019: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0023: Expected O, but got Unknown
-			_database = new SQLiteAsyncConnection(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), SharedConf.DB_NAME), true);
-			_database.CreateTableAsync<MessageSQLiteModel>((CreateFlags)0).Wait();
+			_database = new SQLiteAsyncConnection(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), SharedConf.DB_NAME));
+			_database.CreateTableAsync<MessageSQLiteModel>().Wait();
 		}
 
 		public async Task<int> SaveNewMessage(MessageSQLiteModel message)
@@ -1419,7 +1413,7 @@ namespace NDB.Covid19.Base.AppleGoogle.PersistedStorage.SQLite
 			await _syncLock.WaitAsync();
 			try
 			{
-				return await _database.InsertAsync((object)message);
+				return await _database.InsertAsync(message);
 			}
 			finally
 			{
@@ -1449,7 +1443,9 @@ namespace NDB.Covid19.Base.AppleGoogle.PersistedStorage.SQLite
 			await _syncLock.WaitAsync();
 			try
 			{
-				return await _database.Table<MessageSQLiteModel>().Where((Expression<Func<MessageSQLiteModel, bool>>)((MessageSQLiteModel message) => message.IsRead == false)).ToListAsync();
+				return await (from message in _database.Table<MessageSQLiteModel>()
+					where message.IsRead == false
+					select message).ToListAsync();
 			}
 			catch
 			{
@@ -1468,7 +1464,7 @@ namespace NDB.Covid19.Base.AppleGoogle.PersistedStorage.SQLite
 			{
 				foreach (MessageSQLiteModel message in messages)
 				{
-					await _database.Table<MessageSQLiteModel>().DeleteAsync((Expression<Func<MessageSQLiteModel, bool>>)((MessageSQLiteModel it) => it.ID == message.ID));
+					await _database.Table<MessageSQLiteModel>().DeleteAsync((MessageSQLiteModel it) => it.ID == message.ID);
 				}
 			}
 			finally
@@ -1496,7 +1492,7 @@ namespace NDB.Covid19.Base.AppleGoogle.PersistedStorage.SQLite
 			try
 			{
 				message.IsRead = isRead;
-				await _database.UpdateAsync((object)message);
+				await _database.UpdateAsync(message);
 			}
 			finally
 			{
@@ -1516,7 +1512,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 
 		public static bool GetIsOnboardingCompleted()
 		{
-			return Preferences.Get("isOnboardingCompleted", false);
+			return Preferences.Get("isOnboardingCompleted", defaultValue: false);
 		}
 	}
 	public static class DateUtils
@@ -1634,7 +1630,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 	{
 		public void CleanDataFromDevice()
 		{
-			ServiceLocator.get_Current().GetInstance<DeviceGuidService>().DeleteAll();
+			ServiceLocator.Current.GetInstance<DeviceGuidService>().DeleteAll();
 			DeveloperToolsSingleton.Instance.ClearAllFields();
 			HttpClientManager.MakeNewInstance();
 			Preferences.Clear();
@@ -1642,24 +1638,24 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 			LocalPreferences.SetIsOnboardingCompleted(isOnboardingCompleted: false);
 			foreach (string item in SecureStorageKeys.GetAllKeysForCleaningDevice())
 			{
-				ServiceLocator.get_Current().GetInstance<SecureStorageService>().Delete(item);
+				ServiceLocator.Current.GetInstance<SecureStorageService>().Delete(item);
 			}
 		}
 
 		public async void StopScanServices()
 		{
-			await ExposureNotification.StopAsync();
+			await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
 		}
 	}
 	public static class MessageUtils
 	{
 		public static readonly string MESSAGES_LAST_UPDATED_PREF = "MESSAGES_LAST_UPDATED_PREF";
 
-		public static IMessagesManager Manager => ServiceLocator.get_Current().GetInstance<MessagesManager>();
+		public static IMessagesManager Manager => ServiceLocator.Current.GetInstance<MessagesManager>();
 
-		public static string MESSAGES_MESSAGE_HEADER => Extensions.Translate("MESSAGES_MESSAGE_HEADER", Array.Empty<object>());
+		public static string MESSAGES_MESSAGE_HEADER => "MESSAGES_MESSAGE_HEADER".Translate();
 
-		public static string INFECTION_MESSAGES_LINK => Extensions.Translate("MESSAGES_LINK", Array.Empty<object>());
+		public static string INFECTION_MESSAGES_LINK => "MESSAGES_LINK".Translate();
 
 		public static void CreateTestMessages()
 		{
@@ -1700,7 +1696,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 			};
 			await Manager.SaveNewMessage(log);
 			MessagingCenter.Send(Sender, MessagingCenterKeys.KEY_MESSAGE_RECEIVED);
-			ServiceLocator.get_Current().GetInstance<ILocalNotificationsManager>().GenerateLocalNotification(new NotificationViewModel(), triggerAfterNSec);
+			ServiceLocator.Current.GetInstance<ILocalNotificationsManager>().GenerateLocalNotification(new NotificationViewModel(), triggerAfterNSec);
 		}
 
 		public static async Task CreateMessage(object Sender, DateTime? customTime = null, int triggerAfterNSec = 0)
@@ -1710,7 +1706,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Utils
 
 		public static async Task CreateTestMessage(object Sender, DateTime? customTime = null, int triggerNotificationInSeconds = 0)
 		{
-			ServiceLocator.get_Current().GetInstance<ILocalNotificationsManager>().GenerateLocalNotification(new NotificationViewModel(), triggerNotificationInSeconds);
+			ServiceLocator.Current.GetInstance<ILocalNotificationsManager>().GenerateLocalNotification(new NotificationViewModel(), triggerNotificationInSeconds);
 			await Task.Delay(triggerNotificationInSeconds);
 			await CreateAndSaveNewMessage(Sender, customTime);
 		}
@@ -1785,25 +1781,23 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 
 		public void Setup(EventHandler<AuthenticatorCompletedEventArgs> completedHandler, EventHandler<AuthenticatorErrorEventArgs> errorHandler)
 		{
-			//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
 			_presenter = new OAuthLoginPresenter();
 			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(Conf.OAUTH2_CLIENT_ID, null, Conf.OAUTH2_SCOPE, new Uri(Conf.OAUTH2_AUTHORISE_URL), new Uri(Conf.OAUTH2_REDIRECT_URL), new Uri(Conf.OAUTH2_ACCESSTOKEN_URL), null, isUsingNativeUI: true);
-			((WebAuthenticator)AuthenticationState.Authenticator).set_ClearCookiesBeforeLogin(true);
-			((Authenticator)AuthenticationState.Authenticator).set_ShowErrors(true);
-			((Authenticator)AuthenticationState.Authenticator).set_AllowCancel(true);
+			AuthenticationState.Authenticator.ClearCookiesBeforeLogin = true;
+			AuthenticationState.Authenticator.ShowErrors = true;
+			AuthenticationState.Authenticator.AllowCancel = true;
 			_completedHandler = completedHandler;
-			((Authenticator)AuthenticationState.Authenticator).add_Completed(_completedHandler);
+			AuthenticationState.Authenticator.Completed += _completedHandler;
 			_errorHandler = errorHandler;
-			((Authenticator)AuthenticationState.Authenticator).add_Error(_errorHandler);
+			AuthenticationState.Authenticator.Error += _errorHandler;
 		}
 
 		public void Cleanup()
 		{
 			if (AuthenticationState.Authenticator != null)
 			{
-				((Authenticator)AuthenticationState.Authenticator).remove_Completed(_completedHandler);
-				((Authenticator)AuthenticationState.Authenticator).remove_Error(_errorHandler);
+				AuthenticationState.Authenticator.Completed -= _completedHandler;
+				AuthenticationState.Authenticator.Error -= _errorHandler;
 			}
 			_presenter = null;
 			AuthenticationState.Authenticator = null;
@@ -1811,17 +1805,14 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 
 		public PersonalDataModel GetPayloadValidateJWTToken(string accessToken)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0020: Expected O, but got Unknown
 			try
 			{
 				byte[] rawData = Convert.FromBase64String(Conf.OAUTH2_VERIFY_TOKEN_PUBLIC_KEY);
-				JObject val = JObject.Parse(new JwtBuilder().WithAlgorithm((IJwtAlgorithm)new RS256Algorithm(new X509Certificate2(rawData))).MustVerifySignature().Decode(accessToken));
+				JObject jObject = JObject.Parse(new JwtBuilder().WithAlgorithm(new RS256Algorithm(new X509Certificate2(rawData))).MustVerifySignature().Decode(accessToken));
 				PersonalDataModel personalDataModel = new PersonalDataModel();
-				if (val != null)
+				if (jObject != null)
 				{
-					personalDataModel = ((JToken)val).ToObject<PersonalDataModel>(JsonSerializer);
+					personalDataModel = jObject.ToObject<PersonalDataModel>(JsonSerializer);
 				}
 				personalDataModel.Access_token = accessToken;
 				return personalDataModel;
@@ -1878,12 +1869,12 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 		private string _codeVerifier;
 
 		public CustomOAuth2Authenticator(string clientId, string scope, Uri authorizeUrl, Uri redirectUrl, GetUsernameAsyncFunc getUsernameAsync = null, bool isUsingNativeUI = false)
-			: this(clientId, scope, authorizeUrl, redirectUrl, getUsernameAsync, isUsingNativeUI)
+			: base(clientId, scope, authorizeUrl, redirectUrl, getUsernameAsync, isUsingNativeUI)
 		{
 		}
 
 		public CustomOAuth2Authenticator(string clientId, string clientSecret, string scope, Uri authorizeUrl, Uri redirectUrl, Uri accessTokenUrl, GetUsernameAsyncFunc getUsernameAsync = null, bool isUsingNativeUI = false)
-			: this(clientId, clientSecret, scope, authorizeUrl, redirectUrl, accessTokenUrl, getUsernameAsync, isUsingNativeUI)
+			: base(clientId, clientSecret, scope, authorizeUrl, redirectUrl, accessTokenUrl, getUsernameAsync, isUsingNativeUI)
 		{
 			_accessTokenUrl = accessTokenUrl;
 		}
@@ -1891,14 +1882,14 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 		public override void OnPageLoading(Uri url)
 		{
 			AuthenticationState.AddAuthLog("OnPageLoading: " + url?.AbsoluteUri);
-			((WebRedirectAuthenticator)this).OnPageLoading(url);
+			base.OnPageLoading(url);
 		}
 
 		protected override async void OnRedirectPageLoaded(Uri url, IDictionary<string, string> query, IDictionary<string, string> fragment)
 		{
 			AuthenticationState.AddAuthLog("OnRedirectPageLoaded: " + url);
 			query["code_verifier"] = _codeVerifier;
-			query["client_id"] = ((OAuth2Authenticator)this).get_ClientId();
+			query["client_id"] = base.ClientId;
 			query["grant_type"] = "authorization_code";
 			query["redirect_uri"] = _redirectUrl;
 			try
@@ -1907,13 +1898,12 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 				{
 					fragment.Add(item);
 				}
-				<>n__0(url, query, fragment);
+				base.OnRedirectPageLoaded(url, query, fragment);
 			}
-			catch (AuthException val)
+			catch (AuthException ex)
 			{
-				AuthException val2 = val;
-				LogUtils.LogException(LogSeverity.ERROR, (Exception)(object)val2, "CustomOAuth2Authenticator-OnRedirectPageLoaded threw an exception");
-				((Authenticator)this).OnError((Exception)(object)val2);
+				LogUtils.LogException(LogSeverity.ERROR, ex, "CustomOAuth2Authenticator-OnRedirectPageLoaded threw an exception");
+				OnError(ex);
 			}
 		}
 
@@ -1951,9 +1941,9 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 			{
 				throw new AuthException("Error authenticating: " + dictionary3["error"]);
 			}
-			if (!dictionary3.ContainsKey(((OAuth2Authenticator)this).get_AccessTokenName()))
+			if (!dictionary3.ContainsKey(base.AccessTokenName))
 			{
-				throw new AuthException("Expected " + ((OAuth2Authenticator)this).get_AccessTokenName() + " in access token response, but did not receive one.");
+				throw new AuthException("Expected " + base.AccessTokenName + " in access token response, but did not receive one.");
 			}
 			return dictionary3;
 		}
@@ -1966,21 +1956,20 @@ namespace NDB.Covid19.Base.AppleGoogle.OAuth2
 			query["nonce"] = Guid.NewGuid().ToString("N");
 			query["code_challenge"] = CreateChallenge(_codeVerifier);
 			query["code_challenge_method"] = "S256";
-			((OAuth2Authenticator)this).OnCreatingInitialUrl(query);
+			base.OnCreatingInitialUrl(query);
 		}
 
 		private string CreateCodeVerifier()
 		{
-			return Convert.ToBase64String(WinRTCrypto.get_CryptographicBuffer().GenerateRandom(64)).Replace("+", "-").Replace("/", "_")
+			return Convert.ToBase64String(WinRTCrypto.CryptographicBuffer.GenerateRandom(64)).Replace("+", "-").Replace("/", "_")
 				.Replace("=", "");
 		}
 
 		private string CreateChallenge(string code)
 		{
-			byte[] array = WinRTCrypto.get_HashAlgorithmProvider().OpenAlgorithm((HashAlgorithm)2).HashData(WinRTCrypto.get_CryptographicBuffer().CreateFromByteArray(Encoding.UTF8.GetBytes(code)));
-			byte[] inArray = default(byte[]);
-			WinRTCrypto.get_CryptographicBuffer().CopyToByteArray(array, ref inArray);
-			return Convert.ToBase64String(inArray).Replace("+", "-").Replace("/", "_")
+			byte[] buffer = WinRTCrypto.HashAlgorithmProvider.OpenAlgorithm(PCLCrypto.HashAlgorithm.Sha256).HashData(WinRTCrypto.CryptographicBuffer.CreateFromByteArray(Encoding.UTF8.GetBytes(code)));
+			WinRTCrypto.CryptographicBuffer.CopyToByteArray(buffer, out var value);
+			return Convert.ToBase64String(value).Replace("+", "-").Replace("/", "_")
 				.Replace("=", "");
 		}
 	}
@@ -2043,7 +2032,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Models
 	}
 	public class SelfDiagnosisSubmissionDTO
 	{
-		public IEnumerable<TemporaryExposureKey> Keys
+		public IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> Keys
 		{
 			get;
 			set;
@@ -2079,14 +2068,11 @@ namespace NDB.Covid19.Base.AppleGoogle.Models
 			set;
 		}
 
-		public SelfDiagnosisSubmissionDTO(IEnumerable<TemporaryExposureKey> keys)
+		public SelfDiagnosisSubmissionDTO(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> keys)
 		{
-			//IL_0019: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001e: Unknown result type (might be due to invalid IL or missing references)
 			Keys = keys;
-			AppPackageName = AppInfo.get_PackageName();
-			DevicePlatform platform = DeviceInfo.get_Platform();
-			Platform = ((object)(DevicePlatform)(ref platform)).ToString();
+			AppPackageName = AppInfo.PackageName;
+			Platform = DeviceInfo.Platform.ToString();
 			Regions = Conf.SUPPORTED_REGIONS.ToList();
 			DeviceVerificationPayload = AuthenticationState.DeviceVerificationToken;
 			computePadding();
@@ -2245,21 +2231,9 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 
 		static TemporaryExposureKeyBatchReflection()
 		{
-			//IL_0102: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0108: Expected O, but got Unknown
-			//IL_014b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0151: Expected O, but got Unknown
-			//IL_018c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0192: Expected O, but got Unknown
-			//IL_01b5: Unknown result type (might be due to invalid IL or missing references)
-			//IL_01bb: Expected O, but got Unknown
-			//IL_01f6: Unknown result type (might be due to invalid IL or missing references)
-			//IL_01fc: Expected O, but got Unknown
-			//IL_01fc: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0206: Expected O, but got Unknown
-			descriptor = FileDescriptor.FromGeneratedCode(Convert.FromBase64String("Ch9UZW1wb3JhcnlFeHBvc3VyZUtleUJhdGNoLnByb3RvItEBChpUZW1wb3Jh" + "cnlFeHBvc3VyZUtleUV4cG9ydBIXCg9zdGFydF90aW1lc3RhbXAYASABKAYS" + "FQoNZW5kX3RpbWVzdGFtcBgCIAEoBhIOCgZyZWdpb24YAyABKAkSEQoJYmF0" + "Y2hfbnVtGAQgASgFEhIKCmJhdGNoX3NpemUYBSABKAUSJwoPc2lnbmF0dXJl" + "X2luZm9zGAYgAygLMg4uU2lnbmF0dXJlSW5mbxIjCgRrZXlzGAcgAygLMhUu" + "VGVtcG9yYXJ5RXhwb3N1cmVLZXkimwEKDVNpZ25hdHVyZUluZm8SFQoNYXBw" + "X2J1bmRsZV9pZBgBIAEoCRIXCg9hbmRyb2lkX3BhY2thZ2UYAiABKAkSIAoY" + "dmVyaWZpY2F0aW9uX2tleV92ZXJzaW9uGAMgASgJEhsKE3ZlcmlmaWNhdGlv" + "bl9rZXlfaWQYBCABKAkSGwoTc2lnbmF0dXJlX2FsZ29yaXRobRgFIAEoCSKN" + "AQoUVGVtcG9yYXJ5RXhwb3N1cmVLZXkSEAoIa2V5X2RhdGEYASABKAwSHwoX" + "dHJhbnNtaXNzaW9uX3Jpc2tfbGV2ZWwYAiABKAUSJQodcm9sbGluZ19zdGFy" + "dF9pbnRlcnZhbF9udW1iZXIYAyABKAUSGwoOcm9sbGluZ19wZXJpb2QYBCAB" + "KAU6AzE0NCI1ChBURUtTaWduYXR1cmVMaXN0EiEKCnNpZ25hdHVyZXMYASAD" + "KAsyDS5URUtTaWduYXR1cmUicAoMVEVLU2lnbmF0dXJlEiYKDnNpZ25hdHVy" + "ZV9pbmZvGAEgASgLMg4uU2lnbmF0dXJlSW5mbxIRCgliYXRjaF9udW0YAiAB" + "KAUSEgoKYmF0Y2hfc2l6ZRgDIAEoBRIRCglzaWduYXR1cmUYBCABKAxCKaoC" + "JkV4cG9zdXJlTm90aWZpY2F0aW9uLkJhY2tlbmQuRnVuY3Rpb25z"), (FileDescriptor[])(object)new FileDescriptor[0], new GeneratedClrTypeInfo((Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])(object)new GeneratedClrTypeInfo[5]
+			descriptor = FileDescriptor.FromGeneratedCode(Convert.FromBase64String("Ch9UZW1wb3JhcnlFeHBvc3VyZUtleUJhdGNoLnByb3RvItEBChpUZW1wb3Jh" + "cnlFeHBvc3VyZUtleUV4cG9ydBIXCg9zdGFydF90aW1lc3RhbXAYASABKAYS" + "FQoNZW5kX3RpbWVzdGFtcBgCIAEoBhIOCgZyZWdpb24YAyABKAkSEQoJYmF0" + "Y2hfbnVtGAQgASgFEhIKCmJhdGNoX3NpemUYBSABKAUSJwoPc2lnbmF0dXJl" + "X2luZm9zGAYgAygLMg4uU2lnbmF0dXJlSW5mbxIjCgRrZXlzGAcgAygLMhUu" + "VGVtcG9yYXJ5RXhwb3N1cmVLZXkimwEKDVNpZ25hdHVyZUluZm8SFQoNYXBw" + "X2J1bmRsZV9pZBgBIAEoCRIXCg9hbmRyb2lkX3BhY2thZ2UYAiABKAkSIAoY" + "dmVyaWZpY2F0aW9uX2tleV92ZXJzaW9uGAMgASgJEhsKE3ZlcmlmaWNhdGlv" + "bl9rZXlfaWQYBCABKAkSGwoTc2lnbmF0dXJlX2FsZ29yaXRobRgFIAEoCSKN" + "AQoUVGVtcG9yYXJ5RXhwb3N1cmVLZXkSEAoIa2V5X2RhdGEYASABKAwSHwoX" + "dHJhbnNtaXNzaW9uX3Jpc2tfbGV2ZWwYAiABKAUSJQodcm9sbGluZ19zdGFy" + "dF9pbnRlcnZhbF9udW1iZXIYAyABKAUSGwoOcm9sbGluZ19wZXJpb2QYBCAB" + "KAU6AzE0NCI1ChBURUtTaWduYXR1cmVMaXN0EiEKCnNpZ25hdHVyZXMYASAD" + "KAsyDS5URUtTaWduYXR1cmUicAoMVEVLU2lnbmF0dXJlEiYKDnNpZ25hdHVy" + "ZV9pbmZvGAEgASgLMg4uU2lnbmF0dXJlSW5mbxIRCgliYXRjaF9udW0YAiAB" + "KAUSEgoKYmF0Y2hfc2l6ZRgDIAEoBRIRCglzaWduYXR1cmUYBCABKAxCKaoC" + "JkV4cG9zdXJlTm90aWZpY2F0aW9uLkJhY2tlbmQuRnVuY3Rpb25z"), new FileDescriptor[0], new GeneratedClrTypeInfo(null, null, new GeneratedClrTypeInfo[5]
 			{
-				new GeneratedClrTypeInfo(typeof(TemporaryExposureKeyExport), (MessageParser)(object)TemporaryExposureKeyExport.Parser, new string[7]
+				new GeneratedClrTypeInfo(typeof(TemporaryExposureKeyExport), TemporaryExposureKeyExport.Parser, new string[7]
 				{
 					"StartTimestamp",
 					"EndTimestamp",
@@ -2268,39 +2242,39 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 					"BatchSize",
 					"SignatureInfos",
 					"Keys"
-				}, (string[])null, (Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])null),
-				new GeneratedClrTypeInfo(typeof(SignatureInfo), (MessageParser)(object)SignatureInfo.Parser, new string[5]
+				}, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(SignatureInfo), SignatureInfo.Parser, new string[5]
 				{
 					"AppBundleId",
 					"AndroidPackage",
 					"VerificationKeyVersion",
 					"VerificationKeyId",
 					"SignatureAlgorithm"
-				}, (string[])null, (Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])null),
-				new GeneratedClrTypeInfo(typeof(TemporaryExposureKey), (MessageParser)(object)TemporaryExposureKey.Parser, new string[4]
+				}, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TemporaryExposureKey), TemporaryExposureKey.Parser, new string[4]
 				{
 					"KeyData",
 					"TransmissionRiskLevel",
 					"RollingStartIntervalNumber",
 					"RollingPeriod"
-				}, (string[])null, (Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])null),
-				new GeneratedClrTypeInfo(typeof(TEKSignatureList), (MessageParser)(object)TEKSignatureList.Parser, new string[1]
+				}, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TEKSignatureList), TEKSignatureList.Parser, new string[1]
 				{
 					"Signatures"
-				}, (string[])null, (Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])null),
-				new GeneratedClrTypeInfo(typeof(TEKSignature), (MessageParser)(object)TEKSignature.Parser, new string[4]
+				}, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TEKSignature), TEKSignature.Parser, new string[4]
 				{
 					"SignatureInfo",
 					"BatchNum",
 					"BatchSize",
 					"Signature"
-				}, (string[])null, (Type[])null, (Extension[])null, (GeneratedClrTypeInfo[])null)
+				}, null, null, null, null)
 			}));
 		}
 	}
 	public sealed class TemporaryExposureKeyExport : IMessage<TemporaryExposureKeyExport>, IMessage, IEquatable<TemporaryExposureKeyExport>, IDeepCloneable<TemporaryExposureKeyExport>
 	{
-		private static readonly MessageParser<TemporaryExposureKeyExport> _parser = new MessageParser<TemporaryExposureKeyExport>((Func<TemporaryExposureKeyExport>)(() => new TemporaryExposureKeyExport()));
+		private static readonly MessageParser<TemporaryExposureKeyExport> _parser = new MessageParser<TemporaryExposureKeyExport>(() => new TemporaryExposureKeyExport());
 
 		private UnknownFieldSet _unknownFields;
 
@@ -2338,13 +2312,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 
 		public const int SignatureInfosFieldNumber = 6;
 
-		private static readonly FieldCodec<SignatureInfo> _repeated_signatureInfos_codec = FieldCodec.ForMessage<SignatureInfo>(50u, SignatureInfo.Parser);
+		private static readonly FieldCodec<SignatureInfo> _repeated_signatureInfos_codec = FieldCodec.ForMessage(50u, SignatureInfo.Parser);
 
 		private readonly RepeatedField<SignatureInfo> signatureInfos_ = new RepeatedField<SignatureInfo>();
 
 		public const int KeysFieldNumber = 7;
 
-		private static readonly FieldCodec<TemporaryExposureKey> _repeated_keys_codec = FieldCodec.ForMessage<TemporaryExposureKey>(58u, TemporaryExposureKey.Parser);
+		private static readonly FieldCodec<TemporaryExposureKey> _repeated_keys_codec = FieldCodec.ForMessage(58u, TemporaryExposureKey.Parser);
 
 		private readonly RepeatedField<TemporaryExposureKey> keys_ = new RepeatedField<TemporaryExposureKey>();
 
@@ -2352,10 +2326,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public static MessageParser<TemporaryExposureKeyExport> Parser => _parser;
 
 		[DebuggerNonUserCode]
-		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.get_MessageTypes()[0];
+		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[0];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor Descriptor => Descriptor;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public ulong StartTimestamp
@@ -2408,7 +2382,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				region_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				region_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2591,11 +2565,11 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			{
 				num ^= BatchSize.GetHashCode();
 			}
-			num ^= ((object)signatureInfos_).GetHashCode();
-			num ^= ((object)keys_).GetHashCode();
+			num ^= signatureInfos_.GetHashCode();
+			num ^= keys_.GetHashCode();
 			if (_unknownFields != null)
 			{
-				num ^= ((object)_unknownFields).GetHashCode();
+				num ^= _unknownFields.GetHashCode();
 			}
 			return num;
 		}
@@ -2603,7 +2577,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		[DebuggerNonUserCode]
 		public override string ToString()
 		{
-			return JsonFormatter.ToDiagnosticString((IMessage)(object)this);
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -2611,27 +2585,27 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		{
 			if (HasStartTimestamp)
 			{
-				output.WriteRawTag((byte)9);
+				output.WriteRawTag(9);
 				output.WriteFixed64(StartTimestamp);
 			}
 			if (HasEndTimestamp)
 			{
-				output.WriteRawTag((byte)17);
+				output.WriteRawTag(17);
 				output.WriteFixed64(EndTimestamp);
 			}
 			if (HasRegion)
 			{
-				output.WriteRawTag((byte)26);
+				output.WriteRawTag(26);
 				output.WriteString(Region);
 			}
 			if (HasBatchNum)
 			{
-				output.WriteRawTag((byte)32);
+				output.WriteRawTag(32);
 				output.WriteInt32(BatchNum);
 			}
 			if (HasBatchSize)
 			{
-				output.WriteRawTag((byte)40);
+				output.WriteRawTag(40);
 				output.WriteInt32(BatchSize);
 			}
 			signatureInfos_.WriteTo(output, _repeated_signatureInfos_codec);
@@ -2700,8 +2674,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 				{
 					BatchSize = other.BatchSize;
 				}
-				signatureInfos_.Add((IEnumerable<SignatureInfo>)other.signatureInfos_);
-				keys_.Add((IEnumerable<TemporaryExposureKey>)other.keys_);
+				signatureInfos_.Add(other.signatureInfos_);
+				keys_.Add(other.keys_);
 				_unknownFields = UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
 			}
 		}
@@ -2744,7 +2718,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 	}
 	public sealed class SignatureInfo : IMessage<SignatureInfo>, IMessage, IEquatable<SignatureInfo>, IDeepCloneable<SignatureInfo>
 	{
-		private static readonly MessageParser<SignatureInfo> _parser = new MessageParser<SignatureInfo>((Func<SignatureInfo>)(() => new SignatureInfo()));
+		private static readonly MessageParser<SignatureInfo> _parser = new MessageParser<SignatureInfo>(() => new SignatureInfo());
 
 		private UnknownFieldSet _unknownFields;
 
@@ -2782,10 +2756,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public static MessageParser<SignatureInfo> Parser => _parser;
 
 		[DebuggerNonUserCode]
-		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.get_MessageTypes()[1];
+		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[1];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor Descriptor => Descriptor;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public string AppBundleId
@@ -2796,7 +2770,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				appBundleId_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				appBundleId_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2812,7 +2786,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				androidPackage_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				androidPackage_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2828,7 +2802,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				verificationKeyVersion_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				verificationKeyVersion_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2844,7 +2818,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				verificationKeyId_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				verificationKeyId_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2860,7 +2834,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				signatureAlgorithm_ = ProtoPreconditions.CheckNotNull<string>(value, "value");
+				signatureAlgorithm_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
@@ -2986,7 +2960,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			if (_unknownFields != null)
 			{
-				num ^= ((object)_unknownFields).GetHashCode();
+				num ^= _unknownFields.GetHashCode();
 			}
 			return num;
 		}
@@ -2994,7 +2968,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		[DebuggerNonUserCode]
 		public override string ToString()
 		{
-			return JsonFormatter.ToDiagnosticString((IMessage)(object)this);
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -3002,27 +2976,27 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		{
 			if (HasAppBundleId)
 			{
-				output.WriteRawTag((byte)10);
+				output.WriteRawTag(10);
 				output.WriteString(AppBundleId);
 			}
 			if (HasAndroidPackage)
 			{
-				output.WriteRawTag((byte)18);
+				output.WriteRawTag(18);
 				output.WriteString(AndroidPackage);
 			}
 			if (HasVerificationKeyVersion)
 			{
-				output.WriteRawTag((byte)26);
+				output.WriteRawTag(26);
 				output.WriteString(VerificationKeyVersion);
 			}
 			if (HasVerificationKeyId)
 			{
-				output.WriteRawTag((byte)34);
+				output.WriteRawTag(34);
 				output.WriteString(VerificationKeyId);
 			}
 			if (HasSignatureAlgorithm)
 			{
-				output.WriteRawTag((byte)42);
+				output.WriteRawTag(42);
 				output.WriteString(SignatureAlgorithm);
 			}
 			if (_unknownFields != null)
@@ -3123,7 +3097,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 	}
 	public sealed class TemporaryExposureKey : IMessage<TemporaryExposureKey>, IMessage, IEquatable<TemporaryExposureKey>, IDeepCloneable<TemporaryExposureKey>
 	{
-		private static readonly MessageParser<TemporaryExposureKey> _parser = new MessageParser<TemporaryExposureKey>((Func<TemporaryExposureKey>)(() => new TemporaryExposureKey()));
+		private static readonly MessageParser<TemporaryExposureKey> _parser = new MessageParser<TemporaryExposureKey>(() => new TemporaryExposureKey());
 
 		private UnknownFieldSet _unknownFields;
 
@@ -3131,7 +3105,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 
 		public const int KeyDataFieldNumber = 1;
 
-		private static readonly ByteString KeyDataDefaultValue = ByteString.get_Empty();
+		private static readonly ByteString KeyDataDefaultValue = ByteString.Empty;
 
 		private ByteString keyData_;
 
@@ -3157,10 +3131,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public static MessageParser<TemporaryExposureKey> Parser => _parser;
 
 		[DebuggerNonUserCode]
-		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.get_MessageTypes()[2];
+		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[2];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor Descriptor => Descriptor;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public ByteString KeyData
@@ -3171,12 +3145,12 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				keyData_ = ProtoPreconditions.CheckNotNull<ByteString>(value, "value");
+				keyData_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
 		[DebuggerNonUserCode]
-		public bool HasKeyData => keyData_ != (ByteString)null;
+		public bool HasKeyData => keyData_ != null;
 
 		[DebuggerNonUserCode]
 		public int TransmissionRiskLevel
@@ -3330,7 +3304,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			int num = 1;
 			if (HasKeyData)
 			{
-				num ^= ((object)KeyData).GetHashCode();
+				num ^= KeyData.GetHashCode();
 			}
 			if (HasTransmissionRiskLevel)
 			{
@@ -3346,7 +3320,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			if (_unknownFields != null)
 			{
-				num ^= ((object)_unknownFields).GetHashCode();
+				num ^= _unknownFields.GetHashCode();
 			}
 			return num;
 		}
@@ -3354,7 +3328,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		[DebuggerNonUserCode]
 		public override string ToString()
 		{
-			return JsonFormatter.ToDiagnosticString((IMessage)(object)this);
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -3362,22 +3336,22 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		{
 			if (HasKeyData)
 			{
-				output.WriteRawTag((byte)10);
+				output.WriteRawTag(10);
 				output.WriteBytes(KeyData);
 			}
 			if (HasTransmissionRiskLevel)
 			{
-				output.WriteRawTag((byte)16);
+				output.WriteRawTag(16);
 				output.WriteInt32(TransmissionRiskLevel);
 			}
 			if (HasRollingStartIntervalNumber)
 			{
-				output.WriteRawTag((byte)24);
+				output.WriteRawTag(24);
 				output.WriteInt32(RollingStartIntervalNumber);
 			}
 			if (HasRollingPeriod)
 			{
-				output.WriteRawTag((byte)32);
+				output.WriteRawTag(32);
 				output.WriteInt32(RollingPeriod);
 			}
 			if (_unknownFields != null)
@@ -3467,13 +3441,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 	}
 	public sealed class TEKSignatureList : IMessage<TEKSignatureList>, IMessage, IEquatable<TEKSignatureList>, IDeepCloneable<TEKSignatureList>
 	{
-		private static readonly MessageParser<TEKSignatureList> _parser = new MessageParser<TEKSignatureList>((Func<TEKSignatureList>)(() => new TEKSignatureList()));
+		private static readonly MessageParser<TEKSignatureList> _parser = new MessageParser<TEKSignatureList>(() => new TEKSignatureList());
 
 		private UnknownFieldSet _unknownFields;
 
 		public const int SignaturesFieldNumber = 1;
 
-		private static readonly FieldCodec<TEKSignature> _repeated_signatures_codec = FieldCodec.ForMessage<TEKSignature>(10u, TEKSignature.Parser);
+		private static readonly FieldCodec<TEKSignature> _repeated_signatures_codec = FieldCodec.ForMessage(10u, TEKSignature.Parser);
 
 		private readonly RepeatedField<TEKSignature> signatures_ = new RepeatedField<TEKSignature>();
 
@@ -3481,10 +3455,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public static MessageParser<TEKSignatureList> Parser => _parser;
 
 		[DebuggerNonUserCode]
-		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.get_MessageTypes()[3];
+		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[3];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor Descriptor => Descriptor;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public RepeatedField<TEKSignature> Signatures => signatures_;
@@ -3536,10 +3510,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public override int GetHashCode()
 		{
 			int num = 1;
-			num ^= ((object)signatures_).GetHashCode();
+			num ^= signatures_.GetHashCode();
 			if (_unknownFields != null)
 			{
-				num ^= ((object)_unknownFields).GetHashCode();
+				num ^= _unknownFields.GetHashCode();
 			}
 			return num;
 		}
@@ -3547,7 +3521,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		[DebuggerNonUserCode]
 		public override string ToString()
 		{
-			return JsonFormatter.ToDiagnosticString((IMessage)(object)this);
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -3577,7 +3551,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		{
 			if (other != null)
 			{
-				signatures_.Add((IEnumerable<TEKSignature>)other.signatures_);
+				signatures_.Add(other.signatures_);
 				_unknownFields = UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
 			}
 		}
@@ -3601,7 +3575,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 	}
 	public sealed class TEKSignature : IMessage<TEKSignature>, IMessage, IEquatable<TEKSignature>, IDeepCloneable<TEKSignature>
 	{
-		private static readonly MessageParser<TEKSignature> _parser = new MessageParser<TEKSignature>((Func<TEKSignature>)(() => new TEKSignature()));
+		private static readonly MessageParser<TEKSignature> _parser = new MessageParser<TEKSignature>(() => new TEKSignature());
 
 		private UnknownFieldSet _unknownFields;
 
@@ -3625,7 +3599,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 
 		public const int SignatureFieldNumber = 4;
 
-		private static readonly ByteString SignatureDefaultValue = ByteString.get_Empty();
+		private static readonly ByteString SignatureDefaultValue = ByteString.Empty;
 
 		private ByteString signature_;
 
@@ -3633,10 +3607,10 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		public static MessageParser<TEKSignature> Parser => _parser;
 
 		[DebuggerNonUserCode]
-		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.get_MessageTypes()[4];
+		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[4];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor Descriptor => Descriptor;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public SignatureInfo SignatureInfo
@@ -3702,12 +3676,12 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			set
 			{
-				signature_ = ProtoPreconditions.CheckNotNull<ByteString>(value, "value");
+				signature_ = ProtoPreconditions.CheckNotNull(value, "value");
 			}
 		}
 
 		[DebuggerNonUserCode]
-		public bool HasSignature => signature_ != (ByteString)null;
+		public bool HasSignature => signature_ != null;
 
 		[DebuggerNonUserCode]
 		public TEKSignature()
@@ -3804,11 +3778,11 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			}
 			if (HasSignature)
 			{
-				num ^= ((object)Signature).GetHashCode();
+				num ^= Signature.GetHashCode();
 			}
 			if (_unknownFields != null)
 			{
-				num ^= ((object)_unknownFields).GetHashCode();
+				num ^= _unknownFields.GetHashCode();
 			}
 			return num;
 		}
@@ -3816,7 +3790,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		[DebuggerNonUserCode]
 		public override string ToString()
 		{
-			return JsonFormatter.ToDiagnosticString((IMessage)(object)this);
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -3824,22 +3798,22 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 		{
 			if (signatureInfo_ != null)
 			{
-				output.WriteRawTag((byte)10);
-				output.WriteMessage((IMessage)(object)SignatureInfo);
+				output.WriteRawTag(10);
+				output.WriteMessage(SignatureInfo);
 			}
 			if (HasBatchNum)
 			{
-				output.WriteRawTag((byte)16);
+				output.WriteRawTag(16);
 				output.WriteInt32(BatchNum);
 			}
 			if (HasBatchSize)
 			{
-				output.WriteRawTag((byte)24);
+				output.WriteRawTag(24);
 				output.WriteInt32(BatchSize);
 			}
 			if (HasSignature)
 			{
-				output.WriteRawTag((byte)34);
+				output.WriteRawTag(34);
 				output.WriteBytes(Signature);
 			}
 			if (_unknownFields != null)
@@ -3854,7 +3828,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 			int num = 0;
 			if (signatureInfo_ != null)
 			{
-				num += 1 + CodedOutputStream.ComputeMessageSize((IMessage)(object)SignatureInfo);
+				num += 1 + CodedOutputStream.ComputeMessageSize(SignatureInfo);
 			}
 			if (HasBatchNum)
 			{
@@ -3921,7 +3895,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ProtoModels
 					{
 						SignatureInfo = new SignatureInfo();
 					}
-					input.ReadMessage((IMessage)(object)SignatureInfo);
+					input.ReadMessage(SignatureInfo);
 					break;
 				case 16u:
 					BatchNum = input.ReadInt32();
@@ -3959,30 +3933,30 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 			await new FetchExposureKeysHelper().FetchExposureKeyBatchFilesFromServerAsync(submitBatches, cancellationToken);
 		}
 
-		public Task<Configuration> GetConfigurationAsync()
+		public Task<Xamarin.ExposureNotifications.Configuration> GetConfigurationAsync()
 		{
-			return Task.Run<Configuration>(async delegate
+			return Task.Run(async delegate
 			{
-				Configuration obj = await exposureNotificationWebService.GetExposureConfiguration();
-				string arg = JsonConvert.SerializeObject((object)obj);
+				Xamarin.ExposureNotifications.Configuration obj = await exposureNotificationWebService.GetExposureConfiguration();
+				string arg = JsonConvert.SerializeObject(obj);
 				DeveloperToolsSingleton.Instance.LastUsedConfiguration = $"Time used: {DateTime.Now}\n{arg}";
 				return obj;
 			});
 		}
 
-		public async Task UploadSelfExposureKeysToServerAsync(IEnumerable<TemporaryExposureKey> temporaryExposureKeys)
+		public async Task UploadSelfExposureKeysToServerAsync(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> temporaryExposureKeys)
 		{
-			if (DeviceInfo.get_Platform() == DevicePlatform.get_iOS())
+			if (DeviceInfo.Platform == DevicePlatform.iOS)
 			{
-				if (!(await ExposureNotification.IsEnabledAsync()))
+				if (!(await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync()))
 				{
-					await ExposureNotification.StartAsync();
-					await ExposureNotification.StopAsync();
+					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
+					await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
 				}
 				else
 				{
-					await ExposureNotification.StopAsync();
-					await ExposureNotification.StartAsync();
+					await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
 				}
 			}
 			if (AuthenticationState.PersonalData?.Access_token == null)
@@ -3994,7 +3968,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 				throw new MiBaDateMissingException("The symptom onset date is not set from the calling view model");
 			}
 			DateTime symptomsDate = MiBaDate.Value.ToUniversalTime();
-			List<TemporaryExposureKey> keys = UploadDiagnosisKeysHelper.createAValidListOfTemporaryExposureKeys(temporaryExposureKeys);
+			List<Xamarin.ExposureNotifications.TemporaryExposureKey> keys = UploadDiagnosisKeysHelper.createAValidListOfTemporaryExposureKeys(temporaryExposureKeys);
 			keys = UploadDiagnosisKeysHelper.SetTransmissionRiskLevel(keys, symptomsDate);
 			if (!(await exposureNotificationWebService.PostSelvExposureKeys(keys)))
 			{
@@ -4011,8 +3985,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 			ZipArchiveEntry entry2 = zipArchive.GetEntry("export.sig");
 			Stream stream = entry.Open();
 			Stream stream2 = entry2.Open();
-			string text = Path.Combine(FileSystem.get_CacheDirectory(), Guid.NewGuid().ToString() + ".bin");
-			string text2 = Path.Combine(FileSystem.get_CacheDirectory(), Guid.NewGuid().ToString() + ".sig");
+			string text = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".bin");
+			string text2 = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".sig");
 			FileStream fileStream = File.Create(text);
 			FileStream fileStream2 = File.Create(text2);
 			stream.CopyTo(fileStream);
@@ -4041,14 +4015,14 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification
 		{
 			string str = "TEK batch, containing these keys:\n";
 			string text;
-			if (((IEnumerable<TemporaryExposureKey>)temporaryExposureKeyExport.Keys).Count() > 200)
+			if (temporaryExposureKeyExport.Keys.Count() > 200)
 			{
 				text = "More than 200 keys in the batch. Displaying all of them would take too long";
 			}
 			else
 			{
 				text = "";
-				foreach (TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
+				foreach (NDB.Covid19.Base.AppleGoogle.ProtoModels.TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
 				{
 					string str2 = ((text == "") ? "--" : "\n--");
 					text += str2;
@@ -4111,13 +4085,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 	{
 		public static readonly string SHOULD_SAVE_EXPOSURE_INFOS_PREF = "SHOULD_SAVE_EXPOSURE_INFOS_PREF";
 
-		private static readonly SecureStorageService _secureStorageService = ServiceLocator.get_Current().GetInstance<SecureStorageService>();
+		private static readonly SecureStorageService _secureStorageService = ServiceLocator.Current.GetInstance<SecureStorageService>();
 
 		public static async Task GenerateMessageIfAppropriate(ExposureDetectionSummary summary, object messageSender)
 		{
-			if (summary.get_MatchedKeyCount() != 0L && summary.get_HighestRiskScore() >= 1 && (HasNotSavedASummaryYet() || SummaryIsWorseThanTheSavedSummary(summary)))
+			if (summary.MatchedKeyCount != 0L && summary.HighestRiskScore >= 1 && (HasNotSavedASummaryYet() || SummaryIsWorseThanTheSavedSummary(summary)))
 			{
-				if (summary.get_HighestRiskScore() >= Conf.RISK_SCORE_THRESHOLD_FOR_HIGH_RISK)
+				if (summary.HighestRiskScore >= Conf.RISK_SCORE_THRESHOLD_FOR_HIGH_RISK)
 				{
 					await AlertAboutHighRiskIfAppropriate(messageSender);
 				}
@@ -4146,7 +4120,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			bool flag;
 			try
 			{
-				flag = Preferences.Get(SHOULD_SAVE_EXPOSURE_INFOS_PREF, false);
+				flag = Preferences.Get(SHOULD_SAVE_EXPOSURE_INFOS_PREF, defaultValue: false);
 			}
 			catch (Exception e)
 			{
@@ -4155,7 +4129,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			}
 			if (flag)
 			{
-				Preferences.Set(SHOULD_SAVE_EXPOSURE_INFOS_PREF, false);
+				Preferences.Set(SHOULD_SAVE_EXPOSURE_INFOS_PREF, value: false);
 				string lastExposureInfos = ExposureInfoJsonHelper.ExposureInfosToJson(await getExposureInfo());
 				DeveloperToolsSingleton.Instance.LastExposureInfos = lastExposureInfos;
 			}
@@ -4246,8 +4220,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 		{
 			try
 			{
-				ExposureDetectionSummary val = ExposureDetectionSummaryJsonHelper.ExposureDetectionSummaryFromJsonCompatibleString(_secureStorageService.GetValue(SecureStorageKeys.LAST_SUMMARY_KEY));
-				return summary.get_DaysSinceLastExposure() < val.get_DaysSinceLastExposure() || summary.get_MatchedKeyCount() > val.get_MatchedKeyCount() || summary.get_HighestRiskScore() > val.get_HighestRiskScore() || FirstHasAtLeastOneAttenuationDurationLargerThanSecond(summary, val) || summary.get_SummationRiskScore() > val.get_SummationRiskScore();
+				ExposureDetectionSummary exposureDetectionSummary = ExposureDetectionSummaryJsonHelper.ExposureDetectionSummaryFromJsonCompatibleString(_secureStorageService.GetValue(SecureStorageKeys.LAST_SUMMARY_KEY));
+				return summary.DaysSinceLastExposure < exposureDetectionSummary.DaysSinceLastExposure || summary.MatchedKeyCount > exposureDetectionSummary.MatchedKeyCount || summary.HighestRiskScore > exposureDetectionSummary.HighestRiskScore || FirstHasAtLeastOneAttenuationDurationLargerThanSecond(summary, exposureDetectionSummary) || summary.SummationRiskScore > exposureDetectionSummary.SummationRiskScore;
 			}
 			catch (Exception e)
 			{
@@ -4259,13 +4233,13 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 
 		private static bool FirstHasAtLeastOneAttenuationDurationLargerThanSecond(ExposureDetectionSummary first, ExposureDetectionSummary second)
 		{
-			if (first.get_AttenuationDurations().Length != second.get_AttenuationDurations().Length)
+			if (first.AttenuationDurations.Length != second.AttenuationDurations.Length)
 			{
 				throw new Exception("The AttenuationDuration arrays in the ExposureDetectionSummary objects given to FirstHasAtLeastOneAttenuationDurationLargerThanSecond did not have the same Length");
 			}
-			for (int i = 0; i < first.get_AttenuationDurations().Length; i++)
+			for (int i = 0; i < first.AttenuationDurations.Length; i++)
 			{
-				if (first.get_AttenuationDurations()[i] > second.get_AttenuationDurations()[i])
+				if (first.AttenuationDurations[i] > second.AttenuationDurations[i])
 				{
 					return true;
 				}
@@ -4318,23 +4292,21 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 
 			public JsonCompatibleExposureDetectionSummary(ExposureDetectionSummary exposureDetectionSummary)
 			{
-				DaysSinceLastExposure = exposureDetectionSummary.get_DaysSinceLastExposure();
-				MatchedKeyCount = exposureDetectionSummary.get_MatchedKeyCount();
-				HighestRiskScore = exposureDetectionSummary.get_HighestRiskScore();
-				AttenuationDurations = exposureDetectionSummary.get_AttenuationDurations();
-				SummationRiskScore = exposureDetectionSummary.get_SummationRiskScore();
+				DaysSinceLastExposure = exposureDetectionSummary.DaysSinceLastExposure;
+				MatchedKeyCount = exposureDetectionSummary.MatchedKeyCount;
+				HighestRiskScore = exposureDetectionSummary.HighestRiskScore;
+				AttenuationDurations = exposureDetectionSummary.AttenuationDurations;
+				SummationRiskScore = exposureDetectionSummary.SummationRiskScore;
 			}
 		}
 
 		public static string ExposureDectionSummaryToJson(ExposureDetectionSummary exposureDetectionSummary)
 		{
-			return JsonConvert.SerializeObject((object)new JsonCompatibleExposureDetectionSummary(exposureDetectionSummary));
+			return JsonConvert.SerializeObject(new JsonCompatibleExposureDetectionSummary(exposureDetectionSummary));
 		}
 
 		public static ExposureDetectionSummary ExposureDetectionSummaryFromJsonCompatibleString(string jsonCompatibleExposureDetectionSummaryJson)
 		{
-			//IL_0025: Unknown result type (might be due to invalid IL or missing references)
-			//IL_002b: Expected O, but got Unknown
 			JsonCompatibleExposureDetectionSummary jsonCompatibleExposureDetectionSummary = JsonConvert.DeserializeObject<JsonCompatibleExposureDetectionSummary>(jsonCompatibleExposureDetectionSummaryJson);
 			return new ExposureDetectionSummary(jsonCompatibleExposureDetectionSummary.DaysSinceLastExposure, jsonCompatibleExposureDetectionSummary.MatchedKeyCount, jsonCompatibleExposureDetectionSummary.HighestRiskScore, jsonCompatibleExposureDetectionSummary.AttenuationDurations, jsonCompatibleExposureDetectionSummary.SummationRiskScore);
 		}
@@ -4404,25 +4376,25 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 	}
 	public abstract class UploadDiagnosisKeysHelper
 	{
-		public static List<TemporaryExposureKey> createAValidListOfTemporaryExposureKeys(IEnumerable<TemporaryExposureKey> temporaryExposureKeys)
+		public static List<Xamarin.ExposureNotifications.TemporaryExposureKey> createAValidListOfTemporaryExposureKeys(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> temporaryExposureKeys)
 		{
-			List<TemporaryExposureKey> list = temporaryExposureKeys.ToList();
+			List<Xamarin.ExposureNotifications.TemporaryExposureKey> list = temporaryExposureKeys.ToList();
 			for (int i = 0; i < list.Count; i++)
 			{
-				TemporaryExposureKey val = list[i];
+				Xamarin.ExposureNotifications.TemporaryExposureKey temporaryExposureKey = list[i];
 				for (int num = list.Count - 1; num > i; num--)
 				{
-					TemporaryExposureKey val2 = list[num];
-					if (val.get_RollingStart() == val2.get_RollingStart())
+					Xamarin.ExposureNotifications.TemporaryExposureKey temporaryExposureKey2 = list[num];
+					if (temporaryExposureKey.RollingStart == temporaryExposureKey2.RollingStart)
 					{
 						list.RemoveAt(num);
 					}
 				}
 			}
-			list.Sort((TemporaryExposureKey x, TemporaryExposureKey y) => y.get_RollingStart().CompareTo(x.get_RollingStart()));
+			list.Sort((Xamarin.ExposureNotifications.TemporaryExposureKey x, Xamarin.ExposureNotifications.TemporaryExposureKey y) => y.RollingStart.CompareTo(x.RollingStart));
 			for (int j = 0; j < list.Count - 1; j++)
 			{
-				if (list[j + 1].get_RollingStart() != list[j].get_RollingStart().AddDays(-1.0))
+				if (list[j + 1].RollingStart != list[j].RollingStart.AddDays(-1.0))
 				{
 					list = list.Take(j + 1).ToList();
 					break;
@@ -4432,24 +4404,24 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers
 			{
 				list = list.Take(14).ToList();
 			}
-			foreach (TemporaryExposureKey item in list)
+			foreach (Xamarin.ExposureNotifications.TemporaryExposureKey item in list)
 			{
-				item.set_RollingDuration(new TimeSpan(1, 0, 0, 0));
+				item.RollingDuration = new TimeSpan(1, 0, 0, 0);
 			}
 			return list;
 		}
 
-		public static List<TemporaryExposureKey> SetTransmissionRiskLevel(List<TemporaryExposureKey> keys, DateTime symptomsDate)
+		public static List<Xamarin.ExposureNotifications.TemporaryExposureKey> SetTransmissionRiskLevel(List<Xamarin.ExposureNotifications.TemporaryExposureKey> keys, DateTime symptomsDate)
 		{
 			DateTimeOffset right = new DateTimeOffset(symptomsDate);
-			foreach (TemporaryExposureKey key in keys)
+			foreach (Xamarin.ExposureNotifications.TemporaryExposureKey key in keys)
 			{
-				int days = (key.get_RollingStart() - right).Days;
+				int days = (key.RollingStart - right).Days;
 				for (int num = Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION.Length - 1; num >= 0; num--)
 				{
 					if (days >= Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION[num].Item1 && days <= Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION[num].Item2)
 					{
-						key.set_TransmissionRiskLevel((RiskLevel)(num + 1));
+						key.TransmissionRiskLevel = (RiskLevel)(num + 1);
 						break;
 					}
 				}
@@ -4468,8 +4440,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 
 		public static bool LastDownloadZipsTooRecent()
 		{
-			string text = DateTime.UtcNow.AddDays(-123.0).Date.ToString();
-			DateTime d = DateTime.Parse(Preferences.Get(LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, text));
+			string defaultValue = DateTime.UtcNow.AddDays(-123.0).Date.ToString();
+			DateTime d = DateTime.Parse(Preferences.Get(LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF, defaultValue));
 			return DateTime.UtcNow - d < TimeSpan.FromHours(Conf.FETCH_MIN_HOURS_BETWEEN_PULL);
 		}
 
@@ -4529,8 +4501,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 			}
 			try
 			{
-				string text2 = JsonConvert.SerializeObject((object)list);
-				Preferences.Set(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, text2);
+				string value = JsonConvert.SerializeObject(list);
+				Preferences.Set(MOST_RECENT_15_CALLS_TO_SUBMIT_BATCHES_OLD_TO_NEW_UTC, value);
 			}
 			catch (Exception e2)
 			{
@@ -4582,7 +4554,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 			}
 			try
 			{
-				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject((object)list);
+				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject(list);
 				DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses = latestPullKeysTimesAndStatuses2;
 			}
 			catch (Exception e2)
@@ -4605,7 +4577,7 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 				source = source.Take(source.Count() - 1).ToList();
 				Tuple<DateTime, string> item = new Tuple<DateTime, string>(tuple.Item1, status);
 				source.Add(item);
-				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject((object)source);
+				string latestPullKeysTimesAndStatuses2 = JsonConvert.SerializeObject(source);
 				DeveloperToolsSingleton.Instance.LatestPullKeysTimesAndStatuses = latestPullKeysTimesAndStatuses2;
 			}
 			catch (Exception e)
@@ -4642,19 +4614,21 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 				}
 				if (apiResponse.StatusCode == 204)
 				{
-					if (!(currentDownloadDayUtc < DateTime.UtcNow.Date))
+					if (currentDownloadDayUtc < DateTime.UtcNow.Date)
 					{
-						break;
+						currentDownloadDayUtc = currentDownloadDayUtc.AddDays(1.0);
+						Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
+						currentDownloadDayUtcBatchNumber = 0;
+						Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
+						continue;
 					}
-					currentDownloadDayUtc = currentDownloadDayUtc.AddDays(1.0);
 					Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
-					currentDownloadDayUtcBatchNumber = 0;
-					Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, 0);
-					continue;
+					Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
+					break;
 				}
 				try
 				{
-					string text = Path.Combine(FileSystem.get_CacheDirectory(), Guid.NewGuid().ToString() + ".zip");
+					string text = Path.Combine(FileSystem.CacheDirectory, Guid.NewGuid().ToString() + ".zip");
 					FileStream fileStream = File.Create(text);
 					apiResponse.Data.CopyTo(fileStream);
 					fileStream.Close();
@@ -4668,6 +4642,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 				{
 					if (!(currentDownloadDayUtc < DateTime.UtcNow.Date))
 					{
+						Preferences.Set(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, currentDownloadDayUtc.ToString());
+						Preferences.Set(CURRENT_DOWNLOAD_DAY_BATCH_PREF, currentDownloadDayUtcBatchNumber);
 						break;
 					}
 					currentDownloadDayUtc = currentDownloadDayUtc.AddDays(1.0);
@@ -4687,8 +4663,8 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.FetchExposur
 
 		private DateTime GetCurrentUtcDayToDownloadKeysFor()
 		{
-			string text = DateTime.UtcNow.Date.ToString();
-			DateTime dateTime = DateTime.Parse(Preferences.Get(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, text));
+			string defaultValue = DateTime.UtcNow.Date.ToString();
+			DateTime dateTime = DateTime.Parse(Preferences.Get(CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF, defaultValue));
 			DateTime dateTime2 = DateTime.UtcNow.Date.AddDays(-14.0);
 			if (dateTime < dateTime2)
 			{
@@ -4761,23 +4737,23 @@ namespace NDB.Covid19.Base.AppleGoogle.ExposureNotification.Helpers.ExposureDete
 
 			public JsonCompatibleExposureInfo(ExposureInfo exposureInfo)
 			{
-				//IL_0038: Unknown result type (might be due to invalid IL or missing references)
-				Timestamp = exposureInfo.get_Timestamp();
-				Duration = exposureInfo.get_Duration();
-				AttenuationValue = exposureInfo.get_AttenuationValue();
-				TotalRiskScore = exposureInfo.get_TotalRiskScore();
-				TransmissionRiskLevel = exposureInfo.get_TransmissionRiskLevel();
+				Timestamp = exposureInfo.Timestamp;
+				Duration = exposureInfo.Duration;
+				AttenuationValue = exposureInfo.AttenuationValue;
+				TotalRiskScore = exposureInfo.TotalRiskScore;
+				TransmissionRiskLevel = exposureInfo.TransmissionRiskLevel;
 			}
 		}
 
 		public static string ExposureInfosToJson(IEnumerable<ExposureInfo> exposureInfos)
 		{
-			return JsonConvert.SerializeObject((object)exposureInfos.Select((ExposureInfo exposureInfo) => new JsonCompatibleExposureInfo(exposureInfo)));
+			return JsonConvert.SerializeObject(exposureInfos.Select((ExposureInfo exposureInfo) => new JsonCompatibleExposureInfo(exposureInfo)));
 		}
 
 		public static IEnumerable<ExposureInfo> ExposureInfosFromJsonCompatibleString(string jsonCompatibleExposureInfosJson)
 		{
-			return JsonConvert.DeserializeObject<IEnumerable<JsonCompatibleExposureInfo>>(jsonCompatibleExposureInfosJson).Select((Func<JsonCompatibleExposureInfo, ExposureInfo>)((JsonCompatibleExposureInfo jsonCompatibleExposureInfo) => new ExposureInfo(jsonCompatibleExposureInfo.Timestamp, jsonCompatibleExposureInfo.Duration, jsonCompatibleExposureInfo.AttenuationValue, jsonCompatibleExposureInfo.TotalRiskScore, jsonCompatibleExposureInfo.TransmissionRiskLevel)));
+			return from jsonCompatibleExposureInfo in JsonConvert.DeserializeObject<IEnumerable<JsonCompatibleExposureInfo>>(jsonCompatibleExposureInfosJson)
+				select new ExposureInfo(jsonCompatibleExposureInfo.Timestamp, jsonCompatibleExposureInfo.Duration, jsonCompatibleExposureInfo.AttenuationValue, jsonCompatibleExposureInfo.TotalRiskScore, jsonCompatibleExposureInfo.TransmissionRiskLevel);
 		}
 	}
 }
@@ -4793,7 +4769,7 @@ namespace NDB.Covid19.Base.AppleGoogle.Config
 
 		public static readonly Tuple<int, int>[] DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION = new Tuple<int, int>[8]
 		{
-			Tuple.Create(int.MinValue, int.MaxValue),
+			Tuple.Create(-2147483648, 2147483647),
 			Tuple.Create(-3, -3),
 			Tuple.Create(-2, -2),
 			Tuple.Create(-1, 2),

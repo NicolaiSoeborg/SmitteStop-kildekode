@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -59,8 +58,8 @@ namespace NDB.Covid19
 	{
 		public static void Init(UnityContainer unityContainer)
 		{
-			UnityContainerExtensions.RegisterSingleton<DeviceGuidService>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterType<ILoggingManager, LoggingSQLiteManager>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
+			unityContainer.RegisterSingleton<DeviceGuidService>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<ILoggingManager, LoggingSQLiteManager>(Array.Empty<InjectionMember>());
 		}
 	}
 	public static class ExceptionExtensions
@@ -77,9 +76,14 @@ namespace NDB.Covid19.WebServices
 	{
 		private BadConnectionErrorHandler _badConnectionErrorHandler = new BadConnectionErrorHandler();
 
-		public static JsonSerializerSettings JsonSerializerSettings;
+		public static JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
+		{
+			ContractResolver = new CamelCasePropertyNamesContractResolver(),
+			DateFormatHandling = DateFormatHandling.IsoDateFormat,
+			DateTimeZoneHandling = DateTimeZoneHandling.Local
+		};
 
-		public static JsonSerializer JsonSerializer;
+		public static JsonSerializer JsonSerializer = new JsonSerializer();
 
 		public object Data
 		{
@@ -176,7 +180,7 @@ namespace NDB.Covid19.WebServices
 
 		public async Task<ApiResponse> Post<T>(T t, string url)
 		{
-			string content2 = JsonConvert.SerializeObject((object)t, JsonSerializerSettings);
+			string content2 = JsonConvert.SerializeObject(t, JsonSerializerSettings);
 			StringContent content = new StringContent(content2, Encoding.UTF8, "application/json");
 			ApiResponse apiResponse = await InnerPost(content, url);
 			if (!apiResponse.IsSuccessfull && _badConnectionErrorHandler.IsResponsible(apiResponse))
@@ -237,10 +241,10 @@ namespace NDB.Covid19.WebServices
 
 		public void MapData<M>(ApiResponse<M> resultObj, string content)
 		{
-			JObject val = JObject.Parse(content);
-			if (val != null)
+			JObject jObject = JObject.Parse(content);
+			if (jObject != null)
 			{
-				resultObj.Data = ((JToken)val).ToObject<M>(JsonSerializer);
+				resultObj.Data = jObject.ToObject<M>(JsonSerializer);
 			}
 		}
 
@@ -280,25 +284,6 @@ namespace NDB.Covid19.WebServices
 					break;
 				}
 			}
-		}
-
-		static BaseWebService()
-		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0010: Expected O, but got Unknown
-			//IL_0010: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0017: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0023: Expected O, but got Unknown
-			//IL_0023: Unknown result type (might be due to invalid IL or missing references)
-			//IL_002d: Expected O, but got Unknown
-			JsonSerializerSettings val = new JsonSerializerSettings();
-			val.set_ContractResolver((IContractResolver)new CamelCasePropertyNamesContractResolver());
-			val.set_DateFormatHandling((DateFormatHandling)0);
-			val.set_DateTimeZoneHandling((DateTimeZoneHandling)0);
-			JsonSerializerSettings = val;
-			JsonSerializer = new JsonSerializer();
 		}
 	}
 	public class LoggingService : BaseWebService
@@ -373,14 +358,12 @@ namespace NDB.Covid19.WebServices.Utils
 
 		private HttpClientManager()
 		{
-			//IL_009c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_00a1: Unknown result type (might be due to invalid IL or missing references)
 			HttpClientAccessor = new DefaultHttpClientAccessor();
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/zip"));
 			HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Authorization_Mobile", SharedConf.AuthorizationHeader);
-			if (DeviceInfo.get_Platform() == DevicePlatform.get_Unknown())
+			if (DeviceInfo.Platform == DevicePlatform.Unknown)
 			{
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", "Unknown");
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", "Unknown");
@@ -388,8 +371,8 @@ namespace NDB.Covid19.WebServices.Utils
 			}
 			else
 			{
-				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", DeviceInfo.get_Manufacturer());
-				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", DeviceInfo.get_VersionString());
+				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("Manufacturer", DeviceInfo.Manufacturer);
+				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", DeviceInfo.VersionString);
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OS", GetOS());
 			}
 			HttpClientAccessor.HttpClient.MaxResponseContentBufferSize = 3000000L;
@@ -398,16 +381,12 @@ namespace NDB.Covid19.WebServices.Utils
 
 		private string GetOS()
 		{
-			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0029: Unknown result type (might be due to invalid IL or missing references)
-			//IL_002e: Unknown result type (might be due to invalid IL or missing references)
 			string result = "Unknown";
-			if (DeviceInfo.get_Platform() == DevicePlatform.get_Android())
+			if (DeviceInfo.Platform == DevicePlatform.Android)
 			{
-				result = ServiceLocator.get_Current().GetInstance<ApiDataHelper>().DeviceType;
+				result = ServiceLocator.Current.GetInstance<ApiDataHelper>().DeviceType;
 			}
-			else if (DeviceInfo.get_Platform() == DevicePlatform.get_iOS())
+			else if (DeviceInfo.Platform == DevicePlatform.iOS)
 			{
 				result = "IOS";
 			}
@@ -416,12 +395,12 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public void AddSecretToHeaderIfMissing()
 		{
-			ServiceLocator.get_Current().GetInstance<IHeaderService>().AddSecretToHeader(HttpClientAccessor);
+			ServiceLocator.Current.GetInstance<IHeaderService>().AddSecretToHeader(HttpClientAccessor);
 		}
 
 		public void AddHostHeaderIfMissing()
 		{
-			ServiceLocator.get_Current().GetInstance<IHeaderService>().AddHostToHeader(HttpClientAccessor);
+			ServiceLocator.Current.GetInstance<IHeaderService>().AddHostToHeader(HttpClientAccessor);
 		}
 
 		public static void MakeNewInstance()
@@ -435,9 +414,7 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public bool CheckInternetConnection()
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Invalid comparison between Unknown and I4
-			if ((int)Connectivity.get_NetworkAccess() == 1)
+			if (Connectivity.NetworkAccess == NetworkAccess.None)
 			{
 				return false;
 			}
@@ -446,9 +423,7 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public bool CheckInternetPoorConnection()
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Invalid comparison between Unknown and I4
-			if ((int)Connectivity.get_NetworkAccess() == 2)
+			if (Connectivity.NetworkAccess == NetworkAccess.Local)
 			{
 				return false;
 			}
@@ -481,9 +456,9 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 	{
 		public bool IsSilent;
 
-		public override string ErrorMessageTitle => Extensions.Translate("CONNECTION_ERROR_TITLE", Array.Empty<object>());
+		public override string ErrorMessageTitle => "CONNECTION_ERROR_TITLE".Translate();
 
-		public override string ErrorMessage => Extensions.Translate("BAD_CONNECTION_ERROR_MESSAGE", Array.Empty<object>());
+		public override string ErrorMessage => "BAD_CONNECTION_ERROR_MESSAGE".Translate();
 
 		public BadConnectionErrorHandler(bool IsSilent)
 		{
@@ -496,7 +471,7 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 
 		public bool IsResponsible(ApiResponse apiResponse)
 		{
-			bool num = apiResponse.Exception?.InnerException is IOException && (apiResponse.Exception.InnerException!.Message.Contains("the transport connection") || apiResponse.Exception.InnerException!.Message.Contains("The server returned an invalid or unrecognized response"));
+			bool num = apiResponse.Exception?.InnerException is IOException && (apiResponse.Exception.InnerException.Message.Contains("the transport connection") || apiResponse.Exception.InnerException.Message.Contains("The server returned an invalid or unrecognized response"));
 			bool flag = apiResponse.Exception is WebException;
 			return num || flag;
 		}
@@ -512,13 +487,13 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 	}
 	public class BaseErrorHandler
 	{
-		public IDialogService DialogServiceInstance => ServiceLocator.get_Current().GetInstance<IDialogService>();
+		public IDialogService DialogServiceInstance => ServiceLocator.Current.GetInstance<IDialogService>();
 
-		public virtual string ErrorMessageTitle => Extensions.Translate("BASE_ERROR_TITLE", Array.Empty<object>());
+		public virtual string ErrorMessageTitle => "BASE_ERROR_TITLE".Translate();
 
-		public virtual string ErrorMessage => Extensions.Translate("BASE_ERROR_MESSAGE", Array.Empty<object>());
+		public virtual string ErrorMessage => "BASE_ERROR_MESSAGE".Translate();
 
-		public virtual string OkBtnText => Extensions.Translate("ERROR_OK_BTN", Array.Empty<object>());
+		public virtual string OkBtnText => "ERROR_OK_BTN".Translate();
 
 		public void ShowErrorToUser()
 		{
@@ -574,9 +549,9 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 	{
 		public bool IsSilent;
 
-		public override string ErrorMessageTitle => Extensions.Translate("CONNECTION_ERROR_TITLE", Array.Empty<object>());
+		public override string ErrorMessageTitle => "CONNECTION_ERROR_TITLE".Translate();
 
-		public override string ErrorMessage => Extensions.Translate("NO_INTERNET_ERROR_MESSAGE", Array.Empty<object>());
+		public override string ErrorMessage => "NO_INTERNET_ERROR_MESSAGE".Translate();
 
 		public NoInternetErrorHandler(bool IsSilent)
 		{
@@ -632,90 +607,105 @@ namespace NDB.Covid19.ViewModels
 	}
 	public class ForceUpdateViewModel
 	{
-		public static string FORCE_UPDATE_BUTTON_GOOGLE_ANDROID = Extensions.Translate("FORCE_UPDATE_BUTTON_GOOGLE_ANDROID", Array.Empty<object>());
+		public static string FORCE_UPDATE_BUTTON_GOOGLE_ANDROID = "FORCE_UPDATE_BUTTON_GOOGLE_ANDROID".Translate();
 
-		public static string FORCE_UPDATE_BUTTON_HUAWEI_ANDROID = Extensions.Translate("FORCE_UPDATE_BUTTON_HUAWEI_ANDROID", Array.Empty<object>());
+		public static string FORCE_UPDATE_BUTTON_HUAWEI_ANDROID = "FORCE_UPDATE_BUTTON_HUAWEI_ANDROID".Translate();
 
-		public static string FORCE_UPDATE_BUTTON_APPSTORE_IOS = Extensions.Translate("FORCE_UPDATE_BUTTON_APPSTORE_IOS", Array.Empty<object>());
+		public static string FORCE_UPDATE_BUTTON_APPSTORE_IOS = "FORCE_UPDATE_BUTTON_APPSTORE_IOS".Translate();
 
-		public static string FORCE_UPDATE_MESSAGE => Extensions.Translate("FORCE_UPDATE_MESSAGE", Array.Empty<object>());
+		public static string FORCE_UPDATE_MESSAGE => "FORCE_UPDATE_MESSAGE".Translate();
 	}
 	public class InitializerViewModel
 	{
-		public static string LAUNCHER_PAGE_START_BTN => Extensions.Translate("LAUNCHER_PAGE_START_BTN", Array.Empty<object>());
+		public static string LAUNCHER_PAGE_START_BTN => "LAUNCHER_PAGE_START_BTN".Translate();
 	}
 	public class SettingsPage2ViewModel
 	{
-		public static string SETTINGS_PAGE_2_HEADER => Extensions.Translate("SETTINGS_PAGE_2_HEADER_TEXT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_HEADER => "SETTINGS_PAGE_2_HEADER_TEXT".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_INTRO => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_INTRO", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_INTRO => "SETTINGS_PAGE_2_CONTENT_TEXT_INTRO".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT".Translate();
 
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT_LINK => Extensions.Translate("SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT_LINK", Array.Empty<object>());
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT_LINK => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT_LINK".Translate();
 	}
 	public class SettingsPage4ViewModel
 	{
-		public static string HEADER => Extensions.Translate("SETTINGS_PAGE_4_HEADER_TEXT", Array.Empty<object>());
+		public static string HEADER => "SETTINGS_PAGE_4_HEADER_TEXT".Translate();
 
-		public static string CONTENT_TEXT_BEFORE_SUPPORT_LINK => Extensions.Translate("SETTINGS_PAGE_4_CONTENT_TEXT_BEFORE_SUPPORT_LINK", Array.Empty<object>());
+		public static string CONTENT_TEXT_BEFORE_SUPPORT_LINK => "SETTINGS_PAGE_4_CONTENT_TEXT_BEFORE_SUPPORT_LINK".Translate();
 
-		public static string SUPPORT_LINK_SHOWN_TEXT => Extensions.Translate("SETTINGS_PAGE_4_SUPPORT_LINK_SHOWN_TEXT", Array.Empty<object>());
+		public static string SUPPORT_LINK_SHOWN_TEXT => "SETTINGS_PAGE_4_SUPPORT_LINK_SHOWN_TEXT".Translate();
 
-		public static string SUPPORT_LINK => Extensions.Translate("SETTINGS_PAGE_4_SUPPORT_LINK", Array.Empty<object>());
+		public static string SUPPORT_LINK => "SETTINGS_PAGE_4_SUPPORT_LINK".Translate();
 
-		public static string EMAIL_TEXT => Extensions.Translate("SETTINGS_PAGE_4_EMAIL_TEXT", Array.Empty<object>());
+		public static string EMAIL_TEXT => "SETTINGS_PAGE_4_EMAIL_TEXT".Translate();
 
-		public static string EMAIL => Extensions.Translate("SETTINGS_PAGE_4_EMAIL", Array.Empty<object>());
+		public static string EMAIL => "SETTINGS_PAGE_4_EMAIL".Translate();
 
-		public static string PHONE_NUM_Text => Extensions.Translate("SETTINGS_PAGE_4_PHONE_NUM_TEXT", Array.Empty<object>());
+		public static string PHONE_NUM_Text => "SETTINGS_PAGE_4_PHONE_NUM_TEXT".Translate();
 
-		public static string PHONE_NUM => Extensions.Translate("SETTINGS_PAGE_4_PHONE_NUM", Array.Empty<object>());
+		public static string PHONE_NUM => "SETTINGS_PAGE_4_PHONE_NUM".Translate();
 
-		public static string PHONE_OPEN_TEXT => Extensions.Translate("SETTINGS_PAGE_4_PHONE_OPEN_TEXT", Array.Empty<object>());
+		public static string PHONE_OPEN_TEXT => "SETTINGS_PAGE_4_PHONE_OPEN_TEXT".Translate();
 
-		public static string PHONE_OPEN_MON_THU => Extensions.Translate("SETTINGS_PAGE_4_PHONE_OPEN_MON_THU", Array.Empty<object>());
+		public static string PHONE_OPEN_MON_THU => "SETTINGS_PAGE_4_PHONE_OPEN_MON_THU".Translate();
 
-		public static string PHONE_OPEN_FRE => Extensions.Translate("SETTINGS_PAGE_4_PHONE_OPEN_FRE", Array.Empty<object>());
+		public static string PHONE_OPEN_FRE => "SETTINGS_PAGE_4_PHONE_OPEN_FRE".Translate();
 
-		public static string PHONE_OPEN_SAT_SUN_HOLY => Extensions.Translate("SETTINGS_PAGE_4_PHONE_OPEN_SAT_SUN_HOLY", Array.Empty<object>());
+		public static string PHONE_OPEN_SAT_SUN_HOLY => "SETTINGS_PAGE_4_PHONE_OPEN_SAT_SUN_HOLY".Translate();
 
-		public static string PHONE_NUM_ACCESSIBILITY => Extensions.Translate("SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_NUM", Array.Empty<object>());
+		public static string PHONE_NUM_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_NUM".Translate();
 
-		public static string PHONE_OPEN_MON_THU_ACCESSIBILITY => Extensions.Translate("SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_MON_THU", Array.Empty<object>());
+		public static string PHONE_OPEN_MON_THU_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_MON_THU".Translate();
 
-		public static string PHONE_OPEN_FRE_ACCESSIBILITY => Extensions.Translate("SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_FRE", Array.Empty<object>());
+		public static string PHONE_OPEN_FRE_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_FRE".Translate();
 	}
 	public class SettingsPage5ViewModel
 	{
-		public static string SETTINGS_PAGE_5_HEADER => Extensions.Translate("SETTINGS_PAGE_5_HEADER_TEXT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_5_HEADER => "SETTINGS_PAGE_5_HEADER_TEXT".Translate();
 
-		public static string SETTINGS_PAGE_5_CONTENT => Extensions.Translate("SETTINGS_PAGE_5_CONTENT_TEXT", Array.Empty<object>());
+		public static string SETTINGS_PAGE_5_CONTENT => "SETTINGS_PAGE_5_CONTENT_TEXT".Translate();
 
-		public static string SETTINGS_PAGE_5_LINK => Extensions.Translate("SETTINGS_PAGE_5_LINK", Array.Empty<object>());
+		public static string SETTINGS_PAGE_5_LINK => "SETTINGS_PAGE_5_LINK".Translate();
 
 		public static string GetVersionInfo()
 		{
-			return $"V{AppInfo.get_VersionString()} B{AppInfo.get_BuildString()} A{SharedConf.APIVersion}";
+			return $"V{AppInfo.VersionString} B{AppInfo.BuildString} A{SharedConf.APIVersion} {GetPartialUrlFromConf()} ";
+		}
+
+		public static string GetPartialUrlFromConf()
+		{
+			try
+			{
+				string uRL_PREFIX = SharedConf.URL_PREFIX;
+				int length = "Https://".Length;
+				int length2 = uRL_PREFIX.IndexOf(".smittestop") - length;
+				return uRL_PREFIX.Substring(length, length2);
+			}
+			catch
+			{
+				return "u";
+			}
 		}
 	}
 	public class SettingsViewModel
 	{
-		public static string SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON => Extensions.Translate("SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON", Array.Empty<object>());
+		public static string SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
 
-		public static string SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON => Extensions.Translate("SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON", Array.Empty<object>());
+		public static string SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON => "SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON".Translate();
 
 		public bool ShowDebugItem => SettingItemList.Any((SettingItem i) => i.Type == SettingItemType.Debug);
 
@@ -793,7 +783,7 @@ namespace NDB.Covid19.Utils
 			{
 				return input;
 			}
-			return Encoder.HtmlEncode(Sanitizer.GetSafeHtmlFragment(ReplaceMacAddress(ReplaceEmailAddress(ReplacePhoneNumber(ReplaceCpr(ReplaceIMEI(input)))))));
+			return Microsoft.Security.Application.Encoder.HtmlEncode(Sanitizer.GetSafeHtmlFragment(ReplaceMacAddress(ReplaceEmailAddress(ReplacePhoneNumber(ReplaceCpr(ReplaceIMEI(input)))))));
 		}
 
 		private static bool Luhn(string digits)
@@ -1060,7 +1050,7 @@ namespace NDB.Covid19.Utils
 		public static void LogMessage(LogSeverity severity, string message, string additionalInfo = "")
 		{
 			LogSQLiteModel log = new LogSQLiteModel(new LogDeviceDetails(severity, message, additionalInfo));
-			ServiceLocator.get_Current().GetInstance<ILoggingManager>().SaveNewLog(log);
+			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
 		public static void LogException(LogSeverity severity, Exception e, string contextDescription, string additionalInfo = "")
@@ -1068,7 +1058,7 @@ namespace NDB.Covid19.Utils
 			LogDeviceDetails info = new LogDeviceDetails(severity, contextDescription, additionalInfo);
 			LogExceptionDetails e2 = new LogExceptionDetails(e);
 			LogSQLiteModel log = new LogSQLiteModel(info, null, e2);
-			ServiceLocator.get_Current().GetInstance<ILoggingManager>().SaveNewLog(log);
+			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
 		public static void LogApiError(LogSeverity severity, ApiResponse apiResponse, bool erroredSilently, string additionalInfo = "")
@@ -1082,12 +1072,12 @@ namespace NDB.Covid19.Utils
 				e = new LogExceptionDetails(apiResponse.Exception);
 			}
 			LogSQLiteModel log = new LogSQLiteModel(info, apiDetails, e);
-			ServiceLocator.get_Current().GetInstance<ILoggingManager>().SaveNewLog(log);
+			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
 		public static async Task SendAllLogs()
 		{
-			ILoggingManager manager = ServiceLocator.get_Current().GetInstance<ILoggingManager>();
+			ILoggingManager manager = ServiceLocator.Current.GetInstance<ILoggingManager>();
 			try
 			{
 				bool flag = false;
@@ -1117,7 +1107,7 @@ namespace NDB.Covid19.Utils
 
 		private static async void DeleteLogsIfTooMany()
 		{
-			ILoggingManager manager = ServiceLocator.get_Current().GetInstance<ILoggingManager>();
+			ILoggingManager manager = ServiceLocator.Current.GetInstance<ILoggingManager>();
 			bool tooManyPersistedLogs = true;
 			while (tooManyPersistedLogs)
 			{
@@ -1487,11 +1477,9 @@ namespace NDB.Covid19.PersistedData.SQLite
 
 		public LoggingSQLiteManager()
 		{
-			//IL_001b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0025: Expected O, but got Unknown
-			string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), SharedConf.DB_NAME);
-			_database = new SQLiteAsyncConnection(text, true);
-			_database.CreateTableAsync<LogSQLiteModel>((CreateFlags)0).Wait();
+			string databasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), SharedConf.DB_NAME);
+			_database = new SQLiteAsyncConnection(databasePath);
+			_database.CreateTableAsync<LogSQLiteModel>().Wait();
 		}
 
 		public async void SaveNewLog(LogSQLiteModel log)
@@ -1499,7 +1487,7 @@ namespace NDB.Covid19.PersistedData.SQLite
 			await _syncLock.WaitAsync();
 			try
 			{
-				await _database.InsertAsync((object)log);
+				await _database.InsertAsync(log);
 				_ = log.ExceptionMessage;
 			}
 			catch (Exception)
@@ -1535,7 +1523,7 @@ namespace NDB.Covid19.PersistedData.SQLite
 			{
 				foreach (LogSQLiteModel log in logs)
 				{
-					await _database.Table<LogSQLiteModel>().DeleteAsync((Expression<Func<LogSQLiteModel, bool>>)((LogSQLiteModel it) => it.ID == log.ID));
+					await _database.Table<LogSQLiteModel>().DeleteAsync((LogSQLiteModel it) => it.ID == log.ID);
 				}
 			}
 			catch (Exception)
@@ -1608,7 +1596,7 @@ namespace NDB.Covid19.SecureStorage
 			{
 				if (_secureStorage == null)
 				{
-					_secureStorage = CrossSecureStorage.get_Current();
+					_secureStorage = CrossSecureStorage.Current;
 				}
 				return _secureStorage;
 			}
@@ -1623,7 +1611,7 @@ namespace NDB.Covid19.SecureStorage
 		{
 			try
 			{
-				return SecureStorage.GetValue(key, (string)null);
+				return SecureStorage.GetValue(key);
 			}
 			catch (Exception)
 			{
@@ -1659,7 +1647,7 @@ namespace NDB.Covid19.DeviceGuid
 
 		public DeviceGuidService()
 		{
-			_secureStorageService = ServiceLocator.get_Current().GetInstance<SecureStorageService>();
+			_secureStorageService = ServiceLocator.Current.GetInstance<SecureStorageService>();
 		}
 
 		public DeviceGuidService(SecureStorageService secureStorageService)
@@ -1865,12 +1853,12 @@ namespace NDB.Covid19.Models
 		{
 			return Type switch
 			{
-				SettingItemType.About => Extensions.Translate("SETTINGS_ITEM_ABOUT", Array.Empty<object>()), 
-				SettingItemType.Consent => Extensions.Translate("SETTINGS_ITEM_CONSENT", Array.Empty<object>()), 
-				SettingItemType.Help => Extensions.Translate("SETTINGS_ITEM_HELP", Array.Empty<object>()), 
-				SettingItemType.HowItWorks => Extensions.Translate("SETTINGS_ITEM_HOW_IT_WORKS", Array.Empty<object>()), 
-				SettingItemType.Intro => Extensions.Translate("SETTINGS_ITEM_INTRO", Array.Empty<object>()), 
-				SettingItemType.Messages => Extensions.Translate("SETTINGS_ITEM_MESSAGES", Array.Empty<object>()), 
+				SettingItemType.About => "SETTINGS_ITEM_ABOUT".Translate(), 
+				SettingItemType.Consent => "SETTINGS_ITEM_CONSENT".Translate(), 
+				SettingItemType.Help => "SETTINGS_ITEM_HELP".Translate(), 
+				SettingItemType.HowItWorks => "SETTINGS_ITEM_HOW_IT_WORKS".Translate(), 
+				SettingItemType.Intro => "SETTINGS_ITEM_INTRO".Translate(), 
+				SettingItemType.Messages => "SETTINGS_ITEM_MESSAGES".Translate(), 
 				SettingItemType.Debug => "Developer Tools", 
 				_ => string.Empty, 
 			};
@@ -2252,9 +2240,9 @@ namespace NDB.Covid19.Models.Logging
 			ReportedTime = DateTime.Now;
 			ApiVersion = SharedConf.APIVersion;
 			AdditionalInfo = Anonymizer.RedactText(additionalInfo);
-			BuildNumber = AppInfo.get_BuildString();
-			BuildVersion = AppInfo.get_VersionString();
-			DeviceOSVersion = DeviceInfo.get_VersionString();
+			BuildNumber = AppInfo.BuildString;
+			BuildVersion = AppInfo.VersionString;
+			DeviceOSVersion = DeviceInfo.VersionString;
 		}
 	}
 	public class LogExceptionDetails
@@ -2306,9 +2294,9 @@ namespace NDB.Covid19.Models.Logging
 				ExceptionStackTrace = Anonymizer.RedactText(ShortenedText(e.StackTrace));
 				if (e.InnerException != null)
 				{
-					InnerExceptionType = e.InnerException!.GetType().Name;
-					InnerExceptionMessage = Anonymizer.RedactText(e.InnerException!.Message);
-					InnerExceptionStackTrace = Anonymizer.RedactText(ShortenedText(e.InnerException!.StackTrace));
+					InnerExceptionType = e.InnerException.GetType().Name;
+					InnerExceptionMessage = Anonymizer.RedactText(e.InnerException.Message);
+					InnerExceptionStackTrace = Anonymizer.RedactText(ShortenedText(e.InnerException.StackTrace));
 				}
 			}
 		}
@@ -2453,8 +2441,8 @@ namespace NDB.Covid19.Models.DTOsForServer
 
 		public LogDTO(LogSQLiteModel log)
 		{
-			DeviceType = ServiceLocator.get_Current().GetInstance<ApiDataHelper>().DeviceType;
-			DeviceDescription = ServiceLocator.get_Current().GetInstance<ApiDataHelper>().DeviceModel;
+			DeviceType = ServiceLocator.Current.GetInstance<ApiDataHelper>().DeviceType;
+			DeviceDescription = ServiceLocator.Current.GetInstance<ApiDataHelper>().DeviceModel;
 			ReportedTime = log.ReportedTime;
 			Severity = log.Severity;
 			Description = log.Description;
@@ -2485,19 +2473,17 @@ namespace NDB.Covid19.HardwareServices.SupportServices
 {
 	public class ApiDataHelper
 	{
-		public IApiDataHelper ApiDataHelperInstance => ServiceLocator.get_Current().GetInstance<IApiDataHelper>();
+		public IApiDataHelper ApiDataHelperInstance => ServiceLocator.Current.GetInstance<IApiDataHelper>();
 
 		public string DeviceModel
 		{
 			get
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-				if (DeviceInfo.get_Platform() == DevicePlatform.get_Android())
+				if (DeviceInfo.Platform == DevicePlatform.Android)
 				{
-					return DeviceInfo.get_Model();
+					return DeviceInfo.Model;
 				}
-				return IOSHardwareMapper.GetModel(DeviceInfo.get_Model());
+				return IOSHardwareMapper.GetModel(DeviceInfo.Model);
 			}
 		}
 
@@ -2505,11 +2491,9 @@ namespace NDB.Covid19.HardwareServices.SupportServices
 		{
 			get
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-				if (DeviceInfo.get_Platform() == DevicePlatform.get_Android())
+				if (DeviceInfo.Platform == DevicePlatform.Android)
 				{
-					if (!(DeviceInfo.get_Manufacturer().ToLower() == "huawei") || ApiDataHelperInstance.IsGoogleServiceEnabled())
+					if (!(DeviceInfo.Manufacturer.ToLower() == "huawei") || ApiDataHelperInstance.IsGoogleServiceEnabled())
 					{
 						return "Android-Google";
 					}
@@ -2624,7 +2608,7 @@ namespace NDB.Covid19.Configuration
 	}
 	public class SharedConf
 	{
-		private static ISharedConfInterface PlatformConf => ServiceLocator.get_Current().GetInstance<ISharedConfInterface>();
+		private static ISharedConfInterface PlatformConf => ServiceLocator.Current.GetInstance<ISharedConfInterface>();
 
 		public static string URL_PREFIX => PlatformConf.URL_PREFIX;
 
