@@ -99,7 +99,7 @@ using XamarinShortcutBadger;
 namespace NDB.Covid19.Droid
 {
 	[Application]
-	internal class MainApplication : Application, IActivityLifecycleCallbacks, IJavaObject, IDisposable, IJavaPeerable
+	internal class MainApplication : Application, Application.IActivityLifecycleCallbacks, IJavaObject, IDisposable, IJavaPeerable
 	{
 		private BroadcastReceiver _permissionsBroadcastReceiver;
 
@@ -108,37 +108,30 @@ namespace NDB.Covid19.Droid
 		private IntentFilter _filter;
 
 		public MainApplication(IntPtr handle, JniHandleOwnership transer)
-			: this(handle, transer)
+			: base(handle, transer)
 		{
-			//IL_0002: Unknown result type (might be due to invalid IL or missing references)
-			Init();
 		}
 
 		public MainApplication()
-			: this()
 		{
-			Init();
 		}
 
 		private void Init()
 		{
-			//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
-			//IL_006d: Unknown result type (might be due to invalid IL or missing references)
 			_filter = new IntentFilter();
 			_filter.AddAction("android.bluetooth.adapter.action.STATE_CHANGED");
 			_filter.AddAction("android.location.PROVIDERS_CHANGED");
-			AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(LogUtils.OnUnhandledException);
-			AndroidEnvironment.add_UnhandledExceptionRaiser((EventHandler<RaiseThrowableEventArgs>)OnUnhandledAndroidException);
+			AppDomain.CurrentDomain.UnhandledException += LogUtils.OnUnhandledException;
+			AndroidEnvironment.UnhandledExceptionRaiser += OnUnhandledAndroidException;
 			DroidDependencyInjectionConfig.Init();
-			Platform.Init((Application)(object)this);
-			CrossCurrentActivity.get_Current().Init((Application)(object)this);
+			Platform.Init(this);
+			CrossCurrentActivity.Current.Init(this);
 			LocalesService.Initialize();
 			new MigrationService().Migrate();
-			_permissionsBroadcastReceiver = (BroadcastReceiver)(object)new PermissionsBroadcastReceiver();
+			_permissionsBroadcastReceiver = new PermissionsBroadcastReceiver();
 			_flightModeBroadcastReceiver = new FlightModeHandlerBroadcastReceiver();
 			LogUtils.SendAllLogs();
-			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(((Context)this).get_PackageManager()))
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
 			{
 				BackgroundFetchScheduler.ScheduleBackgroundFetch();
 			}
@@ -146,46 +139,43 @@ namespace NDB.Covid19.Droid
 
 		private void OnUnhandledAndroidException(object sender, RaiseThrowableEventArgs e)
 		{
-			//IL_0039: Unknown result type (might be due to invalid IL or missing references)
-			//IL_003a: Unknown result type (might be due to invalid IL or missing references)
-			if (((e != null) ? e.get_Exception() : null) != null)
+			if (e?.Exception != null)
 			{
-				string text = "MainApplication.OnUnhandledAndroidException: " + ((!e.get_Handled()) ? "Native unhandled crash" : "Native unhandled exception - not crashing");
-				LogSeverity val = (LogSeverity)(e.get_Handled() ? 1 : 2);
-				LogUtils.LogException(val, e.get_Exception(), text, "");
+				string contextDescription = "MainApplication.OnUnhandledAndroidException: " + ((!e.Handled) ? "Native unhandled crash" : "Native unhandled exception - not crashing");
+				LogSeverity severity = (e.Handled ? LogSeverity.WARNING : LogSeverity.ERROR);
+				LogUtils.LogException(severity, e.Exception, contextDescription);
 			}
 		}
 
 		public override void OnCreate()
 		{
-			//IL_0032: Unknown result type (might be due to invalid IL or missing references)
-			//IL_003c: Expected O, but got Unknown
-			((Application)this).OnCreate();
-			((Application)this).RegisterActivityLifecycleCallbacks((IActivityLifecycleCallbacks)(object)this);
+			base.OnCreate();
+			Init();
+			RegisterActivityLifecycleCallbacks(this);
 			ManualGarbageCollectionTool();
-			((Context)this).RegisterReceiver(_permissionsBroadcastReceiver, _filter);
-			((Context)this).RegisterReceiver((BroadcastReceiver)(object)_flightModeBroadcastReceiver, new IntentFilter("android.intent.action.AIRPLANE_MODE"));
+			RegisterReceiver(_permissionsBroadcastReceiver, _filter);
+			RegisterReceiver(_flightModeBroadcastReceiver, new IntentFilter("android.intent.action.AIRPLANE_MODE"));
 		}
 
 		public override void OnTerminate()
 		{
-			((Context)this).UnregisterReceiver(_permissionsBroadcastReceiver);
-			((Context)this).UnregisterReceiver((BroadcastReceiver)(object)_flightModeBroadcastReceiver);
-			((Application)this).OnTerminate();
+			UnregisterReceiver(_permissionsBroadcastReceiver);
+			UnregisterReceiver(_flightModeBroadcastReceiver);
+			base.OnTerminate();
 		}
 
 		public void OnActivityCreated(Activity activity, Bundle savedInstanceState)
 		{
 			AccessibilityUtils.AdjustFontScale(activity);
-			MessagingCenter.Subscribe<object>((object)activity, MessagingCenterKeys.get_KEY_FORCE_UPDATE(), (Action<object>)delegate
+			MessagingCenter.Subscribe<object>(activity, MessagingCenterKeys.KEY_FORCE_UPDATE, delegate
 			{
 				OnForceUpdate(activity);
-			}, (object)null);
+			});
 		}
 
 		public void OnActivityDestroyed(Activity activity)
 		{
-			MessagingCenter.Unsubscribe<object>((object)this, MessagingCenterKeys.get_KEY_FORCE_UPDATE());
+			MessagingCenter.Unsubscribe<object>(this, MessagingCenterKeys.KEY_FORCE_UPDATE);
 		}
 
 		public void OnActivityPaused(Activity activity)
@@ -214,13 +204,11 @@ namespace NDB.Covid19.Droid
 
 		private void OnForceUpdate(Activity activity)
 		{
-			activity.RunOnUiThread((Action)delegate
+			activity.RunOnUiThread(delegate
 			{
-				//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0011: Expected O, but got Unknown
-				Intent val = new Intent((Context)(object)this, typeof(ForceUpdateActivity));
-				val.AddFlags((ActivityFlags)335577088);
-				((Context)this).StartActivity(val);
+				Intent intent = new Intent(this, typeof(ForceUpdateActivity));
+				intent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.ClearTop | ActivityFlags.NewTask);
+				StartActivity(intent);
 			});
 			activity.Finish();
 		}
@@ -10455,679 +10443,679 @@ namespace NDB.Covid19.Droid
 
 		public static void UpdateIdValues()
 		{
-			String.ApplicationName = 2131689472;
-			String.Hello = 2131689473;
-			Animation.slide_in_right = 2130772007;
-			Animation.slide_out_left = 2130772008;
-			Attribute.alpha = 2130903082;
-			Attribute.font = 2130903338;
-			Attribute.fontProviderAuthority = 2130903340;
-			Attribute.fontProviderCerts = 2130903341;
-			Attribute.fontProviderFetchStrategy = 2130903342;
-			Attribute.fontProviderFetchTimeout = 2130903343;
-			Attribute.fontProviderPackage = 2130903344;
-			Attribute.fontProviderQuery = 2130903345;
-			Attribute.fontStyle = 2130903346;
-			Attribute.fontVariationSettings = 2130903347;
-			Attribute.fontWeight = 2130903348;
-			Attribute.ttcIndex = 2130903721;
-			Color.browser_actions_bg_grey = 2131034150;
-			Color.browser_actions_divider_color = 2131034151;
-			Color.browser_actions_text_color = 2131034152;
-			Color.browser_actions_title_color = 2131034153;
-			Color.notification_action_color_filter = 2131034317;
-			Color.notification_icon_bg_color = 2131034318;
-			Color.ripple_material_light = 2131034330;
-			Color.secondary_text_default_material_light = 2131034333;
-			Dimension.browser_actions_context_menu_max_width = 2131099728;
-			Dimension.browser_actions_context_menu_min_padding = 2131099729;
-			Dimension.compat_button_inset_horizontal_material = 2131099733;
-			Dimension.compat_button_inset_vertical_material = 2131099734;
-			Dimension.compat_button_padding_horizontal_material = 2131099735;
-			Dimension.compat_button_padding_vertical_material = 2131099736;
-			Dimension.compat_control_corner_material = 2131099737;
-			Dimension.compat_notification_large_icon_max_height = 2131099738;
-			Dimension.compat_notification_large_icon_max_width = 2131099739;
-			Dimension.notification_action_icon_size = 2131099953;
-			Dimension.notification_action_text_size = 2131099954;
-			Dimension.notification_big_circle_margin = 2131099955;
-			Dimension.notification_content_margin_start = 2131099956;
-			Dimension.notification_large_icon_height = 2131099957;
-			Dimension.notification_large_icon_width = 2131099958;
-			Dimension.notification_main_column_padding_top = 2131099959;
-			Dimension.notification_media_narrow_margin = 2131099960;
-			Dimension.notification_right_icon_size = 2131099961;
-			Dimension.notification_right_side_padding_top = 2131099962;
-			Dimension.notification_small_icon_background_padding = 2131099963;
-			Dimension.notification_small_icon_size_as_large = 2131099964;
-			Dimension.notification_subtext_size = 2131099965;
-			Dimension.notification_top_pad = 2131099966;
-			Dimension.notification_top_pad_large_text = 2131099967;
-			Drawable.ic_arrow_back = 2131165336;
-			Drawable.notification_action_background = 2131165392;
-			Drawable.notification_bg = 2131165393;
-			Drawable.notification_bg_low = 2131165394;
-			Drawable.notification_bg_low_normal = 2131165395;
-			Drawable.notification_bg_low_pressed = 2131165396;
-			Drawable.notification_bg_normal = 2131165397;
-			Drawable.notification_bg_normal_pressed = 2131165398;
-			Drawable.notification_icon_background = 2131165399;
-			Drawable.notification_template_icon_bg = 2131165400;
-			Drawable.notification_template_icon_low_bg = 2131165401;
-			Drawable.notification_tile_bg = 2131165402;
-			Drawable.notify_panel_notification_icon_bg = 2131165403;
-			Id.action_container = 2131296307;
-			Id.action_divider = 2131296309;
-			Id.action_image = 2131296310;
-			Id.action_text = 2131296316;
-			Id.actions = 2131296317;
-			Id.async = 2131296340;
-			Id.blocking = 2131296346;
-			Id.browser_actions_header_text = 2131296348;
-			Id.browser_actions_menu_item_icon = 2131296349;
-			Id.browser_actions_menu_item_text = 2131296350;
-			Id.browser_actions_menu_items = 2131296351;
-			Id.browser_actions_menu_view = 2131296352;
-			Id.chronometer = 2131296378;
-			Id.forever = 2131296498;
-			Id.icon = 2131296521;
-			Id.icon_group = 2131296522;
-			Id.info = 2131296551;
-			Id.italic = 2131296565;
-			Id.line1 = 2131296574;
-			Id.line3 = 2131296575;
-			Id.normal = 2131296638;
-			Id.notification_background = 2131296639;
-			Id.notification_main_column = 2131296640;
-			Id.notification_main_column_container = 2131296641;
-			Id.right_icon = 2131296695;
-			Id.right_side = 2131296696;
-			Id.tag_transition_group = 2131296804;
-			Id.tag_unhandled_key_event_manager = 2131296805;
-			Id.tag_unhandled_key_listeners = 2131296806;
-			Id.text = 2131296811;
-			Id.text2 = 2131296812;
-			Id.time = 2131296823;
-			Id.title = 2131296824;
-			Id.webview = 2131296851;
-			Integer.status_bar_notification_info_maxnum = 2131361813;
-			Layout.activity_webview = 2131492895;
-			Layout.browser_actions_context_menu_page = 2131492896;
-			Layout.browser_actions_context_menu_row = 2131492897;
-			Layout.notification_action = 2131492960;
-			Layout.notification_action_tombstone = 2131492961;
-			Layout.notification_template_custom_big = 2131492968;
-			Layout.notification_template_icon_group = 2131492969;
-			Layout.notification_template_part_chronometer = 2131492973;
-			Layout.notification_template_part_time = 2131492974;
-			String.status_bar_notification_info_overflow = 2131689581;
-			String.title_activity_webview = 2131689582;
-			Style.TextAppearance_Compat_Notification = 2131755401;
-			Style.TextAppearance_Compat_Notification_Info = 2131755402;
-			Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
-			Style.TextAppearance_Compat_Notification_Time = 2131755407;
-			Style.TextAppearance_Compat_Notification_Title = 2131755409;
-			Style.Widget_Compat_NotificationActionContainer = 2131755635;
-			Style.Widget_Compat_NotificationActionText = 2131755636;
-			Styleable.ColorStateListItem = Styleable.ColorStateListItem;
-			Styleable.ColorStateListItem_alpha = 2;
-			Styleable.ColorStateListItem_android_alpha = 1;
-			Styleable.ColorStateListItem_android_color = 0;
-			Styleable.FontFamily = Styleable.FontFamily;
-			Styleable.FontFamily_fontProviderAuthority = 0;
-			Styleable.FontFamily_fontProviderCerts = 1;
-			Styleable.FontFamily_fontProviderFetchStrategy = 2;
-			Styleable.FontFamily_fontProviderFetchTimeout = 3;
-			Styleable.FontFamily_fontProviderPackage = 4;
-			Styleable.FontFamily_fontProviderQuery = 5;
-			Styleable.FontFamilyFont = Styleable.FontFamilyFont;
-			Styleable.FontFamilyFont_android_font = 0;
-			Styleable.FontFamilyFont_android_fontStyle = 2;
-			Styleable.FontFamilyFont_android_fontVariationSettings = 4;
-			Styleable.FontFamilyFont_android_fontWeight = 1;
-			Styleable.FontFamilyFont_android_ttcIndex = 3;
-			Styleable.FontFamilyFont_font = 5;
-			Styleable.FontFamilyFont_fontStyle = 6;
-			Styleable.FontFamilyFont_fontVariationSettings = 7;
-			Styleable.FontFamilyFont_fontWeight = 8;
-			Styleable.FontFamilyFont_ttcIndex = 9;
-			Styleable.GradientColor = Styleable.GradientColor;
-			Styleable.GradientColor_android_centerColor = 7;
-			Styleable.GradientColor_android_centerX = 3;
-			Styleable.GradientColor_android_centerY = 4;
-			Styleable.GradientColor_android_endColor = 1;
-			Styleable.GradientColor_android_endX = 10;
-			Styleable.GradientColor_android_endY = 11;
-			Styleable.GradientColor_android_gradientRadius = 5;
-			Styleable.GradientColor_android_startColor = 0;
-			Styleable.GradientColor_android_startX = 8;
-			Styleable.GradientColor_android_startY = 9;
-			Styleable.GradientColor_android_tileMode = 6;
-			Styleable.GradientColor_android_type = 2;
-			Styleable.GradientColorItem = Styleable.GradientColorItem;
-			Styleable.GradientColorItem_android_color = 0;
-			Styleable.GradientColorItem_android_offset = 1;
-			Attribute.alpha = 2130903082;
-			Attribute.coordinatorLayoutStyle = 2130903242;
-			Attribute.font = 2130903338;
-			Attribute.fontProviderAuthority = 2130903340;
-			Attribute.fontProviderCerts = 2130903341;
-			Attribute.fontProviderFetchStrategy = 2130903342;
-			Attribute.fontProviderFetchTimeout = 2130903343;
-			Attribute.fontProviderPackage = 2130903344;
-			Attribute.fontProviderQuery = 2130903345;
-			Attribute.fontStyle = 2130903346;
-			Attribute.fontVariationSettings = 2130903347;
-			Attribute.fontWeight = 2130903348;
-			Attribute.keylines = 2130903410;
-			Attribute.layout_anchor = 2130903416;
-			Attribute.layout_anchorGravity = 2130903417;
-			Attribute.layout_behavior = 2130903418;
-			Attribute.layout_dodgeInsetEdges = 2130903462;
-			Attribute.layout_insetEdge = 2130903474;
-			Attribute.layout_keyline = 2130903475;
-			Attribute.statusBarBackground = 2130903619;
-			Attribute.ttcIndex = 2130903721;
-			Color.browser_actions_bg_grey = 2131034150;
-			Color.browser_actions_divider_color = 2131034151;
-			Color.browser_actions_text_color = 2131034152;
-			Color.browser_actions_title_color = 2131034153;
-			Color.notification_action_color_filter = 2131034317;
-			Color.notification_icon_bg_color = 2131034318;
-			Color.ripple_material_light = 2131034330;
-			Color.secondary_text_default_material_light = 2131034333;
-			Dimension.browser_actions_context_menu_max_width = 2131099728;
-			Dimension.browser_actions_context_menu_min_padding = 2131099729;
-			Dimension.compat_button_inset_horizontal_material = 2131099733;
-			Dimension.compat_button_inset_vertical_material = 2131099734;
-			Dimension.compat_button_padding_horizontal_material = 2131099735;
-			Dimension.compat_button_padding_vertical_material = 2131099736;
-			Dimension.compat_control_corner_material = 2131099737;
-			Dimension.compat_notification_large_icon_max_height = 2131099738;
-			Dimension.compat_notification_large_icon_max_width = 2131099739;
-			Dimension.notification_action_icon_size = 2131099953;
-			Dimension.notification_action_text_size = 2131099954;
-			Dimension.notification_big_circle_margin = 2131099955;
-			Dimension.notification_content_margin_start = 2131099956;
-			Dimension.notification_large_icon_height = 2131099957;
-			Dimension.notification_large_icon_width = 2131099958;
-			Dimension.notification_main_column_padding_top = 2131099959;
-			Dimension.notification_media_narrow_margin = 2131099960;
-			Dimension.notification_right_icon_size = 2131099961;
-			Dimension.notification_right_side_padding_top = 2131099962;
-			Dimension.notification_small_icon_background_padding = 2131099963;
-			Dimension.notification_small_icon_size_as_large = 2131099964;
-			Dimension.notification_subtext_size = 2131099965;
-			Dimension.notification_top_pad = 2131099966;
-			Dimension.notification_top_pad_large_text = 2131099967;
-			Drawable.notification_action_background = 2131165392;
-			Drawable.notification_bg = 2131165393;
-			Drawable.notification_bg_low = 2131165394;
-			Drawable.notification_bg_low_normal = 2131165395;
-			Drawable.notification_bg_low_pressed = 2131165396;
-			Drawable.notification_bg_normal = 2131165397;
-			Drawable.notification_bg_normal_pressed = 2131165398;
-			Drawable.notification_icon_background = 2131165399;
-			Drawable.notification_template_icon_bg = 2131165400;
-			Drawable.notification_template_icon_low_bg = 2131165401;
-			Drawable.notification_tile_bg = 2131165402;
-			Drawable.notify_panel_notification_icon_bg = 2131165403;
-			Id.accessibility_action_clickable_span = 2131296266;
-			Id.accessibility_custom_action_0 = 2131296267;
-			Id.accessibility_custom_action_1 = 2131296268;
-			Id.accessibility_custom_action_10 = 2131296269;
-			Id.accessibility_custom_action_11 = 2131296270;
-			Id.accessibility_custom_action_12 = 2131296271;
-			Id.accessibility_custom_action_13 = 2131296272;
-			Id.accessibility_custom_action_14 = 2131296273;
-			Id.accessibility_custom_action_15 = 2131296274;
-			Id.accessibility_custom_action_16 = 2131296275;
-			Id.accessibility_custom_action_17 = 2131296276;
-			Id.accessibility_custom_action_18 = 2131296277;
-			Id.accessibility_custom_action_19 = 2131296278;
-			Id.accessibility_custom_action_2 = 2131296279;
-			Id.accessibility_custom_action_20 = 2131296280;
-			Id.accessibility_custom_action_21 = 2131296281;
-			Id.accessibility_custom_action_22 = 2131296282;
-			Id.accessibility_custom_action_23 = 2131296283;
-			Id.accessibility_custom_action_24 = 2131296284;
-			Id.accessibility_custom_action_25 = 2131296285;
-			Id.accessibility_custom_action_26 = 2131296286;
-			Id.accessibility_custom_action_27 = 2131296287;
-			Id.accessibility_custom_action_28 = 2131296288;
-			Id.accessibility_custom_action_29 = 2131296289;
-			Id.accessibility_custom_action_3 = 2131296290;
-			Id.accessibility_custom_action_30 = 2131296291;
-			Id.accessibility_custom_action_31 = 2131296292;
-			Id.accessibility_custom_action_4 = 2131296293;
-			Id.accessibility_custom_action_5 = 2131296294;
-			Id.accessibility_custom_action_6 = 2131296295;
-			Id.accessibility_custom_action_7 = 2131296296;
-			Id.accessibility_custom_action_8 = 2131296297;
-			Id.accessibility_custom_action_9 = 2131296298;
-			Id.actions = 2131296317;
-			Id.action_container = 2131296307;
-			Id.action_divider = 2131296309;
-			Id.action_image = 2131296310;
-			Id.action_text = 2131296316;
-			Id.all = 2131296325;
-			Id.async = 2131296340;
-			Id.blocking = 2131296346;
-			Id.bottom = 2131296347;
-			Id.browser_actions_header_text = 2131296348;
-			Id.browser_actions_menu_items = 2131296351;
-			Id.browser_actions_menu_item_icon = 2131296349;
-			Id.browser_actions_menu_item_text = 2131296350;
-			Id.browser_actions_menu_view = 2131296352;
-			Id.center = 2131296369;
-			Id.center_horizontal = 2131296370;
-			Id.center_vertical = 2131296371;
-			Id.chronometer = 2131296378;
-			Id.clip_horizontal = 2131296380;
-			Id.clip_vertical = 2131296381;
-			Id.dialog_button = 2131296441;
-			Id.end = 2131296470;
-			Id.fill = 2131296485;
-			Id.fill_horizontal = 2131296486;
-			Id.fill_vertical = 2131296487;
-			Id.forever = 2131296498;
-			Id.icon = 2131296521;
-			Id.icon_group = 2131296522;
-			Id.info = 2131296551;
-			Id.italic = 2131296565;
-			Id.left = 2131296572;
-			Id.line1 = 2131296574;
-			Id.line3 = 2131296575;
-			Id.none = 2131296637;
-			Id.normal = 2131296638;
-			Id.notification_background = 2131296639;
-			Id.notification_main_column = 2131296640;
-			Id.notification_main_column_container = 2131296641;
-			Id.right = 2131296694;
-			Id.right_icon = 2131296695;
-			Id.right_side = 2131296696;
-			Id.start = 2131296791;
-			Id.tag_accessibility_actions = 2131296799;
-			Id.tag_accessibility_clickable_spans = 2131296800;
-			Id.tag_accessibility_heading = 2131296801;
-			Id.tag_accessibility_pane_title = 2131296802;
-			Id.tag_screen_reader_focusable = 2131296803;
-			Id.tag_transition_group = 2131296804;
-			Id.tag_unhandled_key_event_manager = 2131296805;
-			Id.tag_unhandled_key_listeners = 2131296806;
-			Id.text = 2131296811;
-			Id.text2 = 2131296812;
-			Id.time = 2131296823;
-			Id.title = 2131296824;
-			Id.top = 2131296828;
-			Integer.status_bar_notification_info_maxnum = 2131361813;
-			Layout.browser_actions_context_menu_page = 2131492896;
-			Layout.browser_actions_context_menu_row = 2131492897;
-			Layout.custom_dialog = 2131492905;
-			Layout.notification_action = 2131492960;
-			Layout.notification_action_tombstone = 2131492961;
-			Layout.notification_template_custom_big = 2131492968;
-			Layout.notification_template_icon_group = 2131492969;
-			Layout.notification_template_part_chronometer = 2131492973;
-			Layout.notification_template_part_time = 2131492974;
-			String.status_bar_notification_info_overflow = 2131689581;
-			Style.TextAppearance_Compat_Notification = 2131755401;
-			Style.TextAppearance_Compat_Notification_Info = 2131755402;
-			Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
-			Style.TextAppearance_Compat_Notification_Time = 2131755407;
-			Style.TextAppearance_Compat_Notification_Title = 2131755409;
-			Style.Widget_Compat_NotificationActionContainer = 2131755635;
-			Style.Widget_Compat_NotificationActionText = 2131755636;
-			Style.Widget_Support_CoordinatorLayout = 2131755739;
-			Styleable.ColorStateListItem = Styleable.ColorStateListItem;
-			Styleable.ColorStateListItem_alpha = 2;
-			Styleable.ColorStateListItem_android_alpha = 1;
-			Styleable.ColorStateListItem_android_color = 0;
-			Styleable.CoordinatorLayout = Styleable.CoordinatorLayout;
-			Styleable.CoordinatorLayout_keylines = 0;
-			Styleable.CoordinatorLayout_Layout = Styleable.CoordinatorLayout_Layout;
-			Styleable.CoordinatorLayout_Layout_android_layout_gravity = 0;
-			Styleable.CoordinatorLayout_Layout_layout_anchor = 1;
-			Styleable.CoordinatorLayout_Layout_layout_anchorGravity = 2;
-			Styleable.CoordinatorLayout_Layout_layout_behavior = 3;
-			Styleable.CoordinatorLayout_Layout_layout_dodgeInsetEdges = 4;
-			Styleable.CoordinatorLayout_Layout_layout_insetEdge = 5;
-			Styleable.CoordinatorLayout_Layout_layout_keyline = 6;
-			Styleable.CoordinatorLayout_statusBarBackground = 1;
-			Styleable.FontFamily = Styleable.FontFamily;
-			Styleable.FontFamilyFont = Styleable.FontFamilyFont;
-			Styleable.FontFamilyFont_android_font = 0;
-			Styleable.FontFamilyFont_android_fontStyle = 2;
-			Styleable.FontFamilyFont_android_fontVariationSettings = 4;
-			Styleable.FontFamilyFont_android_fontWeight = 1;
-			Styleable.FontFamilyFont_android_ttcIndex = 3;
-			Styleable.FontFamilyFont_font = 5;
-			Styleable.FontFamilyFont_fontStyle = 6;
-			Styleable.FontFamilyFont_fontVariationSettings = 7;
-			Styleable.FontFamilyFont_fontWeight = 8;
-			Styleable.FontFamilyFont_ttcIndex = 9;
-			Styleable.FontFamily_fontProviderAuthority = 0;
-			Styleable.FontFamily_fontProviderCerts = 1;
-			Styleable.FontFamily_fontProviderFetchStrategy = 2;
-			Styleable.FontFamily_fontProviderFetchTimeout = 3;
-			Styleable.FontFamily_fontProviderPackage = 4;
-			Styleable.FontFamily_fontProviderQuery = 5;
-			Styleable.GradientColor = Styleable.GradientColor;
-			Styleable.GradientColorItem = Styleable.GradientColorItem;
-			Styleable.GradientColorItem_android_color = 0;
-			Styleable.GradientColorItem_android_offset = 1;
-			Styleable.GradientColor_android_centerColor = 7;
-			Styleable.GradientColor_android_centerX = 3;
-			Styleable.GradientColor_android_centerY = 4;
-			Styleable.GradientColor_android_endColor = 1;
-			Styleable.GradientColor_android_endX = 10;
-			Styleable.GradientColor_android_endY = 11;
-			Styleable.GradientColor_android_gradientRadius = 5;
-			Styleable.GradientColor_android_startColor = 0;
-			Styleable.GradientColor_android_startX = 8;
-			Styleable.GradientColor_android_startY = 9;
-			Styleable.GradientColor_android_tileMode = 6;
-			Styleable.GradientColor_android_type = 2;
-			Xml.xamarin_essentials_fileprovider_file_paths = 2131886085;
-			Attribute.alpha = 2130903082;
-			Attribute.buttonSize = 2130903146;
-			Attribute.circleCrop = 2130903188;
-			Attribute.colorScheme = 2130903219;
-			Attribute.coordinatorLayoutStyle = 2130903242;
-			Attribute.font = 2130903338;
-			Attribute.fontProviderAuthority = 2130903340;
-			Attribute.fontProviderCerts = 2130903341;
-			Attribute.fontProviderFetchStrategy = 2130903342;
-			Attribute.fontProviderFetchTimeout = 2130903343;
-			Attribute.fontProviderPackage = 2130903344;
-			Attribute.fontProviderQuery = 2130903345;
-			Attribute.fontStyle = 2130903346;
-			Attribute.fontVariationSettings = 2130903347;
-			Attribute.fontWeight = 2130903348;
-			Attribute.imageAspectRatio = 2130903377;
-			Attribute.imageAspectRatioAdjust = 2130903378;
-			Attribute.keylines = 2130903410;
-			Attribute.layout_anchor = 2130903416;
-			Attribute.layout_anchorGravity = 2130903417;
-			Attribute.layout_behavior = 2130903418;
-			Attribute.layout_dodgeInsetEdges = 2130903462;
-			Attribute.layout_insetEdge = 2130903474;
-			Attribute.layout_keyline = 2130903475;
-			Attribute.scopeUris = 2130903572;
-			Attribute.statusBarBackground = 2130903619;
-			Attribute.ttcIndex = 2130903721;
-			Boolean.enable_system_alarm_service_default = 2130968579;
-			Boolean.enable_system_foreground_service_default = 2130968580;
-			Boolean.enable_system_job_service_default = 2130968581;
-			Boolean.workmanager_test_configuration = 2130968583;
-			Color.browser_actions_bg_grey = 2131034150;
-			Color.browser_actions_divider_color = 2131034151;
-			Color.browser_actions_text_color = 2131034152;
-			Color.browser_actions_title_color = 2131034153;
-			Color.common_google_signin_btn_text_dark = 2131034167;
-			Color.common_google_signin_btn_text_dark_default = 2131034168;
-			Color.common_google_signin_btn_text_dark_disabled = 2131034169;
-			Color.common_google_signin_btn_text_dark_focused = 2131034170;
-			Color.common_google_signin_btn_text_dark_pressed = 2131034171;
-			Color.common_google_signin_btn_text_light = 2131034172;
-			Color.common_google_signin_btn_text_light_default = 2131034173;
-			Color.common_google_signin_btn_text_light_disabled = 2131034174;
-			Color.common_google_signin_btn_text_light_focused = 2131034175;
-			Color.common_google_signin_btn_text_light_pressed = 2131034176;
-			Color.common_google_signin_btn_tint = 2131034177;
-			Color.notification_action_color_filter = 2131034317;
-			Color.notification_icon_bg_color = 2131034318;
-			Color.ripple_material_light = 2131034330;
-			Color.secondary_text_default_material_light = 2131034333;
-			Dimension.browser_actions_context_menu_max_width = 2131099728;
-			Dimension.browser_actions_context_menu_min_padding = 2131099729;
-			Dimension.compat_button_inset_horizontal_material = 2131099733;
-			Dimension.compat_button_inset_vertical_material = 2131099734;
-			Dimension.compat_button_padding_horizontal_material = 2131099735;
-			Dimension.compat_button_padding_vertical_material = 2131099736;
-			Dimension.compat_control_corner_material = 2131099737;
-			Dimension.compat_notification_large_icon_max_height = 2131099738;
-			Dimension.compat_notification_large_icon_max_width = 2131099739;
-			Dimension.notification_action_icon_size = 2131099953;
-			Dimension.notification_action_text_size = 2131099954;
-			Dimension.notification_big_circle_margin = 2131099955;
-			Dimension.notification_content_margin_start = 2131099956;
-			Dimension.notification_large_icon_height = 2131099957;
-			Dimension.notification_large_icon_width = 2131099958;
-			Dimension.notification_main_column_padding_top = 2131099959;
-			Dimension.notification_media_narrow_margin = 2131099960;
-			Dimension.notification_right_icon_size = 2131099961;
-			Dimension.notification_right_side_padding_top = 2131099962;
-			Dimension.notification_small_icon_background_padding = 2131099963;
-			Dimension.notification_small_icon_size_as_large = 2131099964;
-			Dimension.notification_subtext_size = 2131099965;
-			Dimension.notification_top_pad = 2131099966;
-			Dimension.notification_top_pad_large_text = 2131099967;
-			Drawable.common_full_open_on_phone = 2131165298;
-			Drawable.common_google_signin_btn_icon_dark = 2131165299;
-			Drawable.common_google_signin_btn_icon_dark_focused = 2131165300;
-			Drawable.common_google_signin_btn_icon_dark_normal = 2131165301;
-			Drawable.common_google_signin_btn_icon_dark_normal_background = 2131165302;
-			Drawable.common_google_signin_btn_icon_disabled = 2131165303;
-			Drawable.common_google_signin_btn_icon_light = 2131165304;
-			Drawable.common_google_signin_btn_icon_light_focused = 2131165305;
-			Drawable.common_google_signin_btn_icon_light_normal = 2131165306;
-			Drawable.common_google_signin_btn_icon_light_normal_background = 2131165307;
-			Drawable.common_google_signin_btn_text_dark = 2131165308;
-			Drawable.common_google_signin_btn_text_dark_focused = 2131165309;
-			Drawable.common_google_signin_btn_text_dark_normal = 2131165310;
-			Drawable.common_google_signin_btn_text_dark_normal_background = 2131165311;
-			Drawable.common_google_signin_btn_text_disabled = 2131165312;
-			Drawable.common_google_signin_btn_text_light = 2131165313;
-			Drawable.common_google_signin_btn_text_light_focused = 2131165314;
-			Drawable.common_google_signin_btn_text_light_normal = 2131165315;
-			Drawable.common_google_signin_btn_text_light_normal_background = 2131165316;
-			Drawable.googleg_disabled_color_18 = 2131165332;
-			Drawable.googleg_standard_color_18 = 2131165333;
-			Drawable.notification_action_background = 2131165392;
-			Drawable.notification_bg = 2131165393;
-			Drawable.notification_bg_low = 2131165394;
-			Drawable.notification_bg_low_normal = 2131165395;
-			Drawable.notification_bg_low_pressed = 2131165396;
-			Drawable.notification_bg_normal = 2131165397;
-			Drawable.notification_bg_normal_pressed = 2131165398;
-			Drawable.notification_icon_background = 2131165399;
-			Drawable.notification_template_icon_bg = 2131165400;
-			Drawable.notification_template_icon_low_bg = 2131165401;
-			Drawable.notification_tile_bg = 2131165402;
-			Drawable.notify_panel_notification_icon_bg = 2131165403;
-			Id.accessibility_action_clickable_span = 2131296266;
-			Id.accessibility_custom_action_0 = 2131296267;
-			Id.accessibility_custom_action_1 = 2131296268;
-			Id.accessibility_custom_action_10 = 2131296269;
-			Id.accessibility_custom_action_11 = 2131296270;
-			Id.accessibility_custom_action_12 = 2131296271;
-			Id.accessibility_custom_action_13 = 2131296272;
-			Id.accessibility_custom_action_14 = 2131296273;
-			Id.accessibility_custom_action_15 = 2131296274;
-			Id.accessibility_custom_action_16 = 2131296275;
-			Id.accessibility_custom_action_17 = 2131296276;
-			Id.accessibility_custom_action_18 = 2131296277;
-			Id.accessibility_custom_action_19 = 2131296278;
-			Id.accessibility_custom_action_2 = 2131296279;
-			Id.accessibility_custom_action_20 = 2131296280;
-			Id.accessibility_custom_action_21 = 2131296281;
-			Id.accessibility_custom_action_22 = 2131296282;
-			Id.accessibility_custom_action_23 = 2131296283;
-			Id.accessibility_custom_action_24 = 2131296284;
-			Id.accessibility_custom_action_25 = 2131296285;
-			Id.accessibility_custom_action_26 = 2131296286;
-			Id.accessibility_custom_action_27 = 2131296287;
-			Id.accessibility_custom_action_28 = 2131296288;
-			Id.accessibility_custom_action_29 = 2131296289;
-			Id.accessibility_custom_action_3 = 2131296290;
-			Id.accessibility_custom_action_30 = 2131296291;
-			Id.accessibility_custom_action_31 = 2131296292;
-			Id.accessibility_custom_action_4 = 2131296293;
-			Id.accessibility_custom_action_5 = 2131296294;
-			Id.accessibility_custom_action_6 = 2131296295;
-			Id.accessibility_custom_action_7 = 2131296296;
-			Id.accessibility_custom_action_8 = 2131296297;
-			Id.accessibility_custom_action_9 = 2131296298;
-			Id.actions = 2131296317;
-			Id.action_container = 2131296307;
-			Id.action_divider = 2131296309;
-			Id.action_image = 2131296310;
-			Id.action_text = 2131296316;
-			Id.adjust_height = 2131296322;
-			Id.adjust_width = 2131296323;
-			Id.all = 2131296325;
-			Id.async = 2131296340;
-			Id.auto = 2131296341;
-			Id.blocking = 2131296346;
-			Id.bottom = 2131296347;
-			Id.browser_actions_header_text = 2131296348;
-			Id.browser_actions_menu_items = 2131296351;
-			Id.browser_actions_menu_item_icon = 2131296349;
-			Id.browser_actions_menu_item_text = 2131296350;
-			Id.browser_actions_menu_view = 2131296352;
-			Id.center = 2131296369;
-			Id.center_horizontal = 2131296370;
-			Id.center_vertical = 2131296371;
-			Id.chronometer = 2131296378;
-			Id.clip_horizontal = 2131296380;
-			Id.clip_vertical = 2131296381;
-			Id.dark = 2131296430;
-			Id.dialog_button = 2131296441;
-			Id.end = 2131296470;
-			Id.fill = 2131296485;
-			Id.fill_horizontal = 2131296486;
-			Id.fill_vertical = 2131296487;
-			Id.forever = 2131296498;
-			Id.icon = 2131296521;
-			Id.icon_group = 2131296522;
-			Id.icon_only = 2131296523;
-			Id.info = 2131296551;
-			Id.italic = 2131296565;
-			Id.left = 2131296572;
-			Id.light = 2131296573;
-			Id.line1 = 2131296574;
-			Id.line3 = 2131296575;
-			Id.none = 2131296637;
-			Id.normal = 2131296638;
-			Id.notification_background = 2131296639;
-			Id.notification_main_column = 2131296640;
-			Id.notification_main_column_container = 2131296641;
-			Id.right = 2131296694;
-			Id.right_icon = 2131296695;
-			Id.right_side = 2131296696;
-			Id.standard = 2131296790;
-			Id.start = 2131296791;
-			Id.tag_accessibility_actions = 2131296799;
-			Id.tag_accessibility_clickable_spans = 2131296800;
-			Id.tag_accessibility_heading = 2131296801;
-			Id.tag_accessibility_pane_title = 2131296802;
-			Id.tag_screen_reader_focusable = 2131296803;
-			Id.tag_transition_group = 2131296804;
-			Id.tag_unhandled_key_event_manager = 2131296805;
-			Id.tag_unhandled_key_listeners = 2131296806;
-			Id.text = 2131296811;
-			Id.text2 = 2131296812;
-			Id.time = 2131296823;
-			Id.title = 2131296824;
-			Id.top = 2131296828;
-			Id.wide = 2131296885;
-			Integer.google_play_services_version = 2131361800;
-			Integer.status_bar_notification_info_maxnum = 2131361813;
-			Layout.browser_actions_context_menu_page = 2131492896;
-			Layout.browser_actions_context_menu_row = 2131492897;
-			Layout.custom_dialog = 2131492905;
-			Layout.notification_action = 2131492960;
-			Layout.notification_action_tombstone = 2131492961;
-			Layout.notification_template_custom_big = 2131492968;
-			Layout.notification_template_icon_group = 2131492969;
-			Layout.notification_template_part_chronometer = 2131492973;
-			Layout.notification_template_part_time = 2131492974;
-			String.common_google_play_services_enable_button = 2131689512;
-			String.common_google_play_services_enable_text = 2131689513;
-			String.common_google_play_services_enable_title = 2131689514;
-			String.common_google_play_services_install_button = 2131689515;
-			String.common_google_play_services_install_text = 2131689516;
-			String.common_google_play_services_install_title = 2131689517;
-			String.common_google_play_services_notification_channel_name = 2131689518;
-			String.common_google_play_services_notification_ticker = 2131689519;
-			String.common_google_play_services_unknown_issue = 2131689520;
-			String.common_google_play_services_unsupported_text = 2131689521;
-			String.common_google_play_services_update_button = 2131689522;
-			String.common_google_play_services_update_text = 2131689523;
-			String.common_google_play_services_update_title = 2131689524;
-			String.common_google_play_services_updating_text = 2131689525;
-			String.common_google_play_services_wear_update_text = 2131689526;
-			String.common_open_on_phone = 2131689527;
-			String.common_signin_button_text = 2131689528;
-			String.common_signin_button_text_long = 2131689529;
-			String.status_bar_notification_info_overflow = 2131689581;
-			Style.TextAppearance_Compat_Notification = 2131755401;
-			Style.TextAppearance_Compat_Notification_Info = 2131755402;
-			Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
-			Style.TextAppearance_Compat_Notification_Time = 2131755407;
-			Style.TextAppearance_Compat_Notification_Title = 2131755409;
-			Style.Widget_Compat_NotificationActionContainer = 2131755635;
-			Style.Widget_Compat_NotificationActionText = 2131755636;
-			Style.Widget_Support_CoordinatorLayout = 2131755739;
-			Styleable.ColorStateListItem = Styleable.ColorStateListItem;
-			Styleable.ColorStateListItem_alpha = 2;
-			Styleable.ColorStateListItem_android_alpha = 1;
-			Styleable.ColorStateListItem_android_color = 0;
-			Styleable.CoordinatorLayout = Styleable.CoordinatorLayout;
-			Styleable.CoordinatorLayout_keylines = 0;
-			Styleable.CoordinatorLayout_Layout = Styleable.CoordinatorLayout_Layout;
-			Styleable.CoordinatorLayout_Layout_android_layout_gravity = 0;
-			Styleable.CoordinatorLayout_Layout_layout_anchor = 1;
-			Styleable.CoordinatorLayout_Layout_layout_anchorGravity = 2;
-			Styleable.CoordinatorLayout_Layout_layout_behavior = 3;
-			Styleable.CoordinatorLayout_Layout_layout_dodgeInsetEdges = 4;
-			Styleable.CoordinatorLayout_Layout_layout_insetEdge = 5;
-			Styleable.CoordinatorLayout_Layout_layout_keyline = 6;
-			Styleable.CoordinatorLayout_statusBarBackground = 1;
-			Styleable.FontFamily = Styleable.FontFamily;
-			Styleable.FontFamilyFont = Styleable.FontFamilyFont;
-			Styleable.FontFamilyFont_android_font = 0;
-			Styleable.FontFamilyFont_android_fontStyle = 2;
-			Styleable.FontFamilyFont_android_fontVariationSettings = 4;
-			Styleable.FontFamilyFont_android_fontWeight = 1;
-			Styleable.FontFamilyFont_android_ttcIndex = 3;
-			Styleable.FontFamilyFont_font = 5;
-			Styleable.FontFamilyFont_fontStyle = 6;
-			Styleable.FontFamilyFont_fontVariationSettings = 7;
-			Styleable.FontFamilyFont_fontWeight = 8;
-			Styleable.FontFamilyFont_ttcIndex = 9;
-			Styleable.FontFamily_fontProviderAuthority = 0;
-			Styleable.FontFamily_fontProviderCerts = 1;
-			Styleable.FontFamily_fontProviderFetchStrategy = 2;
-			Styleable.FontFamily_fontProviderFetchTimeout = 3;
-			Styleable.FontFamily_fontProviderPackage = 4;
-			Styleable.FontFamily_fontProviderQuery = 5;
-			Styleable.GradientColor = Styleable.GradientColor;
-			Styleable.GradientColorItem = Styleable.GradientColorItem;
-			Styleable.GradientColorItem_android_color = 0;
-			Styleable.GradientColorItem_android_offset = 1;
-			Styleable.GradientColor_android_centerColor = 7;
-			Styleable.GradientColor_android_centerX = 3;
-			Styleable.GradientColor_android_centerY = 4;
-			Styleable.GradientColor_android_endColor = 1;
-			Styleable.GradientColor_android_endX = 10;
-			Styleable.GradientColor_android_endY = 11;
-			Styleable.GradientColor_android_gradientRadius = 5;
-			Styleable.GradientColor_android_startColor = 0;
-			Styleable.GradientColor_android_startX = 8;
-			Styleable.GradientColor_android_startY = 9;
-			Styleable.GradientColor_android_tileMode = 6;
-			Styleable.GradientColor_android_type = 2;
-			Styleable.LoadingImageView = Styleable.LoadingImageView;
-			Styleable.LoadingImageView_circleCrop = 0;
-			Styleable.LoadingImageView_imageAspectRatio = 1;
-			Styleable.LoadingImageView_imageAspectRatioAdjust = 2;
-			Styleable.SignInButton = Styleable.SignInButton;
-			Styleable.SignInButton_buttonSize = 0;
-			Styleable.SignInButton_colorScheme = 1;
-			Styleable.SignInButton_scopeUris = 2;
-			Xml.xamarin_essentials_fileprovider_file_paths = 2131886085;
+			PCLCrypto.Resource.String.ApplicationName = 2131689472;
+			PCLCrypto.Resource.String.Hello = 2131689473;
+			Xamarin.Auth.Resource.Animation.slide_in_right = 2130772007;
+			Xamarin.Auth.Resource.Animation.slide_out_left = 2130772008;
+			Xamarin.Auth.Resource.Attribute.alpha = 2130903082;
+			Xamarin.Auth.Resource.Attribute.font = 2130903338;
+			Xamarin.Auth.Resource.Attribute.fontProviderAuthority = 2130903340;
+			Xamarin.Auth.Resource.Attribute.fontProviderCerts = 2130903341;
+			Xamarin.Auth.Resource.Attribute.fontProviderFetchStrategy = 2130903342;
+			Xamarin.Auth.Resource.Attribute.fontProviderFetchTimeout = 2130903343;
+			Xamarin.Auth.Resource.Attribute.fontProviderPackage = 2130903344;
+			Xamarin.Auth.Resource.Attribute.fontProviderQuery = 2130903345;
+			Xamarin.Auth.Resource.Attribute.fontStyle = 2130903346;
+			Xamarin.Auth.Resource.Attribute.fontVariationSettings = 2130903347;
+			Xamarin.Auth.Resource.Attribute.fontWeight = 2130903348;
+			Xamarin.Auth.Resource.Attribute.ttcIndex = 2130903721;
+			Xamarin.Auth.Resource.Color.browser_actions_bg_grey = 2131034150;
+			Xamarin.Auth.Resource.Color.browser_actions_divider_color = 2131034151;
+			Xamarin.Auth.Resource.Color.browser_actions_text_color = 2131034152;
+			Xamarin.Auth.Resource.Color.browser_actions_title_color = 2131034153;
+			Xamarin.Auth.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.Auth.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.Auth.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.Auth.Resource.Color.secondary_text_default_material_light = 2131034333;
+			Xamarin.Auth.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
+			Xamarin.Auth.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
+			Xamarin.Auth.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
+			Xamarin.Auth.Resource.Dimension.compat_button_inset_vertical_material = 2131099734;
+			Xamarin.Auth.Resource.Dimension.compat_button_padding_horizontal_material = 2131099735;
+			Xamarin.Auth.Resource.Dimension.compat_button_padding_vertical_material = 2131099736;
+			Xamarin.Auth.Resource.Dimension.compat_control_corner_material = 2131099737;
+			Xamarin.Auth.Resource.Dimension.compat_notification_large_icon_max_height = 2131099738;
+			Xamarin.Auth.Resource.Dimension.compat_notification_large_icon_max_width = 2131099739;
+			Xamarin.Auth.Resource.Dimension.notification_action_icon_size = 2131099953;
+			Xamarin.Auth.Resource.Dimension.notification_action_text_size = 2131099954;
+			Xamarin.Auth.Resource.Dimension.notification_big_circle_margin = 2131099955;
+			Xamarin.Auth.Resource.Dimension.notification_content_margin_start = 2131099956;
+			Xamarin.Auth.Resource.Dimension.notification_large_icon_height = 2131099957;
+			Xamarin.Auth.Resource.Dimension.notification_large_icon_width = 2131099958;
+			Xamarin.Auth.Resource.Dimension.notification_main_column_padding_top = 2131099959;
+			Xamarin.Auth.Resource.Dimension.notification_media_narrow_margin = 2131099960;
+			Xamarin.Auth.Resource.Dimension.notification_right_icon_size = 2131099961;
+			Xamarin.Auth.Resource.Dimension.notification_right_side_padding_top = 2131099962;
+			Xamarin.Auth.Resource.Dimension.notification_small_icon_background_padding = 2131099963;
+			Xamarin.Auth.Resource.Dimension.notification_small_icon_size_as_large = 2131099964;
+			Xamarin.Auth.Resource.Dimension.notification_subtext_size = 2131099965;
+			Xamarin.Auth.Resource.Dimension.notification_top_pad = 2131099966;
+			Xamarin.Auth.Resource.Dimension.notification_top_pad_large_text = 2131099967;
+			Xamarin.Auth.Resource.Drawable.ic_arrow_back = 2131165336;
+			Xamarin.Auth.Resource.Drawable.notification_action_background = 2131165392;
+			Xamarin.Auth.Resource.Drawable.notification_bg = 2131165393;
+			Xamarin.Auth.Resource.Drawable.notification_bg_low = 2131165394;
+			Xamarin.Auth.Resource.Drawable.notification_bg_low_normal = 2131165395;
+			Xamarin.Auth.Resource.Drawable.notification_bg_low_pressed = 2131165396;
+			Xamarin.Auth.Resource.Drawable.notification_bg_normal = 2131165397;
+			Xamarin.Auth.Resource.Drawable.notification_bg_normal_pressed = 2131165398;
+			Xamarin.Auth.Resource.Drawable.notification_icon_background = 2131165399;
+			Xamarin.Auth.Resource.Drawable.notification_template_icon_bg = 2131165400;
+			Xamarin.Auth.Resource.Drawable.notification_template_icon_low_bg = 2131165401;
+			Xamarin.Auth.Resource.Drawable.notification_tile_bg = 2131165402;
+			Xamarin.Auth.Resource.Drawable.notify_panel_notification_icon_bg = 2131165403;
+			Xamarin.Auth.Resource.Id.action_container = 2131296307;
+			Xamarin.Auth.Resource.Id.action_divider = 2131296309;
+			Xamarin.Auth.Resource.Id.action_image = 2131296310;
+			Xamarin.Auth.Resource.Id.action_text = 2131296316;
+			Xamarin.Auth.Resource.Id.actions = 2131296317;
+			Xamarin.Auth.Resource.Id.async = 2131296340;
+			Xamarin.Auth.Resource.Id.blocking = 2131296346;
+			Xamarin.Auth.Resource.Id.browser_actions_header_text = 2131296348;
+			Xamarin.Auth.Resource.Id.browser_actions_menu_item_icon = 2131296349;
+			Xamarin.Auth.Resource.Id.browser_actions_menu_item_text = 2131296350;
+			Xamarin.Auth.Resource.Id.browser_actions_menu_items = 2131296351;
+			Xamarin.Auth.Resource.Id.browser_actions_menu_view = 2131296352;
+			Xamarin.Auth.Resource.Id.chronometer = 2131296378;
+			Xamarin.Auth.Resource.Id.forever = 2131296498;
+			Xamarin.Auth.Resource.Id.icon = 2131296521;
+			Xamarin.Auth.Resource.Id.icon_group = 2131296522;
+			Xamarin.Auth.Resource.Id.info = 2131296551;
+			Xamarin.Auth.Resource.Id.italic = 2131296565;
+			Xamarin.Auth.Resource.Id.line1 = 2131296574;
+			Xamarin.Auth.Resource.Id.line3 = 2131296575;
+			Xamarin.Auth.Resource.Id.normal = 2131296638;
+			Xamarin.Auth.Resource.Id.notification_background = 2131296639;
+			Xamarin.Auth.Resource.Id.notification_main_column = 2131296640;
+			Xamarin.Auth.Resource.Id.notification_main_column_container = 2131296641;
+			Xamarin.Auth.Resource.Id.right_icon = 2131296695;
+			Xamarin.Auth.Resource.Id.right_side = 2131296696;
+			Xamarin.Auth.Resource.Id.tag_transition_group = 2131296804;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_event_manager = 2131296805;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_listeners = 2131296806;
+			Xamarin.Auth.Resource.Id.text = 2131296811;
+			Xamarin.Auth.Resource.Id.text2 = 2131296812;
+			Xamarin.Auth.Resource.Id.time = 2131296823;
+			Xamarin.Auth.Resource.Id.title = 2131296824;
+			Xamarin.Auth.Resource.Id.webview = 2131296851;
+			Xamarin.Auth.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
+			Xamarin.Auth.Resource.Layout.activity_webview = 2131492895;
+			Xamarin.Auth.Resource.Layout.browser_actions_context_menu_page = 2131492896;
+			Xamarin.Auth.Resource.Layout.browser_actions_context_menu_row = 2131492897;
+			Xamarin.Auth.Resource.Layout.notification_action = 2131492960;
+			Xamarin.Auth.Resource.Layout.notification_action_tombstone = 2131492961;
+			Xamarin.Auth.Resource.Layout.notification_template_custom_big = 2131492968;
+			Xamarin.Auth.Resource.Layout.notification_template_icon_group = 2131492969;
+			Xamarin.Auth.Resource.Layout.notification_template_part_chronometer = 2131492973;
+			Xamarin.Auth.Resource.Layout.notification_template_part_time = 2131492974;
+			Xamarin.Auth.Resource.String.status_bar_notification_info_overflow = 2131689581;
+			Xamarin.Auth.Resource.String.title_activity_webview = 2131689582;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification = 2131755401;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755402;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755407;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755409;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755635;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionText = 2131755636;
+			Xamarin.Auth.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
+			Xamarin.Auth.Resource.Styleable.ColorStateListItem_alpha = 2;
+			Xamarin.Auth.Resource.Styleable.ColorStateListItem_android_alpha = 1;
+			Xamarin.Auth.Resource.Styleable.ColorStateListItem_android_color = 0;
+			Xamarin.Auth.Resource.Styleable.FontFamily = Styleable.FontFamily;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderAuthority = 0;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderCerts = 1;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderFetchStrategy = 2;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderFetchTimeout = 3;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderPackage = 4;
+			Xamarin.Auth.Resource.Styleable.FontFamily_fontProviderQuery = 5;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont = Styleable.FontFamilyFont;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_android_font = 0;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_android_fontStyle = 2;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_android_fontVariationSettings = 4;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_android_fontWeight = 1;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_android_ttcIndex = 3;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_font = 5;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_fontStyle = 6;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_fontVariationSettings = 7;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_fontWeight = 8;
+			Xamarin.Auth.Resource.Styleable.FontFamilyFont_ttcIndex = 9;
+			Xamarin.Auth.Resource.Styleable.GradientColor = Styleable.GradientColor;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_centerColor = 7;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_centerX = 3;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_centerY = 4;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_endColor = 1;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_endX = 10;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_endY = 11;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_gradientRadius = 5;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_startColor = 0;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_startX = 8;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_startY = 9;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_tileMode = 6;
+			Xamarin.Auth.Resource.Styleable.GradientColor_android_type = 2;
+			Xamarin.Auth.Resource.Styleable.GradientColorItem = Styleable.GradientColorItem;
+			Xamarin.Auth.Resource.Styleable.GradientColorItem_android_color = 0;
+			Xamarin.Auth.Resource.Styleable.GradientColorItem_android_offset = 1;
+			Xamarin.Essentials.Resource.Attribute.alpha = 2130903082;
+			Xamarin.Essentials.Resource.Attribute.coordinatorLayoutStyle = 2130903242;
+			Xamarin.Essentials.Resource.Attribute.font = 2130903338;
+			Xamarin.Essentials.Resource.Attribute.fontProviderAuthority = 2130903340;
+			Xamarin.Essentials.Resource.Attribute.fontProviderCerts = 2130903341;
+			Xamarin.Essentials.Resource.Attribute.fontProviderFetchStrategy = 2130903342;
+			Xamarin.Essentials.Resource.Attribute.fontProviderFetchTimeout = 2130903343;
+			Xamarin.Essentials.Resource.Attribute.fontProviderPackage = 2130903344;
+			Xamarin.Essentials.Resource.Attribute.fontProviderQuery = 2130903345;
+			Xamarin.Essentials.Resource.Attribute.fontStyle = 2130903346;
+			Xamarin.Essentials.Resource.Attribute.fontVariationSettings = 2130903347;
+			Xamarin.Essentials.Resource.Attribute.fontWeight = 2130903348;
+			Xamarin.Essentials.Resource.Attribute.keylines = 2130903410;
+			Xamarin.Essentials.Resource.Attribute.layout_anchor = 2130903416;
+			Xamarin.Essentials.Resource.Attribute.layout_anchorGravity = 2130903417;
+			Xamarin.Essentials.Resource.Attribute.layout_behavior = 2130903418;
+			Xamarin.Essentials.Resource.Attribute.layout_dodgeInsetEdges = 2130903462;
+			Xamarin.Essentials.Resource.Attribute.layout_insetEdge = 2130903474;
+			Xamarin.Essentials.Resource.Attribute.layout_keyline = 2130903475;
+			Xamarin.Essentials.Resource.Attribute.statusBarBackground = 2130903619;
+			Xamarin.Essentials.Resource.Attribute.ttcIndex = 2130903721;
+			Xamarin.Essentials.Resource.Color.browser_actions_bg_grey = 2131034150;
+			Xamarin.Essentials.Resource.Color.browser_actions_divider_color = 2131034151;
+			Xamarin.Essentials.Resource.Color.browser_actions_text_color = 2131034152;
+			Xamarin.Essentials.Resource.Color.browser_actions_title_color = 2131034153;
+			Xamarin.Essentials.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.Essentials.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.Essentials.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.Essentials.Resource.Color.secondary_text_default_material_light = 2131034333;
+			Xamarin.Essentials.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
+			Xamarin.Essentials.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
+			Xamarin.Essentials.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
+			Xamarin.Essentials.Resource.Dimension.compat_button_inset_vertical_material = 2131099734;
+			Xamarin.Essentials.Resource.Dimension.compat_button_padding_horizontal_material = 2131099735;
+			Xamarin.Essentials.Resource.Dimension.compat_button_padding_vertical_material = 2131099736;
+			Xamarin.Essentials.Resource.Dimension.compat_control_corner_material = 2131099737;
+			Xamarin.Essentials.Resource.Dimension.compat_notification_large_icon_max_height = 2131099738;
+			Xamarin.Essentials.Resource.Dimension.compat_notification_large_icon_max_width = 2131099739;
+			Xamarin.Essentials.Resource.Dimension.notification_action_icon_size = 2131099953;
+			Xamarin.Essentials.Resource.Dimension.notification_action_text_size = 2131099954;
+			Xamarin.Essentials.Resource.Dimension.notification_big_circle_margin = 2131099955;
+			Xamarin.Essentials.Resource.Dimension.notification_content_margin_start = 2131099956;
+			Xamarin.Essentials.Resource.Dimension.notification_large_icon_height = 2131099957;
+			Xamarin.Essentials.Resource.Dimension.notification_large_icon_width = 2131099958;
+			Xamarin.Essentials.Resource.Dimension.notification_main_column_padding_top = 2131099959;
+			Xamarin.Essentials.Resource.Dimension.notification_media_narrow_margin = 2131099960;
+			Xamarin.Essentials.Resource.Dimension.notification_right_icon_size = 2131099961;
+			Xamarin.Essentials.Resource.Dimension.notification_right_side_padding_top = 2131099962;
+			Xamarin.Essentials.Resource.Dimension.notification_small_icon_background_padding = 2131099963;
+			Xamarin.Essentials.Resource.Dimension.notification_small_icon_size_as_large = 2131099964;
+			Xamarin.Essentials.Resource.Dimension.notification_subtext_size = 2131099965;
+			Xamarin.Essentials.Resource.Dimension.notification_top_pad = 2131099966;
+			Xamarin.Essentials.Resource.Dimension.notification_top_pad_large_text = 2131099967;
+			Xamarin.Essentials.Resource.Drawable.notification_action_background = 2131165392;
+			Xamarin.Essentials.Resource.Drawable.notification_bg = 2131165393;
+			Xamarin.Essentials.Resource.Drawable.notification_bg_low = 2131165394;
+			Xamarin.Essentials.Resource.Drawable.notification_bg_low_normal = 2131165395;
+			Xamarin.Essentials.Resource.Drawable.notification_bg_low_pressed = 2131165396;
+			Xamarin.Essentials.Resource.Drawable.notification_bg_normal = 2131165397;
+			Xamarin.Essentials.Resource.Drawable.notification_bg_normal_pressed = 2131165398;
+			Xamarin.Essentials.Resource.Drawable.notification_icon_background = 2131165399;
+			Xamarin.Essentials.Resource.Drawable.notification_template_icon_bg = 2131165400;
+			Xamarin.Essentials.Resource.Drawable.notification_template_icon_low_bg = 2131165401;
+			Xamarin.Essentials.Resource.Drawable.notification_tile_bg = 2131165402;
+			Xamarin.Essentials.Resource.Drawable.notify_panel_notification_icon_bg = 2131165403;
+			Xamarin.Essentials.Resource.Id.accessibility_action_clickable_span = 2131296266;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_0 = 2131296267;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_1 = 2131296268;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_10 = 2131296269;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_11 = 2131296270;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_12 = 2131296271;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_13 = 2131296272;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_14 = 2131296273;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_15 = 2131296274;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_16 = 2131296275;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_17 = 2131296276;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_18 = 2131296277;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_19 = 2131296278;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_2 = 2131296279;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_20 = 2131296280;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_21 = 2131296281;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_22 = 2131296282;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_23 = 2131296283;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_24 = 2131296284;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_25 = 2131296285;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_26 = 2131296286;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_27 = 2131296287;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_28 = 2131296288;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_29 = 2131296289;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_3 = 2131296290;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_30 = 2131296291;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_31 = 2131296292;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_4 = 2131296293;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_5 = 2131296294;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_6 = 2131296295;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_7 = 2131296296;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_8 = 2131296297;
+			Xamarin.Essentials.Resource.Id.accessibility_custom_action_9 = 2131296298;
+			Xamarin.Essentials.Resource.Id.actions = 2131296317;
+			Xamarin.Essentials.Resource.Id.action_container = 2131296307;
+			Xamarin.Essentials.Resource.Id.action_divider = 2131296309;
+			Xamarin.Essentials.Resource.Id.action_image = 2131296310;
+			Xamarin.Essentials.Resource.Id.action_text = 2131296316;
+			Xamarin.Essentials.Resource.Id.all = 2131296325;
+			Xamarin.Essentials.Resource.Id.async = 2131296340;
+			Xamarin.Essentials.Resource.Id.blocking = 2131296346;
+			Xamarin.Essentials.Resource.Id.bottom = 2131296347;
+			Xamarin.Essentials.Resource.Id.browser_actions_header_text = 2131296348;
+			Xamarin.Essentials.Resource.Id.browser_actions_menu_items = 2131296351;
+			Xamarin.Essentials.Resource.Id.browser_actions_menu_item_icon = 2131296349;
+			Xamarin.Essentials.Resource.Id.browser_actions_menu_item_text = 2131296350;
+			Xamarin.Essentials.Resource.Id.browser_actions_menu_view = 2131296352;
+			Xamarin.Essentials.Resource.Id.center = 2131296369;
+			Xamarin.Essentials.Resource.Id.center_horizontal = 2131296370;
+			Xamarin.Essentials.Resource.Id.center_vertical = 2131296371;
+			Xamarin.Essentials.Resource.Id.chronometer = 2131296378;
+			Xamarin.Essentials.Resource.Id.clip_horizontal = 2131296380;
+			Xamarin.Essentials.Resource.Id.clip_vertical = 2131296381;
+			Xamarin.Essentials.Resource.Id.dialog_button = 2131296441;
+			Xamarin.Essentials.Resource.Id.end = 2131296470;
+			Xamarin.Essentials.Resource.Id.fill = 2131296485;
+			Xamarin.Essentials.Resource.Id.fill_horizontal = 2131296486;
+			Xamarin.Essentials.Resource.Id.fill_vertical = 2131296487;
+			Xamarin.Essentials.Resource.Id.forever = 2131296498;
+			Xamarin.Essentials.Resource.Id.icon = 2131296521;
+			Xamarin.Essentials.Resource.Id.icon_group = 2131296522;
+			Xamarin.Essentials.Resource.Id.info = 2131296551;
+			Xamarin.Essentials.Resource.Id.italic = 2131296565;
+			Xamarin.Essentials.Resource.Id.left = 2131296572;
+			Xamarin.Essentials.Resource.Id.line1 = 2131296574;
+			Xamarin.Essentials.Resource.Id.line3 = 2131296575;
+			Xamarin.Essentials.Resource.Id.none = 2131296637;
+			Xamarin.Essentials.Resource.Id.normal = 2131296638;
+			Xamarin.Essentials.Resource.Id.notification_background = 2131296639;
+			Xamarin.Essentials.Resource.Id.notification_main_column = 2131296640;
+			Xamarin.Essentials.Resource.Id.notification_main_column_container = 2131296641;
+			Xamarin.Essentials.Resource.Id.right = 2131296694;
+			Xamarin.Essentials.Resource.Id.right_icon = 2131296695;
+			Xamarin.Essentials.Resource.Id.right_side = 2131296696;
+			Xamarin.Essentials.Resource.Id.start = 2131296791;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_actions = 2131296799;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_clickable_spans = 2131296800;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_heading = 2131296801;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_pane_title = 2131296802;
+			Xamarin.Essentials.Resource.Id.tag_screen_reader_focusable = 2131296803;
+			Xamarin.Essentials.Resource.Id.tag_transition_group = 2131296804;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_event_manager = 2131296805;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_listeners = 2131296806;
+			Xamarin.Essentials.Resource.Id.text = 2131296811;
+			Xamarin.Essentials.Resource.Id.text2 = 2131296812;
+			Xamarin.Essentials.Resource.Id.time = 2131296823;
+			Xamarin.Essentials.Resource.Id.title = 2131296824;
+			Xamarin.Essentials.Resource.Id.top = 2131296828;
+			Xamarin.Essentials.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
+			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_page = 2131492896;
+			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_row = 2131492897;
+			Xamarin.Essentials.Resource.Layout.custom_dialog = 2131492905;
+			Xamarin.Essentials.Resource.Layout.notification_action = 2131492960;
+			Xamarin.Essentials.Resource.Layout.notification_action_tombstone = 2131492961;
+			Xamarin.Essentials.Resource.Layout.notification_template_custom_big = 2131492968;
+			Xamarin.Essentials.Resource.Layout.notification_template_icon_group = 2131492969;
+			Xamarin.Essentials.Resource.Layout.notification_template_part_chronometer = 2131492973;
+			Xamarin.Essentials.Resource.Layout.notification_template_part_time = 2131492974;
+			Xamarin.Essentials.Resource.String.status_bar_notification_info_overflow = 2131689581;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification = 2131755401;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755402;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755407;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755409;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755635;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionText = 2131755636;
+			Xamarin.Essentials.Resource.Style.Widget_Support_CoordinatorLayout = 2131755739;
+			Xamarin.Essentials.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
+			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_alpha = 2;
+			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_android_alpha = 1;
+			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_android_color = 0;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout = Styleable.CoordinatorLayout;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_keylines = 0;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout = Styleable.CoordinatorLayout_Layout;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_android_layout_gravity = 0;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_anchor = 1;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_anchorGravity = 2;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_behavior = 3;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_dodgeInsetEdges = 4;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_insetEdge = 5;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_Layout_layout_keyline = 6;
+			Xamarin.Essentials.Resource.Styleable.CoordinatorLayout_statusBarBackground = 1;
+			Xamarin.Essentials.Resource.Styleable.FontFamily = Styleable.FontFamily;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont = Styleable.FontFamilyFont;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_android_font = 0;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_android_fontStyle = 2;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_android_fontVariationSettings = 4;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_android_fontWeight = 1;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_android_ttcIndex = 3;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_font = 5;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_fontStyle = 6;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_fontVariationSettings = 7;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_fontWeight = 8;
+			Xamarin.Essentials.Resource.Styleable.FontFamilyFont_ttcIndex = 9;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderAuthority = 0;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderCerts = 1;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderFetchStrategy = 2;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderFetchTimeout = 3;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderPackage = 4;
+			Xamarin.Essentials.Resource.Styleable.FontFamily_fontProviderQuery = 5;
+			Xamarin.Essentials.Resource.Styleable.GradientColor = Styleable.GradientColor;
+			Xamarin.Essentials.Resource.Styleable.GradientColorItem = Styleable.GradientColorItem;
+			Xamarin.Essentials.Resource.Styleable.GradientColorItem_android_color = 0;
+			Xamarin.Essentials.Resource.Styleable.GradientColorItem_android_offset = 1;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_centerColor = 7;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_centerX = 3;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_centerY = 4;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_endColor = 1;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_endX = 10;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_endY = 11;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_gradientRadius = 5;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_startColor = 0;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_startX = 8;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_startY = 9;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_tileMode = 6;
+			Xamarin.Essentials.Resource.Styleable.GradientColor_android_type = 2;
+			Xamarin.Essentials.Resource.Xml.xamarin_essentials_fileprovider_file_paths = 2131886085;
+			Xamarin.ExposureNotification.Resource.Attribute.alpha = 2130903082;
+			Xamarin.ExposureNotification.Resource.Attribute.buttonSize = 2130903146;
+			Xamarin.ExposureNotification.Resource.Attribute.circleCrop = 2130903188;
+			Xamarin.ExposureNotification.Resource.Attribute.colorScheme = 2130903219;
+			Xamarin.ExposureNotification.Resource.Attribute.coordinatorLayoutStyle = 2130903242;
+			Xamarin.ExposureNotification.Resource.Attribute.font = 2130903338;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderAuthority = 2130903340;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderCerts = 2130903341;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderFetchStrategy = 2130903342;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderFetchTimeout = 2130903343;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderPackage = 2130903344;
+			Xamarin.ExposureNotification.Resource.Attribute.fontProviderQuery = 2130903345;
+			Xamarin.ExposureNotification.Resource.Attribute.fontStyle = 2130903346;
+			Xamarin.ExposureNotification.Resource.Attribute.fontVariationSettings = 2130903347;
+			Xamarin.ExposureNotification.Resource.Attribute.fontWeight = 2130903348;
+			Xamarin.ExposureNotification.Resource.Attribute.imageAspectRatio = 2130903377;
+			Xamarin.ExposureNotification.Resource.Attribute.imageAspectRatioAdjust = 2130903378;
+			Xamarin.ExposureNotification.Resource.Attribute.keylines = 2130903410;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_anchor = 2130903416;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_anchorGravity = 2130903417;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_behavior = 2130903418;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_dodgeInsetEdges = 2130903462;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_insetEdge = 2130903474;
+			Xamarin.ExposureNotification.Resource.Attribute.layout_keyline = 2130903475;
+			Xamarin.ExposureNotification.Resource.Attribute.scopeUris = 2130903572;
+			Xamarin.ExposureNotification.Resource.Attribute.statusBarBackground = 2130903619;
+			Xamarin.ExposureNotification.Resource.Attribute.ttcIndex = 2130903721;
+			Xamarin.ExposureNotification.Resource.Boolean.enable_system_alarm_service_default = 2130968579;
+			Xamarin.ExposureNotification.Resource.Boolean.enable_system_foreground_service_default = 2130968580;
+			Xamarin.ExposureNotification.Resource.Boolean.enable_system_job_service_default = 2130968581;
+			Xamarin.ExposureNotification.Resource.Boolean.workmanager_test_configuration = 2130968583;
+			Xamarin.ExposureNotification.Resource.Color.browser_actions_bg_grey = 2131034150;
+			Xamarin.ExposureNotification.Resource.Color.browser_actions_divider_color = 2131034151;
+			Xamarin.ExposureNotification.Resource.Color.browser_actions_text_color = 2131034152;
+			Xamarin.ExposureNotification.Resource.Color.browser_actions_title_color = 2131034153;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_dark = 2131034167;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_dark_default = 2131034168;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_dark_disabled = 2131034169;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_dark_focused = 2131034170;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_dark_pressed = 2131034171;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light = 2131034172;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_default = 2131034173;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_disabled = 2131034174;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_focused = 2131034175;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_text_light_pressed = 2131034176;
+			Xamarin.ExposureNotification.Resource.Color.common_google_signin_btn_tint = 2131034177;
+			Xamarin.ExposureNotification.Resource.Color.notification_action_color_filter = 2131034317;
+			Xamarin.ExposureNotification.Resource.Color.notification_icon_bg_color = 2131034318;
+			Xamarin.ExposureNotification.Resource.Color.ripple_material_light = 2131034330;
+			Xamarin.ExposureNotification.Resource.Color.secondary_text_default_material_light = 2131034333;
+			Xamarin.ExposureNotification.Resource.Dimension.browser_actions_context_menu_max_width = 2131099728;
+			Xamarin.ExposureNotification.Resource.Dimension.browser_actions_context_menu_min_padding = 2131099729;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_button_inset_horizontal_material = 2131099733;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_button_inset_vertical_material = 2131099734;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_button_padding_horizontal_material = 2131099735;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_button_padding_vertical_material = 2131099736;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_control_corner_material = 2131099737;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_notification_large_icon_max_height = 2131099738;
+			Xamarin.ExposureNotification.Resource.Dimension.compat_notification_large_icon_max_width = 2131099739;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_action_icon_size = 2131099953;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_action_text_size = 2131099954;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_big_circle_margin = 2131099955;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_content_margin_start = 2131099956;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_large_icon_height = 2131099957;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_large_icon_width = 2131099958;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_main_column_padding_top = 2131099959;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_media_narrow_margin = 2131099960;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_right_icon_size = 2131099961;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_right_side_padding_top = 2131099962;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_small_icon_background_padding = 2131099963;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_small_icon_size_as_large = 2131099964;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_subtext_size = 2131099965;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_top_pad = 2131099966;
+			Xamarin.ExposureNotification.Resource.Dimension.notification_top_pad_large_text = 2131099967;
+			Xamarin.ExposureNotification.Resource.Drawable.common_full_open_on_phone = 2131165298;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_dark = 2131165299;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_dark_focused = 2131165300;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_dark_normal = 2131165301;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_dark_normal_background = 2131165302;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_disabled = 2131165303;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_light = 2131165304;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_light_focused = 2131165305;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_light_normal = 2131165306;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_icon_light_normal_background = 2131165307;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_dark = 2131165308;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_dark_focused = 2131165309;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_dark_normal = 2131165310;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_dark_normal_background = 2131165311;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_disabled = 2131165312;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_light = 2131165313;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_light_focused = 2131165314;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_light_normal = 2131165315;
+			Xamarin.ExposureNotification.Resource.Drawable.common_google_signin_btn_text_light_normal_background = 2131165316;
+			Xamarin.ExposureNotification.Resource.Drawable.googleg_disabled_color_18 = 2131165332;
+			Xamarin.ExposureNotification.Resource.Drawable.googleg_standard_color_18 = 2131165333;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_action_background = 2131165392;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg = 2131165393;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg_low = 2131165394;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg_low_normal = 2131165395;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg_low_pressed = 2131165396;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg_normal = 2131165397;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_bg_normal_pressed = 2131165398;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_icon_background = 2131165399;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_template_icon_bg = 2131165400;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_template_icon_low_bg = 2131165401;
+			Xamarin.ExposureNotification.Resource.Drawable.notification_tile_bg = 2131165402;
+			Xamarin.ExposureNotification.Resource.Drawable.notify_panel_notification_icon_bg = 2131165403;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_action_clickable_span = 2131296266;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_0 = 2131296267;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_1 = 2131296268;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_10 = 2131296269;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_11 = 2131296270;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_12 = 2131296271;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_13 = 2131296272;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_14 = 2131296273;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_15 = 2131296274;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_16 = 2131296275;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_17 = 2131296276;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_18 = 2131296277;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_19 = 2131296278;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_2 = 2131296279;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_20 = 2131296280;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_21 = 2131296281;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_22 = 2131296282;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_23 = 2131296283;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_24 = 2131296284;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_25 = 2131296285;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_26 = 2131296286;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_27 = 2131296287;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_28 = 2131296288;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_29 = 2131296289;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_3 = 2131296290;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_30 = 2131296291;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_31 = 2131296292;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_4 = 2131296293;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_5 = 2131296294;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_6 = 2131296295;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_7 = 2131296296;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_8 = 2131296297;
+			Xamarin.ExposureNotification.Resource.Id.accessibility_custom_action_9 = 2131296298;
+			Xamarin.ExposureNotification.Resource.Id.actions = 2131296317;
+			Xamarin.ExposureNotification.Resource.Id.action_container = 2131296307;
+			Xamarin.ExposureNotification.Resource.Id.action_divider = 2131296309;
+			Xamarin.ExposureNotification.Resource.Id.action_image = 2131296310;
+			Xamarin.ExposureNotification.Resource.Id.action_text = 2131296316;
+			Xamarin.ExposureNotification.Resource.Id.adjust_height = 2131296322;
+			Xamarin.ExposureNotification.Resource.Id.adjust_width = 2131296323;
+			Xamarin.ExposureNotification.Resource.Id.all = 2131296325;
+			Xamarin.ExposureNotification.Resource.Id.async = 2131296340;
+			Xamarin.ExposureNotification.Resource.Id.auto = 2131296341;
+			Xamarin.ExposureNotification.Resource.Id.blocking = 2131296346;
+			Xamarin.ExposureNotification.Resource.Id.bottom = 2131296347;
+			Xamarin.ExposureNotification.Resource.Id.browser_actions_header_text = 2131296348;
+			Xamarin.ExposureNotification.Resource.Id.browser_actions_menu_items = 2131296351;
+			Xamarin.ExposureNotification.Resource.Id.browser_actions_menu_item_icon = 2131296349;
+			Xamarin.ExposureNotification.Resource.Id.browser_actions_menu_item_text = 2131296350;
+			Xamarin.ExposureNotification.Resource.Id.browser_actions_menu_view = 2131296352;
+			Xamarin.ExposureNotification.Resource.Id.center = 2131296369;
+			Xamarin.ExposureNotification.Resource.Id.center_horizontal = 2131296370;
+			Xamarin.ExposureNotification.Resource.Id.center_vertical = 2131296371;
+			Xamarin.ExposureNotification.Resource.Id.chronometer = 2131296378;
+			Xamarin.ExposureNotification.Resource.Id.clip_horizontal = 2131296380;
+			Xamarin.ExposureNotification.Resource.Id.clip_vertical = 2131296381;
+			Xamarin.ExposureNotification.Resource.Id.dark = 2131296430;
+			Xamarin.ExposureNotification.Resource.Id.dialog_button = 2131296441;
+			Xamarin.ExposureNotification.Resource.Id.end = 2131296470;
+			Xamarin.ExposureNotification.Resource.Id.fill = 2131296485;
+			Xamarin.ExposureNotification.Resource.Id.fill_horizontal = 2131296486;
+			Xamarin.ExposureNotification.Resource.Id.fill_vertical = 2131296487;
+			Xamarin.ExposureNotification.Resource.Id.forever = 2131296498;
+			Xamarin.ExposureNotification.Resource.Id.icon = 2131296521;
+			Xamarin.ExposureNotification.Resource.Id.icon_group = 2131296522;
+			Xamarin.ExposureNotification.Resource.Id.icon_only = 2131296523;
+			Xamarin.ExposureNotification.Resource.Id.info = 2131296551;
+			Xamarin.ExposureNotification.Resource.Id.italic = 2131296565;
+			Xamarin.ExposureNotification.Resource.Id.left = 2131296572;
+			Xamarin.ExposureNotification.Resource.Id.light = 2131296573;
+			Xamarin.ExposureNotification.Resource.Id.line1 = 2131296574;
+			Xamarin.ExposureNotification.Resource.Id.line3 = 2131296575;
+			Xamarin.ExposureNotification.Resource.Id.none = 2131296637;
+			Xamarin.ExposureNotification.Resource.Id.normal = 2131296638;
+			Xamarin.ExposureNotification.Resource.Id.notification_background = 2131296639;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column = 2131296640;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column_container = 2131296641;
+			Xamarin.ExposureNotification.Resource.Id.right = 2131296694;
+			Xamarin.ExposureNotification.Resource.Id.right_icon = 2131296695;
+			Xamarin.ExposureNotification.Resource.Id.right_side = 2131296696;
+			Xamarin.ExposureNotification.Resource.Id.standard = 2131296790;
+			Xamarin.ExposureNotification.Resource.Id.start = 2131296791;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_actions = 2131296799;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_clickable_spans = 2131296800;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_heading = 2131296801;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_pane_title = 2131296802;
+			Xamarin.ExposureNotification.Resource.Id.tag_screen_reader_focusable = 2131296803;
+			Xamarin.ExposureNotification.Resource.Id.tag_transition_group = 2131296804;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_event_manager = 2131296805;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_listeners = 2131296806;
+			Xamarin.ExposureNotification.Resource.Id.text = 2131296811;
+			Xamarin.ExposureNotification.Resource.Id.text2 = 2131296812;
+			Xamarin.ExposureNotification.Resource.Id.time = 2131296823;
+			Xamarin.ExposureNotification.Resource.Id.title = 2131296824;
+			Xamarin.ExposureNotification.Resource.Id.top = 2131296828;
+			Xamarin.ExposureNotification.Resource.Id.wide = 2131296885;
+			Xamarin.ExposureNotification.Resource.Integer.google_play_services_version = 2131361800;
+			Xamarin.ExposureNotification.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
+			Xamarin.ExposureNotification.Resource.Layout.browser_actions_context_menu_page = 2131492896;
+			Xamarin.ExposureNotification.Resource.Layout.browser_actions_context_menu_row = 2131492897;
+			Xamarin.ExposureNotification.Resource.Layout.custom_dialog = 2131492905;
+			Xamarin.ExposureNotification.Resource.Layout.notification_action = 2131492960;
+			Xamarin.ExposureNotification.Resource.Layout.notification_action_tombstone = 2131492961;
+			Xamarin.ExposureNotification.Resource.Layout.notification_template_custom_big = 2131492968;
+			Xamarin.ExposureNotification.Resource.Layout.notification_template_icon_group = 2131492969;
+			Xamarin.ExposureNotification.Resource.Layout.notification_template_part_chronometer = 2131492973;
+			Xamarin.ExposureNotification.Resource.Layout.notification_template_part_time = 2131492974;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_enable_button = 2131689512;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_enable_text = 2131689513;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_enable_title = 2131689514;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_install_button = 2131689515;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_install_text = 2131689516;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_install_title = 2131689517;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_notification_channel_name = 2131689518;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_notification_ticker = 2131689519;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_unknown_issue = 2131689520;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_unsupported_text = 2131689521;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_update_button = 2131689522;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_update_text = 2131689523;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_update_title = 2131689524;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_updating_text = 2131689525;
+			Xamarin.ExposureNotification.Resource.String.common_google_play_services_wear_update_text = 2131689526;
+			Xamarin.ExposureNotification.Resource.String.common_open_on_phone = 2131689527;
+			Xamarin.ExposureNotification.Resource.String.common_signin_button_text = 2131689528;
+			Xamarin.ExposureNotification.Resource.String.common_signin_button_text_long = 2131689529;
+			Xamarin.ExposureNotification.Resource.String.status_bar_notification_info_overflow = 2131689581;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification = 2131755401;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755402;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755404;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755407;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755409;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755635;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionText = 2131755636;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Support_CoordinatorLayout = 2131755739;
+			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
+			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_alpha = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_android_alpha = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_android_color = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout = Styleable.CoordinatorLayout;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_keylines = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout = Styleable.CoordinatorLayout_Layout;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_android_layout_gravity = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_anchor = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_anchorGravity = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_behavior = 3;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_dodgeInsetEdges = 4;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_insetEdge = 5;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_Layout_layout_keyline = 6;
+			Xamarin.ExposureNotification.Resource.Styleable.CoordinatorLayout_statusBarBackground = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily = Styleable.FontFamily;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont = Styleable.FontFamilyFont;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_android_font = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_android_fontStyle = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_android_fontVariationSettings = 4;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_android_fontWeight = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_android_ttcIndex = 3;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_font = 5;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_fontStyle = 6;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_fontVariationSettings = 7;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_fontWeight = 8;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamilyFont_ttcIndex = 9;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderAuthority = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderCerts = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderFetchStrategy = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderFetchTimeout = 3;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderPackage = 4;
+			Xamarin.ExposureNotification.Resource.Styleable.FontFamily_fontProviderQuery = 5;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor = Styleable.GradientColor;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColorItem = Styleable.GradientColorItem;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColorItem_android_color = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColorItem_android_offset = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_centerColor = 7;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_centerX = 3;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_centerY = 4;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_endColor = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_endX = 10;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_endY = 11;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_gradientRadius = 5;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_startColor = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_startX = 8;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_startY = 9;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_tileMode = 6;
+			Xamarin.ExposureNotification.Resource.Styleable.GradientColor_android_type = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.LoadingImageView = Styleable.LoadingImageView;
+			Xamarin.ExposureNotification.Resource.Styleable.LoadingImageView_circleCrop = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.LoadingImageView_imageAspectRatio = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.LoadingImageView_imageAspectRatioAdjust = 2;
+			Xamarin.ExposureNotification.Resource.Styleable.SignInButton = Styleable.SignInButton;
+			Xamarin.ExposureNotification.Resource.Styleable.SignInButton_buttonSize = 0;
+			Xamarin.ExposureNotification.Resource.Styleable.SignInButton_colorScheme = 1;
+			Xamarin.ExposureNotification.Resource.Styleable.SignInButton_scopeUris = 2;
+			Xamarin.ExposureNotification.Resource.Xml.xamarin_essentials_fileprovider_file_paths = 2131886085;
 		}
 	}
 	public static class DroidDependencyInjectionConfig
@@ -11136,29 +11124,20 @@ namespace NDB.Covid19.Droid
 
 		public static void Init()
 		{
-			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0010: Expected O, but got Unknown
-			//IL_0045: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0054: Expected O, but got Unknown
-			//IL_0065: Unknown result type (might be due to invalid IL or missing references)
-			//IL_006f: Expected O, but got Unknown
-			//IL_0076: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0080: Expected O, but got Unknown
 			unityContainer = new UnityContainer();
-			UnityContainerExtensions.RegisterType<IApiDataHelper, DroidApiDataHelperHandler>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterType<IDialogService, DroidDialogService>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterSingleton<PermissionUtils>((IUnityContainer)(object)unityContainer, Array.Empty<InjectionMember>());
-			UnityContainerExtensions.RegisterType<ILocalNotificationsManager, LocalNotificationsManager>((IUnityContainer)(object)unityContainer, (ITypeLifetimeManager)new ContainerControlledLifetimeManager(), Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IApiDataHelper, DroidApiDataHelperHandler>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<IDialogService, DroidDialogService>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterSingleton<PermissionUtils>(Array.Empty<InjectionMember>());
+			unityContainer.RegisterType<ILocalNotificationsManager, LocalNotificationsManager>(new ContainerControlledLifetimeManager(), Array.Empty<InjectionMember>());
 			CommonDependencyInjectionConfig.Init(unityContainer);
-			UnityServiceLocator unityServiceLocalter = new UnityServiceLocator((IUnityContainer)(object)unityContainer);
-			ServiceLocator.SetLocatorProvider((ServiceLocatorProvider)(() => (IServiceLocator)(object)unityServiceLocalter));
+			UnityServiceLocator unityServiceLocalter = new UnityServiceLocator(unityContainer);
+			ServiceLocator.SetLocatorProvider(() => unityServiceLocalter);
 		}
 	}
 	public static class StringExtensions
 	{
 		public static Color ToColor(this string hexString)
 		{
-			//IL_0074: Unknown result type (might be due to invalid IL or missing references)
 			hexString = hexString.Replace("#", "");
 			if (hexString.Length == 3)
 			{
@@ -11166,18 +11145,18 @@ namespace NDB.Covid19.Droid
 			}
 			if (hexString.Length != 6)
 			{
-				throw new Exception("Invalid hex string");
+				throw new System.Exception("Invalid hex string");
 			}
-			int num = int.Parse(hexString.Substring(0, 2), NumberStyles.AllowHexSpecifier);
-			int num2 = int.Parse(hexString.Substring(2, 2), NumberStyles.AllowHexSpecifier);
-			int num3 = int.Parse(hexString.Substring(4, 2), NumberStyles.AllowHexSpecifier);
-			return new Color(num, num2, num3);
+			int r = int.Parse(hexString.Substring(0, 2), NumberStyles.AllowHexSpecifier);
+			int g = int.Parse(hexString.Substring(2, 2), NumberStyles.AllowHexSpecifier);
+			int b = int.Parse(hexString.Substring(4, 2), NumberStyles.AllowHexSpecifier);
+			return new Color(r, g, b);
 		}
 	}
 }
 namespace NDB.Covid19.Droid.OAuth2
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Label = "AuthUrlSchemeInterceptorActivity", LaunchMode = LaunchMode.SingleTop, NoHistory = true, Name = "md52ecc484fd43c6baf7f3301c3ba1d0d0c.AuthUrlSchemeInterceptorActivity")]
 	[IntentFilter(new string[]
 	{
 		"android.intent.action.VIEW"
@@ -11193,36 +11172,27 @@ namespace NDB.Covid19.Droid.OAuth2
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_0019: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001f: Expected O, but got Unknown
-			//IL_0088: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0092: Expected O, but got Unknown
 			try
 			{
-				((Activity)this).OnCreate(savedInstanceState);
-				Uri data = ((Activity)this).get_Intent().get_Data();
-				Uri val = new Uri(data.ToString());
-				((WebAuthenticator)AuthenticationState.Authenticator).OnPageLoading(val);
-				((Activity)this).Finish();
+				base.OnCreate(savedInstanceState);
+				Android.Net.Uri data = Intent.Data;
+				System.Uri url = new System.Uri(data.ToString());
+				AuthenticationState.Authenticator.OnPageLoading(url);
+				Finish();
 			}
-			catch (Exception ex)
+			catch (System.Exception e)
 			{
-				string text = ((((Activity)this).get_Intent() == null) ? "Intent was null" : ((((Activity)this).get_Intent().get_Data() == null) ? "Intent.Data was null" : ("Intent.Data: " + ((Activity)this).get_Intent().get_Data().ToString())));
-				LogUtils.LogException((LogSeverity)1, ex, "AuthUrlSchemeInterceptorActivity OnCreate error when redirectin to app after NemID validation", text);
-				((WebAuthenticator)AuthenticationState.Authenticator).OnPageLoading(new Uri("com.netcompany.smittestop:/oauth2redirect"));
-				((Activity)this).Finish();
+				string additionalInfo = ((Intent == null) ? "Intent was null" : ((Intent.Data == null) ? "Intent.Data was null" : ("Intent.Data: " + Intent.Data.ToString())));
+				LogUtils.LogException(LogSeverity.WARNING, e, "AuthUrlSchemeInterceptorActivity OnCreate error when redirectin to app after NemID validation", additionalInfo);
+				AuthenticationState.Authenticator.OnPageLoading(new System.Uri("com.netcompany.smittestop:/oauth2redirect"));
+				Finish();
 			}
-		}
-
-		public AuthUrlSchemeInterceptorActivity()
-			: this()
-		{
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Views
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(MainLauncher = true, Theme = "@style/AppTheme.Launcher", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class InitializerActivity : Activity
 	{
 		private Button _launcherButton;
@@ -11233,35 +11203,33 @@ namespace NDB.Covid19.Droid.Views
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_0015: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001b: Invalid comparison between Unknown and I4
-			if (!((Activity)this).get_IsTaskRoot())
+			if (!IsTaskRoot)
 			{
-				((Activity)this).Finish();
+				Finish();
 			}
-			((Activity)this).OnCreate(savedInstanceState);
-			if ((int)OnboardingStatusHelper.get_Status() == 1)
+			base.OnCreate(savedInstanceState);
+			if (OnboardingStatusHelper.Status == OnboardingStatus.OnlyMainOnboardingCompleted)
 			{
-				NavigationHelper.GoToWelcomeWhatsNewPage((Activity)(object)this);
-				((Activity)this).Finish();
+				NavigationHelper.GoToWelcomeWhatsNewPage(this);
+				Finish();
 				return;
 			}
-			((Activity)this).SetContentView(2131492927);
-			_launcherButton = ((Activity)this).FindViewById<Button>(2131296571);
-			_continueInEnRelativeLayoutButton = ((Activity)this).FindViewById<RelativeLayout>(2131296409);
-			_continueInEnTextView = ((Activity)this).FindViewById<TextView>(2131296410);
-			((TextView)_launcherButton).set_Text(InitializerViewModel.get_LAUNCHER_PAGE_START_BTN());
-			_continueInEnTextView.set_Text(InitializerViewModel.get_LAUNCHER_PAGE_CONTINUE_IN_ENG());
+			SetContentView(2131492927);
+			_launcherButton = FindViewById<Button>(2131296571);
+			_continueInEnRelativeLayoutButton = FindViewById<RelativeLayout>(2131296409);
+			_continueInEnTextView = FindViewById<TextView>(2131296410);
+			_launcherButton.Text = InitializerViewModel.LAUNCHER_PAGE_START_BTN;
+			_continueInEnTextView.Text = InitializerViewModel.LAUNCHER_PAGE_CONTINUE_IN_ENG;
 		}
 
 		protected override void OnResume()
 		{
-			((Activity)this).OnResume();
-			((View)_launcherButton).add_Click((EventHandler)new StressUtils.SingleClick(LauncherButton_Click).Run);
-			((View)_continueInEnRelativeLayoutButton).add_Click((EventHandler)new StressUtils.SingleClick(CountinueInEnButton_Click).Run);
-			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(((Context)this).get_PackageManager()))
+			base.OnResume();
+			_launcherButton.Click += new StressUtils.SingleClick(LauncherButton_Click).Run;
+			_continueInEnRelativeLayoutButton.Click += new StressUtils.SingleClick(CountinueInEnButton_Click).Run;
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
 			{
-				NavigationHelper.GoToStartPageIfIsOnboarded((Activity)(object)this);
+				NavigationHelper.GoToStartPageIfIsOnboarded(this);
 			}
 			else
 			{
@@ -11278,14 +11246,14 @@ namespace NDB.Covid19.Droid.Views
 
 		private void ShowOutdatedGPSDialog()
 		{
-			DialogUtils.DisplayDialogAsync((Activity)(object)this, Extensions.Translate("BASE_ERROR_TITLE", Array.Empty<object>()), Extensions.Translate("LAUNCHER_PAGE_GPS_VERSION_DIALOG_MESSAGE_ANDROID", Array.Empty<object>()), Extensions.Translate("ERROR_OK_BTN", Array.Empty<object>()));
+			DialogUtils.DisplayDialogAsync(this, "BASE_ERROR_TITLE".Translate(), "LAUNCHER_PAGE_GPS_VERSION_DIALOG_MESSAGE_ANDROID".Translate(), "ERROR_OK_BTN".Translate());
 		}
 
 		private void Continue()
 		{
-			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(((Context)this).get_PackageManager()))
+			if (PlayServicesVersionUtils.PlayServicesVersionNumberIsLargeEnough(PackageManager))
 			{
-				NavigationHelper.GoToOnBoarding((Activity)(object)this, isOnBoarding: true);
+				NavigationHelper.GoToOnBoarding(this, isOnBoarding: true);
 			}
 			else
 			{
@@ -11299,11 +11267,6 @@ namespace NDB.Covid19.Droid.Views
 			LocalesService.Initialize();
 			Continue();
 		}
-
-		public InitializerActivity()
-			: this()
-		{
-		}
 	}
 	public class BaseAppCompatActivity : AppCompatActivity
 	{
@@ -11311,22 +11274,20 @@ namespace NDB.Covid19.Droid.Views
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_0002: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0008: Invalid comparison between Unknown and I4
-			if ((int)State(savedInstanceState) == 1)
+			if (State(savedInstanceState) == AppState.IsDestroyed)
 			{
-				((Activity)this).OnCreate((Bundle)null);
+				base.OnCreate((Bundle)null);
 				Intent startingNewIntent = GetStartingNewIntent();
 				if (startingNewIntent != null)
 				{
-					startingNewIntent.AddFlags((ActivityFlags)268468224);
-					((Context)this).StartActivity(startingNewIntent);
+					startingNewIntent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+					((Context)(object)this).StartActivity(startingNewIntent);
 				}
-				((Activity)this).Finish();
+				((Activity)(object)this).Finish();
 			}
 			else
 			{
-				((Activity)this).OnCreate(savedInstanceState);
+				base.OnCreate(savedInstanceState);
 			}
 		}
 
@@ -11337,54 +11298,42 @@ namespace NDB.Covid19.Droid.Views
 
 		public AppState State(Bundle savedInstanceState)
 		{
-			if (savedInstanceState != null && ((BaseBundle)savedInstanceState).GetInt("SavedInstance") > 0)
+			if (savedInstanceState != null && savedInstanceState.GetInt("SavedInstance") > 0)
 			{
 				string text = "AppState: An activity was destroyed, app is restarting";
-				return (AppState)1;
+				return AppState.IsDestroyed;
 			}
-			return (AppState)0;
+			return AppState.IsAlive;
 		}
 
 		protected override void OnSaveInstanceState(Bundle outState)
 		{
-			((Activity)this).OnSaveInstanceState(outState);
-			((BaseBundle)outState).PutInt("SavedInstance", 1);
-		}
-
-		public BaseAppCompatActivity()
-			: this()
-		{
+			base.OnSaveInstanceState(outState);
+			outState.PutInt("SavedInstance", 1);
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class ForceUpdateActivity : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131492923);
-			((Activity)this).FindViewById<TextView>(2131296497).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ForceUpdateViewModel.get_FORCE_UPDATE_MESSAGE(), 0));
-			Button val = ((Activity)this).FindViewById<Button>(2131296496);
-			((TextView)val).set_Text(ForceUpdateViewModel.get_FORCE_UPDATE_BUTTON_GOOGLE_ANDROID());
-			((View)val).set_ContentDescription(ForceUpdateViewModel.get_FORCE_UPDATE_BUTTON_GOOGLE_ANDROID());
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(GoToGooglePlay).Run);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131492923);
+			base.FindViewById<TextView>(2131296497).TextFormatted = HtmlCompat.FromHtml(ForceUpdateViewModel.FORCE_UPDATE_MESSAGE, 0);
+			Button button = base.FindViewById<Button>(2131296496);
+			button.Text = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
+			button.ContentDescription = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
+			button.Click += new StressUtils.SingleClick(GoToGooglePlay).Run;
 		}
 
 		private void GoToGooglePlay(object o, EventArgs eventArgs)
 		{
-			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
-			Intent val = new Intent("android.intent.action.VIEW");
-			val.SetData(Uri.Parse(Conf.GooglePlayAppLink));
-			((Context)this).StartActivity(val);
+			Intent intent = new Intent("android.intent.action.VIEW");
+			intent.SetData(Android.Net.Uri.Parse(Conf.GooglePlayAppLink));
+			((Context)(object)this).StartActivity(intent);
 		}
 
 		public override void OnBackPressed()
-		{
-		}
-
-		public ForceUpdateActivity()
-			: this()
 		{
 		}
 	}
@@ -11396,13 +11345,12 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		private bool IsEnabled;
 
 		public NonSwipeableViewPager(IntPtr handle, JniHandleOwnership transfer)
-			: this(handle, transfer)
+			: base(handle, transfer)
 		{
-		}//IL_0002: Unknown result type (might be due to invalid IL or missing references)
-
+		}
 
 		public NonSwipeableViewPager(Context context, IAttributeSet attrs)
-			: this(context, attrs)
+			: base(context, attrs)
 		{
 			IsEnabled = true;
 		}
@@ -11413,7 +11361,7 @@ namespace NDB.Covid19.Droid.Views.Welcome
 			{
 				return false;
 			}
-			return ((View)this).OnTouchEvent(e);
+			return base.OnTouchEvent(e);
 		}
 
 		public override bool OnInterceptTouchEvent(MotionEvent ev)
@@ -11422,7 +11370,7 @@ namespace NDB.Covid19.Droid.Views.Welcome
 			{
 				return false;
 			}
-			return ((ViewGroup)this).OnInterceptTouchEvent(ev);
+			return base.OnInterceptTouchEvent(ev);
 		}
 
 		public void SetPagingEnabled(bool enabled)
@@ -11430,8 +11378,8 @@ namespace NDB.Covid19.Droid.Views.Welcome
 			IsEnabled = enabled;
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
-	public class WelcomeActivity : BaseAppCompatActivity, IOnPageChangeListener, IJavaObject, IDisposable, IJavaPeerable
+	[Activity(Label = "", Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
+	public class WelcomeActivity : BaseAppCompatActivity, ViewPager.IOnPageChangeListener, IJavaObject, IDisposable, IJavaPeerable
 	{
 		public bool IsOnBoarding;
 
@@ -11457,20 +11405,16 @@ namespace NDB.Covid19.Droid.Views.Welcome
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_0009: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000f: Invalid comparison between Unknown and I4
-			//IL_0031: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0037: Invalid comparison between Unknown and I4
 			base.OnCreate(savedInstanceState);
-			if ((int)State(savedInstanceState) != 1)
+			if (State(savedInstanceState) != AppState.IsDestroyed)
 			{
-				IsOnBoarding = ((Activity)this).get_Intent().GetBooleanExtra("isOnBoarding", false);
-				if (IsOnBoarding && (int)OnboardingStatusHelper.get_Status() == 1)
+				IsOnBoarding = ((Activity)(object)this).Intent.GetBooleanExtra("isOnBoarding", defaultValue: false);
+				if (IsOnBoarding && OnboardingStatusHelper.Status == OnboardingStatus.OnlyMainOnboardingCompleted)
 				{
 					GoToConsents();
 					return;
 				}
-				_pages = new List<Fragment>((IEnumerable<Fragment>)(object)new Fragment[4]
+				_pages = new List<Fragment>(new Fragment[4]
 				{
 					_welcomePageOne,
 					_welcomePageTwo,
@@ -11478,22 +11422,22 @@ namespace NDB.Covid19.Droid.Views.Welcome
 					_welcomePageThree
 				});
 				_numPages = _pages.Count;
-				((Activity)this).SetContentView(2131493007);
-				_button = ((Activity)this).FindViewById<Button>(2131296360);
-				_previousButton = ((Activity)this).FindViewById<Button>(2131296363);
-				((TextView)_previousButton).set_Text(WelcomeViewModel.get_PREVIOUS_PAGE_BUTTON_TEXT());
-				((TextView)_button).set_Text(WelcomeViewModel.get_NEXT_PAGE_BUTTON_TEXT());
-				((View)_button).add_Click((EventHandler)new StressUtils.SingleClick(GetNextButton_Click, 500).Run);
-				((View)_previousButton).add_Click((EventHandler)new StressUtils.SingleClick(GetPreviousButton_Click, 500).Run);
-				((View)_previousButton).set_Visibility((ViewStates)4);
-				WelcomePagerAdapter adapter = new WelcomePagerAdapter(((FragmentActivity)this).get_SupportFragmentManager(), _pages);
-				_pager = ((Activity)this).FindViewById<NonSwipeableViewPager>(2131296500);
-				((ViewPager)_pager).set_Adapter((PagerAdapter)(object)adapter);
+				((Activity)(object)this).SetContentView(2131493007);
+				_button = base.FindViewById<Button>(2131296360);
+				_previousButton = base.FindViewById<Button>(2131296363);
+				_previousButton.Text = WelcomeViewModel.PREVIOUS_PAGE_BUTTON_TEXT;
+				_button.Text = WelcomeViewModel.NEXT_PAGE_BUTTON_TEXT;
+				_button.Click += new StressUtils.SingleClick(GetNextButton_Click, 500).Run;
+				_previousButton.Click += new StressUtils.SingleClick(GetPreviousButton_Click, 500).Run;
+				_previousButton.Visibility = ViewStates.Invisible;
+				WelcomePagerAdapter adapter = new WelcomePagerAdapter(SupportFragmentManager, _pages);
+				_pager = base.FindViewById<NonSwipeableViewPager>(2131296500);
+				_pager.Adapter = adapter;
 				_pager.SetPagingEnabled(enabled: false);
-				((ViewPager)_pager).AddOnPageChangeListener((IOnPageChangeListener)(object)this);
-				((View)_pager).AnnounceForAccessibility(IsOnBoarding ? WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE() : WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE());
-				_dotLayout = ((Activity)this).FindViewById<TabLayout>(2131296797);
-				_dotLayout.SetupWithViewPager((ViewPager)(object)_pager, true);
+				_pager.AddOnPageChangeListener(this);
+				_pager.AnnounceForAccessibility(IsOnBoarding ? WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE : WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE);
+				_dotLayout = base.FindViewById<TabLayout>(2131296797);
+				_dotLayout.SetupWithViewPager(_pager, autoRefresh: true);
 			}
 		}
 
@@ -11505,7 +11449,7 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		private void GetNextButton_Click(object sender, EventArgs e)
 		{
 			ScrollToTop();
-			if (_numPages == ((ViewPager)_pager).get_CurrentItem() + 1)
+			if (_numPages == _pager.CurrentItem + 1)
 			{
 				if (IsOnBoarding)
 				{
@@ -11513,51 +11457,49 @@ namespace NDB.Covid19.Droid.Views.Welcome
 				}
 				else
 				{
-					((Activity)this).RunOnUiThread((Action)((Activity)this).Finish);
+					base.RunOnUiThread((System.Action)((Activity)(object)this).Finish);
 				}
 			}
 			else
 			{
-				((ViewPager)_pager).SetCurrentItem(((ViewPager)_pager).get_CurrentItem() + 1, true);
+				_pager.SetCurrentItem(_pager.CurrentItem + 1, smoothScroll: true);
 				AnnouncePageChangesForScreenReaders();
 			}
 		}
 
 		private void GoToConsents()
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)this, typeof(WelcomePageConsentsActivity));
-			((Context)this).StartActivity(val);
+			Intent intent = new Intent((Context)(object)this, typeof(WelcomePageConsentsActivity));
+			((Context)(object)this).StartActivity(intent);
 		}
 
 		private void AnnouncePageChangesForScreenReaders()
 		{
-			((View)_pager).PerformAccessibilityAction((Action)64, (Bundle)null);
-			Fragment val = _pages[((ViewPager)_pager).get_CurrentItem()];
-			if (val == _welcomePageOne)
+			_pager.PerformAccessibilityAction(Android.Views.Accessibility.Action.AccessibilityFocus, null);
+			Fragment fragment = _pages[_pager.CurrentItem];
+			if (fragment == _welcomePageOne)
 			{
-				((View)_pager).AnnounceForAccessibility(WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE());
+				_pager.AnnounceForAccessibility(WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE);
 			}
-			else if (val == _welcomePageTwo)
+			else if (fragment == _welcomePageTwo)
 			{
-				((View)_pager).AnnounceForAccessibility(WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_TWO());
+				_pager.AnnounceForAccessibility(WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_TWO);
 			}
-			else if (val == _welcomePageThree)
+			else if (fragment == _welcomePageThree)
 			{
-				((View)_pager).AnnounceForAccessibility(WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_THREE());
+				_pager.AnnounceForAccessibility(WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_THREE);
 			}
-			else if (val == _welcomePageFour)
+			else if (fragment == _welcomePageFour)
 			{
-				((View)_pager).AnnounceForAccessibility(WelcomeViewModel.get_ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR());
+				_pager.AnnounceForAccessibility(WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR);
 			}
 		}
 
 		private void GetPreviousButton_Click(object sender, EventArgs e)
 		{
 			ScrollToTop();
-			((ViewPager)_pager).SetCurrentItem(((ViewPager)_pager).get_CurrentItem() - 1, true);
-			((View)_button).set_Visibility((ViewStates)0);
+			_pager.SetCurrentItem(_pager.CurrentItem - 1, smoothScroll: true);
+			_button.Visibility = ViewStates.Visible;
 			AnnouncePageChangesForScreenReaders();
 		}
 
@@ -11574,62 +11516,44 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public void OnPageSelected(int position)
 		{
 			ScrollToTop();
-			((View)_previousButton).set_Visibility((ViewStates)((position == 0) ? 4 : 0));
+			_previousButton.Visibility = ((position == 0) ? ViewStates.Invisible : ViewStates.Visible);
 		}
 
 		private void ScrollToTop()
 		{
-			WelcomePagerAdapter obj = ((ViewPager)_pager).get_Adapter() as WelcomePagerAdapter;
-			if (obj != null)
-			{
-				Fragment item = ((FragmentPagerAdapter)obj).GetItem(((ViewPager)_pager).get_CurrentItem());
-				if (item != null)
-				{
-					item.get_View().ScrollTo(0, 0);
-				}
-			}
+			(_pager.Adapter as WelcomePagerAdapter)?.GetItem(_pager.CurrentItem)?.View.ScrollTo(0, 0);
 		}
 	}
 	public class WelcomePageFourFragment : Fragment
 	{
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
-			View val = inflater.Inflate(2131493010, container, false);
-			TextView val2 = val.FindViewById<TextView>(2131296860);
-			TextView val3 = val.FindViewById<TextView>(2131296862);
-			TextView val4 = val.FindViewById<TextView>(2131296861);
-			TextView val5 = val.FindViewById<TextView>(2131296866);
-			val2.set_Text(WelcomeViewModel.get_WELCOME_PAGE_FOUR_BODY_ONE());
-			val3.set_Text(WelcomeViewModel.get_WELCOME_PAGE_FOUR_BODY_TWO());
-			val4.set_Text(WelcomeViewModel.get_WELCOME_PAGE_FOUR_BODY_THREE());
-			val5.set_Text(WelcomeViewModel.get_WELCOME_PAGE_FOUR_TITLE());
-			WelcomePageTools.SetArrowVisibility(val);
-			return val;
-		}
-
-		public WelcomePageFourFragment()
-			: this()
-		{
+			View view = inflater.Inflate(2131493010, container, attachToRoot: false);
+			TextView textView = view.FindViewById<TextView>(2131296860);
+			TextView textView2 = view.FindViewById<TextView>(2131296862);
+			TextView textView3 = view.FindViewById<TextView>(2131296861);
+			TextView textView4 = view.FindViewById<TextView>(2131296866);
+			textView.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_ONE;
+			textView2.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_TWO;
+			textView3.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_THREE;
+			textView4.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_TITLE;
+			WelcomePageTools.SetArrowVisibility(view);
+			return view;
 		}
 	}
 	public class WelcomePageOneFragment : Fragment
 	{
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
-			View val = inflater.Inflate(2131493011, container, false);
-			TextView val2 = val.FindViewById<TextView>(2131296868);
-			TextView val3 = val.FindViewById<TextView>(2131296869);
-			TextView val4 = val.FindViewById<TextView>(2131296872);
-			val2.set_Text(WelcomeViewModel.get_WELCOME_PAGE_ONE_BODY_ONE());
-			val3.set_Text(WelcomeViewModel.get_WELCOME_PAGE_ONE_BODY_TWO());
-			val4.set_Text(WelcomeViewModel.get_WELCOME_PAGE_ONE_TITLE());
-			WelcomePageTools.SetArrowVisibility(val);
-			return val;
-		}
-
-		public WelcomePageOneFragment()
-			: this()
-		{
+			View view = inflater.Inflate(2131493011, container, attachToRoot: false);
+			TextView textView = view.FindViewById<TextView>(2131296868);
+			TextView textView2 = view.FindViewById<TextView>(2131296869);
+			TextView textView3 = view.FindViewById<TextView>(2131296872);
+			textView.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_ONE;
+			textView2.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_TWO;
+			textView3.Text = WelcomeViewModel.WELCOME_PAGE_ONE_TITLE;
+			WelcomePageTools.SetArrowVisibility(view);
+			return view;
 		}
 	}
 	public class WelcomePagerAdapter : FragmentPagerAdapter
@@ -11639,7 +11563,7 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public override int Count => pages.Count;
 
 		public WelcomePagerAdapter(FragmentManager fm, List<Fragment> pages)
-			: this(fm)
+			: base(fm)
 		{
 			this.pages = pages;
 		}
@@ -11653,46 +11577,36 @@ namespace NDB.Covid19.Droid.Views.Welcome
 	{
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
-			View val = inflater.Inflate(2131493012, container, false);
-			TextView val2 = val.FindViewById<TextView>(2131296874);
-			TextView val3 = val.FindViewById<TextView>(2131296875);
-			TextView val4 = val.FindViewById<TextView>(2131296877);
-			TextView val5 = val.FindViewById<TextView>(2131296876);
-			val2.set_Text(WelcomeViewModel.get_WELCOME_PAGE_THREE_BODY_ONE());
-			val3.set_Text(WelcomeViewModel.get_WELCOME_PAGE_THREE_BODY_TWO());
-			val4.set_Text(WelcomeViewModel.get_WELCOME_PAGE_THREE_TITLE());
-			val5.set_Text(WelcomeViewModel.get_WELCOME_PAGE_THREE_INFOBOX_BODY());
-			((View)val5).set_ContentDescription(WelcomeViewModel.get_WELCOME_PAGE_THREE_INFOBOX_BODY());
-			WelcomePageTools.SetArrowVisibility(val);
-			return val;
-		}
-
-		public WelcomePageThreeFragment()
-			: this()
-		{
+			View view = inflater.Inflate(2131493012, container, attachToRoot: false);
+			TextView textView = view.FindViewById<TextView>(2131296874);
+			TextView textView2 = view.FindViewById<TextView>(2131296875);
+			TextView textView3 = view.FindViewById<TextView>(2131296877);
+			TextView textView4 = view.FindViewById<TextView>(2131296876);
+			textView.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_ONE;
+			textView2.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_TWO;
+			textView3.Text = WelcomeViewModel.WELCOME_PAGE_THREE_TITLE;
+			textView4.Text = WelcomeViewModel.WELCOME_PAGE_THREE_INFOBOX_BODY;
+			textView4.ContentDescription = WelcomeViewModel.WELCOME_PAGE_THREE_INFOBOX_BODY;
+			WelcomePageTools.SetArrowVisibility(view);
+			return view;
 		}
 	}
 	public class WelcomePageTwoFragment : Fragment
 	{
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
-			View val = inflater.Inflate(2131493013, container, false);
-			TextView val2 = val.FindViewById<TextView>(2131296878);
-			TextView val3 = val.FindViewById<TextView>(2131296879);
-			TextView val4 = val.FindViewById<TextView>(2131296882);
-			val2.set_Text(WelcomeViewModel.get_WELCOME_PAGE_TWO_BODY_ONE());
-			val3.set_Text(WelcomeViewModel.get_WELCOME_PAGE_TWO_BODY_TWO());
-			val4.set_Text(WelcomeViewModel.get_WELCOME_PAGE_TWO_TITLE());
-			WelcomePageTools.SetArrowVisibility(val);
-			return val;
-		}
-
-		public WelcomePageTwoFragment()
-			: this()
-		{
+			View view = inflater.Inflate(2131493013, container, attachToRoot: false);
+			TextView textView = view.FindViewById<TextView>(2131296878);
+			TextView textView2 = view.FindViewById<TextView>(2131296879);
+			TextView textView3 = view.FindViewById<TextView>(2131296882);
+			textView.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_ONE;
+			textView2.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_TWO;
+			textView3.Text = WelcomeViewModel.WELCOME_PAGE_TWO_TITLE;
+			WelcomePageTools.SetArrowVisibility(view);
+			return view;
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Label = "", Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class WelcomePageConsentsActivity : AppCompatActivity
 	{
 		private SwitchCompat _switchCustom;
@@ -11705,75 +11619,75 @@ namespace NDB.Covid19.Droid.Views.Welcome
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131493009);
-			LinearLayout val = ((Activity)this).FindViewById<LinearLayout>(2131296389);
-			TextView val2 = ((View)val).FindViewById<TextView>(2131296859);
-			val2.set_Text(ConsentViewModel.get_WELCOME_PAGE_CONSENT_TITLE());
-			Button val3 = ((Activity)this).FindViewById<Button>(2131296856);
-			((View)val3).add_Click((EventHandler)new StressUtils.SingleClick(PreviousButtonPressed, 500).Run);
-			((TextView)val3).set_Text(WelcomeViewModel.get_PREVIOUS_PAGE_BUTTON_TEXT());
-			Button val4 = ((Activity)this).FindViewById<Button>(2131296853);
-			((View)val4).add_Click((EventHandler)new StressUtils.SingleClick(NextButtonPressed, 500).Run);
-			((TextView)val4).set_Text(WelcomeViewModel.get_NEXT_PAGE_BUTTON_TEXT());
-			_switchCustom = ((Activity)this).FindViewById<SwitchCompat>(2131296857);
-			((CompoundButton)_switchCustom).add_CheckedChange((EventHandler<CheckedChangeEventArgs>)OnCheckedChange);
-			((View)_switchCustom).set_ContentDescription(ConsentViewModel.get_SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR());
-			_consentWarning = ((Activity)this).FindViewById<LinearLayout>(2131296854);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131493009);
+			LinearLayout linearLayout = base.FindViewById<LinearLayout>(2131296389);
+			TextView textView = linearLayout.FindViewById<TextView>(2131296859);
+			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			Button button = base.FindViewById<Button>(2131296856);
+			button.Click += new StressUtils.SingleClick(PreviousButtonPressed, 500).Run;
+			button.Text = WelcomeViewModel.PREVIOUS_PAGE_BUTTON_TEXT;
+			Button button2 = base.FindViewById<Button>(2131296853);
+			button2.Click += new StressUtils.SingleClick(NextButtonPressed, 500).Run;
+			button2.Text = WelcomeViewModel.NEXT_PAGE_BUTTON_TEXT;
+			_switchCustom = base.FindViewById<SwitchCompat>(2131296857);
+			_switchCustom.CheckedChange += OnCheckedChange;
+			_switchCustom.ContentDescription = ConsentViewModel.SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR;
+			_consentWarning = base.FindViewById<LinearLayout>(2131296854);
 			SetConsentWarningShown(shown: false);
-			_consentWarningTextView = ((Activity)this).FindViewById<TextView>(2131296855);
-			_consentWarningTextView.set_Text(ConsentViewModel.get_CONSENT_REQUIRED());
-			TextView val5 = ((Activity)this).FindViewById<TextView>(2131296858);
-			val5.set_Text(ConsentViewModel.get_GIVE_CONSENT_TEXT());
-			((View)val5).set_LabelFor(((View)_switchCustom).get_Id());
-			RelativeLayout val6 = ((Activity)this).FindViewById<RelativeLayout>(2131296397);
-			RelativeLayout val7 = ((Activity)this).FindViewById<RelativeLayout>(2131296404);
-			RelativeLayout val8 = ((Activity)this).FindViewById<RelativeLayout>(2131296398);
-			RelativeLayout val9 = ((Activity)this).FindViewById<RelativeLayout>(2131296399);
-			RelativeLayout val10 = ((Activity)this).FindViewById<RelativeLayout>(2131296403);
-			RelativeLayout val11 = ((Activity)this).FindViewById<RelativeLayout>(2131296400);
-			RelativeLayout val12 = ((Activity)this).FindViewById<RelativeLayout>(2131296401);
-			RelativeLayout val13 = ((Activity)this).FindViewById<RelativeLayout>(2131296396);
-			RelativeLayout val14 = ((Activity)this).FindViewById<RelativeLayout>(2131296395);
-			TextView val15 = ((View)val6).FindViewById<TextView>(2131296394);
-			TextView val16 = ((View)val7).FindViewById<TextView>(2131296394);
-			TextView val17 = ((View)val8).FindViewById<TextView>(2131296394);
-			TextView val18 = ((View)val9).FindViewById<TextView>(2131296394);
-			TextView val19 = ((View)val10).FindViewById<TextView>(2131296394);
-			TextView val20 = ((View)val11).FindViewById<TextView>(2131296394);
-			TextView val21 = ((View)val12).FindViewById<TextView>(2131296394);
-			TextView val22 = ((View)val13).FindViewById<TextView>(2131296394);
-			TextView val23 = ((View)val14).FindViewById<TextView>(2131296394);
-			val15.set_Text(ConsentViewModel.get_CONSENT_ONE_TITLE());
-			val16.set_Text(ConsentViewModel.get_CONSENT_TWO_TITLE());
-			val17.set_Text(ConsentViewModel.get_CONSENT_THREE_TITLE());
-			val18.set_Text(ConsentViewModel.get_CONSENT_FOUR_TITLE());
-			val19.set_Text(ConsentViewModel.get_CONSENT_FIVE_TITLE());
-			val20.set_Text(ConsentViewModel.get_CONSENT_SIX_TITLE());
-			val21.set_Text(ConsentViewModel.get_CONSENT_SEVEN_TITLE());
-			val22.set_Text(ConsentViewModel.get_CONSENT_EIGHT_TITLE());
-			val23.set_Text(ConsentViewModel.get_CONSENT_NINE_TITLE());
-			((View)val15).set_ContentDescription(ConsentViewModel.get_CONSENT_ONE_TITLE().ToLower());
-			((View)val16).set_ContentDescription(ConsentViewModel.get_CONSENT_TWO_TITLE().ToLower());
-			((View)val17).set_ContentDescription(ConsentViewModel.get_CONSENT_THREE_TITLE().ToLower());
-			((View)val18).set_ContentDescription(ConsentViewModel.get_CONSENT_FOUR_TITLE().ToLower());
-			((View)val19).set_ContentDescription(ConsentViewModel.get_CONSENT_FIVE_TITLE().ToLower());
-			((View)val20).set_ContentDescription(ConsentViewModel.get_CONSENT_SIX_TITLE().ToLower());
-			((View)val21).set_ContentDescription(ConsentViewModel.get_CONSENT_SEVEN_TITLE().ToLower());
-			((View)val22).set_ContentDescription(ConsentViewModel.get_CONSENT_EIGHT_TITLE().ToLower());
-			((View)val23).set_ContentDescription(ConsentViewModel.get_CONSENT_NINE_TITLE().ToLower());
-			((View)val6).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_ONE_PARAGRAPH(), 0));
-			((View)val7).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_TWO_PARAGRAPH(), 0));
-			((View)val8).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_THREE_PARAGRAPH(), 0));
-			((View)val9).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_FOUR_PARAGRAPH(), 0));
-			((View)val10).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_FIVE_PARAGRAPH(), 0));
-			((View)val11).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_SIX_PARAGRAPH(), 0));
-			((View)val12).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_SEVEN_PARAGRAPH(), 0));
-			((View)val13).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_EIGHT_PARAGRAPH(), 0));
-			((View)val14).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_NINE_PARAGRAPH(), 0));
-			Button val24 = ((Activity)this).FindViewById<Button>(2131296402);
-			((TextView)val24).set_Text(ConsentViewModel.get_CONSENT_SEVEN_BUTTON_TEXT());
-			((View)val24).add_Click((EventHandler)PolicyLinkBtn_Click);
+			_consentWarningTextView = base.FindViewById<TextView>(2131296855);
+			_consentWarningTextView.Text = ConsentViewModel.CONSENT_REQUIRED;
+			TextView textView2 = base.FindViewById<TextView>(2131296858);
+			textView2.Text = ConsentViewModel.GIVE_CONSENT_TEXT;
+			textView2.LabelFor = _switchCustom.Id;
+			RelativeLayout relativeLayout = base.FindViewById<RelativeLayout>(2131296397);
+			RelativeLayout relativeLayout2 = base.FindViewById<RelativeLayout>(2131296404);
+			RelativeLayout relativeLayout3 = base.FindViewById<RelativeLayout>(2131296398);
+			RelativeLayout relativeLayout4 = base.FindViewById<RelativeLayout>(2131296399);
+			RelativeLayout relativeLayout5 = base.FindViewById<RelativeLayout>(2131296403);
+			RelativeLayout relativeLayout6 = base.FindViewById<RelativeLayout>(2131296400);
+			RelativeLayout relativeLayout7 = base.FindViewById<RelativeLayout>(2131296401);
+			RelativeLayout relativeLayout8 = base.FindViewById<RelativeLayout>(2131296396);
+			RelativeLayout relativeLayout9 = base.FindViewById<RelativeLayout>(2131296395);
+			TextView textView3 = relativeLayout.FindViewById<TextView>(2131296394);
+			TextView textView4 = relativeLayout2.FindViewById<TextView>(2131296394);
+			TextView textView5 = relativeLayout3.FindViewById<TextView>(2131296394);
+			TextView textView6 = relativeLayout4.FindViewById<TextView>(2131296394);
+			TextView textView7 = relativeLayout5.FindViewById<TextView>(2131296394);
+			TextView textView8 = relativeLayout6.FindViewById<TextView>(2131296394);
+			TextView textView9 = relativeLayout7.FindViewById<TextView>(2131296394);
+			TextView textView10 = relativeLayout8.FindViewById<TextView>(2131296394);
+			TextView textView11 = relativeLayout9.FindViewById<TextView>(2131296394);
+			textView3.Text = ConsentViewModel.CONSENT_ONE_TITLE;
+			textView4.Text = ConsentViewModel.CONSENT_TWO_TITLE;
+			textView5.Text = ConsentViewModel.CONSENT_THREE_TITLE;
+			textView6.Text = ConsentViewModel.CONSENT_FOUR_TITLE;
+			textView7.Text = ConsentViewModel.CONSENT_FIVE_TITLE;
+			textView8.Text = ConsentViewModel.CONSENT_SIX_TITLE;
+			textView9.Text = ConsentViewModel.CONSENT_SEVEN_TITLE;
+			textView10.Text = ConsentViewModel.CONSENT_EIGHT_TITLE;
+			textView11.Text = ConsentViewModel.CONSENT_NINE_TITLE;
+			textView3.ContentDescription = ConsentViewModel.CONSENT_ONE_TITLE.ToLower();
+			textView4.ContentDescription = ConsentViewModel.CONSENT_TWO_TITLE.ToLower();
+			textView5.ContentDescription = ConsentViewModel.CONSENT_THREE_TITLE.ToLower();
+			textView6.ContentDescription = ConsentViewModel.CONSENT_FOUR_TITLE.ToLower();
+			textView7.ContentDescription = ConsentViewModel.CONSENT_FIVE_TITLE.ToLower();
+			textView8.ContentDescription = ConsentViewModel.CONSENT_SIX_TITLE.ToLower();
+			textView9.ContentDescription = ConsentViewModel.CONSENT_SEVEN_TITLE.ToLower();
+			textView10.ContentDescription = ConsentViewModel.CONSENT_EIGHT_TITLE.ToLower();
+			textView11.ContentDescription = ConsentViewModel.CONSENT_NINE_TITLE.ToLower();
+			relativeLayout.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_ONE_PARAGRAPH, 0);
+			relativeLayout2.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_TWO_PARAGRAPH, 0);
+			relativeLayout3.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_THREE_PARAGRAPH, 0);
+			relativeLayout4.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_FOUR_PARAGRAPH, 0);
+			relativeLayout5.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_FIVE_PARAGRAPH, 0);
+			relativeLayout6.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_SIX_PARAGRAPH, 0);
+			relativeLayout7.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_SEVEN_PARAGRAPH, 0);
+			relativeLayout8.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_EIGHT_PARAGRAPH, 0);
+			relativeLayout9.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_NINE_PARAGRAPH, 0);
+			Button button3 = base.FindViewById<Button>(2131296402);
+			button3.Text = ConsentViewModel.CONSENT_SEVEN_BUTTON_TEXT;
+			button3.Click += PolicyLinkBtn_Click;
 		}
 
 		private void PolicyLinkBtn_Click(object sender, EventArgs e)
@@ -11783,17 +11697,17 @@ namespace NDB.Covid19.Droid.Views.Welcome
 
 		protected override void OnResume()
 		{
-			((Activity)this).OnResume();
+			base.OnResume();
 			UpdatePadding();
 		}
 
 		private void UpdatePadding()
 		{
-			ConstraintLayout checkboxLayout = ((Activity)this).FindViewById<ConstraintLayout>(2131296374);
-			LinearLayout consentInfoLayout = ((Activity)this).FindViewById<LinearLayout>(2131296391);
-			((View)consentInfoLayout).Post((Action)delegate
+			ConstraintLayout checkboxLayout = base.FindViewById<ConstraintLayout>(2131296374);
+			LinearLayout consentInfoLayout = base.FindViewById<LinearLayout>(2131296391);
+			consentInfoLayout.Post(delegate
 			{
-				((View)consentInfoLayout).SetPadding(((View)consentInfoLayout).get_PaddingLeft(), ((View)consentInfoLayout).get_PaddingTop(), ((View)consentInfoLayout).get_PaddingRight(), ((View)checkboxLayout).get_Height());
+				consentInfoLayout.SetPadding(consentInfoLayout.PaddingLeft, consentInfoLayout.PaddingTop, consentInfoLayout.PaddingRight, checkboxLayout.Height);
 			});
 		}
 
@@ -11801,16 +11715,16 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		{
 			if (_switchCustom != null)
 			{
-				return ((CompoundButton)_switchCustom).get_Checked();
+				return _switchCustom.Checked;
 			}
 			return false;
 		}
 
-		private void OnCheckedChange(object sender, CheckedChangeEventArgs e)
+		private void OnCheckedChange(object sender, CompoundButton.CheckedChangeEventArgs e)
 		{
-			this.ButtonPressed?.Invoke(this, e.get_IsChecked());
-			((View)_switchCustom).AnnounceForAccessibility(((CompoundButton)_switchCustom).get_Checked() ? ConsentViewModel.get_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN() : ConsentViewModel.get_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN());
-			if (((CompoundButton)_switchCustom).get_Checked())
+			this.ButtonPressed?.Invoke(this, e.IsChecked);
+			_switchCustom.AnnounceForAccessibility(_switchCustom.Checked ? ConsentViewModel.SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN : ConsentViewModel.SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN);
+			if (_switchCustom.Checked)
 			{
 				SetConsentWarningShown(shown: false);
 			}
@@ -11818,25 +11732,23 @@ namespace NDB.Covid19.Droid.Views.Welcome
 
 		private void SetConsentWarningShown(bool shown)
 		{
-			((View)_consentWarning).set_Visibility((ViewStates)((!shown) ? 8 : 0));
+			_consentWarning.Visibility = ((!shown) ? ViewStates.Gone : ViewStates.Visible);
 			if (shown)
 			{
-				((View)_consentWarningTextView).SendAccessibilityEvent((EventTypes)32768);
+				_consentWarningTextView.SendAccessibilityEvent(EventTypes.ViewAccessibilityFocused);
 			}
 			UpdatePadding();
 		}
 
 		private void PreviousButtonPressed(object sender, EventArgs eventArgs)
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Invalid comparison between Unknown and I4
-			if ((int)OnboardingStatusHelper.get_Status() == 1)
+			if (OnboardingStatusHelper.Status == OnboardingStatus.OnlyMainOnboardingCompleted)
 			{
-				((Activity)this).OnBackPressed();
+				((Activity)(object)this).OnBackPressed();
 			}
 			else
 			{
-				((Activity)this).Finish();
+				((Activity)(object)this).Finish();
 			}
 		}
 
@@ -11844,7 +11756,7 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		{
 			if (IsChecked())
 			{
-				OnboardingStatusHelper.set_Status((OnboardingStatus)2);
+				OnboardingStatusHelper.Status = OnboardingStatus.CountriesOnboardingCompleted;
 				NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
 			}
 			else
@@ -11855,76 +11767,61 @@ namespace NDB.Covid19.Droid.Views.Welcome
 
 		public override void OnBackPressed()
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Invalid comparison between Unknown and I4
-			if ((int)OnboardingStatusHelper.get_Status() == 1)
+			if (OnboardingStatusHelper.Status == OnboardingStatus.OnlyMainOnboardingCompleted)
 			{
 				NavigationHelper.GoToWelcomeWhatsNewPage((Activity)(object)this);
 			}
 			else
 			{
-				((Activity)this).OnBackPressed();
+				base.OnBackPressed();
 			}
 		}
-
-		public WelcomePageConsentsActivity()
-			: this()
-		{
-		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Label = "WelcomePageWhatIsNewActivity", Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class WelcomePageWhatIsNewActivity : AppCompatActivity
 	{
 		private WelcomePageWhatIsNewViewModel _viewModel = new WelcomePageWhatIsNewViewModel();
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131493014);
-			TextView val = ((Activity)this).FindViewById<TextView>(2131296884);
-			val.set_Text(WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_TITLE());
-			SetBulletText(2131296356, WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_BULLET_ONE());
-			SetBulletText(2131296358, WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_BULLET_TWO());
-			SetBulletText(2131296357, WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_BULLET_THREE());
-			Button val2 = ((Activity)this).FindViewById<Button>(2131296648);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296495);
-			((TextView)val2).set_Text(WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_BUTTON());
-			val3.set_Text(WelcomePageWhatIsNewViewModel.get_WELCOME_PAGE_WHATS_NEW_FOOTER());
-			((View)val2).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131493014);
+			TextView textView = base.FindViewById<TextView>(2131296884);
+			textView.Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_TITLE;
+			SetBulletText(2131296356, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_ONE);
+			SetBulletText(2131296358, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_TWO);
+			SetBulletText(2131296357, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_THREE);
+			Button button = base.FindViewById<Button>(2131296648);
+			TextView textView2 = base.FindViewById<TextView>(2131296495);
+			button.Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BUTTON;
+			textView2.Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_FOOTER;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToOnBoarding((Activity)(object)this, isOnBoarding: true);
-			}).Run);
+			}).Run;
 		}
 
 		private void SetBulletText(int resourceId, string textContent)
 		{
-			LinearLayout val = ((Activity)this).FindViewById<LinearLayout>(resourceId);
-			CheckBox val2 = ((View)val).FindViewById<CheckBox>(2131296355);
-			if (val2 != null)
+			LinearLayout linearLayout = base.FindViewById<LinearLayout>(resourceId);
+			CheckBox checkBox = linearLayout.FindViewById<CheckBox>(2131296355);
+			if (checkBox != null)
 			{
-				((TextView)val2).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(textContent, 0));
+				checkBox.TextFormatted = HtmlCompat.FromHtml(textContent, 0);
 			}
 		}
-
-		public WelcomePageWhatIsNewActivity()
-			: this()
-		{
-		}//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-		//IL_000b: Expected O, but got Unknown
-
 	}
 }
 namespace NDB.Covid19.Droid.Views.Settings
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsGeneralActivity : AppCompatActivity
 	{
-		private class OnCheckedChangeListener : Object, IOnCheckedChangeListener, IJavaObject, IDisposable, IJavaPeerable
+		private class OnCheckedChangeListener : Java.Lang.Object, RadioGroup.IOnCheckedChangeListener, IJavaObject, IDisposable, IJavaPeerable
 		{
 			private readonly SettingsGeneralActivity _self;
 
 			public OnCheckedChangeListener(SettingsGeneralActivity self)
-				: this()
 			{
 				_self = self;
 			}
@@ -11934,11 +11831,11 @@ namespace NDB.Covid19.Droid.Views.Settings
 				switch (checkedId)
 				{
 				case 2131296734:
-					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.get_GetChangeLanguageViewModel());
+					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.GetChangeLanguageViewModel);
 					LocalPreferencesHelper.SetAppLanguage("en");
 					break;
 				case 2131296731:
-					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.get_GetChangeLanguageViewModel());
+					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.GetChangeLanguageViewModel);
 					LocalPreferencesHelper.SetAppLanguage("da");
 					break;
 				}
@@ -11950,65 +11847,65 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131492987);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131492987);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(2131296337);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296750);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296735);
-			TextView val4 = ((Activity)this).FindViewById<TextView>(2131296736);
-			TextView val5 = ((Activity)this).FindViewById<TextView>(2131296740);
-			TextView val6 = ((Activity)this).FindViewById<TextView>(2131296739);
-			TextView val7 = ((Activity)this).FindViewById<TextView>(2131296746);
-			TextView val8 = ((Activity)this).FindViewById<TextView>(2131296743);
-			TextView val9 = ((Activity)this).FindViewById<TextView>(2131296737);
-			TextView val10 = ((Activity)this).FindViewById<TextView>(2131296737);
-			val2.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_TITLE);
-			val3.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_ONE);
-			val4.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_TWO);
-			val5.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_MOBILE_DATA_HEADER);
-			val6.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_MOBILE_DATA_DESC);
-			val7.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER);
-			val8.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_RESTART_REQUIRED_TEXT);
-			val9.set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT);
-			((View)val9).set_ContentDescription(SettingsGeneralViewModel.SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT);
-			((View)val10).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(2131296337);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(2131296750);
+			TextView textView2 = base.FindViewById<TextView>(2131296735);
+			TextView textView3 = base.FindViewById<TextView>(2131296736);
+			TextView textView4 = base.FindViewById<TextView>(2131296740);
+			TextView textView5 = base.FindViewById<TextView>(2131296739);
+			TextView textView6 = base.FindViewById<TextView>(2131296746);
+			TextView textView7 = base.FindViewById<TextView>(2131296743);
+			TextView textView8 = base.FindViewById<TextView>(2131296737);
+			TextView textView9 = base.FindViewById<TextView>(2131296737);
+			textView.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_TITLE;
+			textView2.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_ONE;
+			textView3.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_TWO;
+			textView4.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_MOBILE_DATA_HEADER;
+			textView5.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_MOBILE_DATA_DESC;
+			textView6.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER;
+			textView7.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_RESTART_REQUIRED_TEXT;
+			textView8.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT;
+			textView8.ContentDescription = SettingsGeneralViewModel.SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT;
+			textView9.Click += new StressUtils.SingleClick(delegate
 			{
 				SettingsGeneralViewModel.OpenSmitteStopLink();
-			}).Run);
-			RadioGroup val11 = ((Activity)this).FindViewById<RadioGroup>(2131296747);
-			RadioButton val12 = ((Activity)this).FindViewById<RadioButton>(2131296734);
-			RadioButton val13 = ((Activity)this).FindViewById<RadioButton>(2131296731);
-			((TextView)val12).set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_EN);
-			((TextView)val13).set_Text(SettingsGeneralViewModel.SETTINGS_GENERAL_DA);
+			}).Run;
+			RadioGroup radioGroup = base.FindViewById<RadioGroup>(2131296747);
+			RadioButton radioButton = base.FindViewById<RadioButton>(2131296734);
+			RadioButton radioButton2 = base.FindViewById<RadioButton>(2131296731);
+			radioButton.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EN;
+			radioButton2.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_DA;
 			string language = LocalesService.GetLanguage();
 			if (language == "en")
 			{
-				((CompoundButton)val12).set_Checked(true);
+				radioButton.Checked = true;
 			}
 			else
 			{
-				((CompoundButton)val13).set_Checked(true);
+				radioButton2.Checked = true;
 			}
-			val11.SetOnCheckedChangeListener((IOnCheckedChangeListener)(object)new OnCheckedChangeListener(this));
-			SwitchCompat val14 = ((Activity)this).FindViewById<SwitchCompat>(2131296748);
-			((CompoundButton)val14).set_Checked(_viewModel.GetStoredCheckedState());
-			((CompoundButton)val14).add_CheckedChange((EventHandler<CheckedChangeEventArgs>)OnCheckedChange);
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			radioGroup.SetOnCheckedChangeListener(new OnCheckedChangeListener(this));
+			SwitchCompat switchCompat = base.FindViewById<SwitchCompat>(2131296748);
+			switchCompat.Checked = _viewModel.GetStoredCheckedState();
+			switchCompat.CheckedChange += OnCheckedChange;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
+				((Activity)(object)this).Finish();
+			}).Run;
 		}
 
 		private async void OnCheckedChange(object obj, EventArgs args)
 		{
 			SwitchCompat switchButton = (SwitchCompat)obj;
-			bool flag = !((CompoundButton)switchButton).get_Checked();
+			bool flag = !switchButton.Checked;
 			bool flag2 = flag;
 			if (flag2)
 			{
@@ -12016,19 +11913,12 @@ namespace NDB.Covid19.Droid.Views.Settings
 			}
 			if (flag2)
 			{
-				((CompoundButton)switchButton).set_Checked(true);
+				switchButton.Checked = true;
 			}
-			_viewModel.OnCheckedChange(((CompoundButton)switchButton).get_Checked());
+			_viewModel.OnCheckedChange(switchButton.Checked);
 		}
-
-		public SettingsGeneralActivity()
-			: this()
-		{
-		}//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-		//IL_000b: Expected O, but got Unknown
-
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsWithdrawConsentsActivity : AppCompatActivity
 	{
 		private Button _resetConsentsButton;
@@ -12037,38 +11927,38 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(ConsentViewModel.get_WELCOME_PAGE_CONSENT_TITLE());
-			((Activity)this).SetContentView(2131492986);
+			base.OnCreate(savedInstanceState);
+			base.Title = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			((Activity)(object)this).SetContentView(2131492986);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(2131296333);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			_resetConsentsButton = ((Activity)this).FindViewById<Button>(2131296364);
-			_progressBar = ((Activity)this).FindViewById<ProgressBar>(2131296388);
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296859);
-			val2.set_Text(ConsentViewModel.get_WELCOME_PAGE_CONSENT_TITLE());
-			((TextView)_resetConsentsButton).set_Text(ConsentViewModel.get_WITHDRAW_CONSENT_BUTTON_TEXT());
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(2131296333);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			_resetConsentsButton = base.FindViewById<Button>(2131296364);
+			_progressBar = base.FindViewById<ProgressBar>(2131296388);
+			TextView textView = base.FindViewById<TextView>(2131296859);
+			textView.Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			_resetConsentsButton.Text = ConsentViewModel.WITHDRAW_CONSENT_BUTTON_TEXT;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			((View)_resetConsentsButton).add_Click((EventHandler)new StressUtils.SingleClick(ResetButtonToggled).Run);
+				((Activity)(object)this).Finish();
+			}).Run;
+			_resetConsentsButton.Click += new StressUtils.SingleClick(ResetButtonToggled).Run;
 		}
 
 		private async void ResetButtonToggled(object sender, EventArgs e)
 		{
 			ShowSpinner(show: true);
-			SettingsWithdrawConsentsActivity current = this;
-			DialogViewModel val = new DialogViewModel();
-			val.set_Title(ConsentViewModel.get_CONSENT_REMOVE_TITLE());
-			val.set_Body(ConsentViewModel.get_CONSENT_REMOVE_MESSAGE());
-			val.set_OkBtnTxt(ConsentViewModel.get_CONSENT_OK_BUTTON_TEXT());
-			val.set_CancelbtnTxt(ConsentViewModel.get_CONSENT_NO_BUTTON_TEXT());
-			await DialogUtils.DisplayDialogAsync((Activity)(object)current, val, PerformWithdrawAsync, delegate
+			await DialogUtils.DisplayDialogAsync((Activity)(object)this, new DialogViewModel
+			{
+				Title = ConsentViewModel.CONSENT_REMOVE_TITLE,
+				Body = ConsentViewModel.CONSENT_REMOVE_MESSAGE,
+				OkBtnTxt = ConsentViewModel.CONSENT_OK_BUTTON_TEXT,
+				CancelbtnTxt = ConsentViewModel.CONSENT_NO_BUTTON_TEXT
+			}, PerformWithdrawAsync, delegate
 			{
 				ShowSpinner(show: false);
 			});
@@ -12084,14 +11974,9 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 		private void ShowSpinner(bool show)
 		{
-			((View)_resetConsentsButton).set_Enabled(!show);
-			((View)_resetConsentsButton).set_Visibility((ViewStates)(show ? 4 : 0));
-			((View)_progressBar).set_Visibility((ViewStates)((!show) ? 8 : 0));
-		}
-
-		public SettingsWithdrawConsentsActivity()
-			: this()
-		{
+			_resetConsentsButton.Enabled = !show;
+			_resetConsentsButton.Visibility = (show ? ViewStates.Invisible : ViewStates.Visible);
+			_progressBar.Visibility = ((!show) ? ViewStates.Gone : ViewStates.Visible);
 		}
 	}
 	public class ConsentSettingPageFragment : Fragment
@@ -12100,56 +11985,56 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
-			View val = inflater.Inflate(2131492902, container, false);
-			RelativeLayout val2 = val.FindViewById<RelativeLayout>(2131296397);
-			RelativeLayout val3 = val.FindViewById<RelativeLayout>(2131296404);
-			RelativeLayout val4 = val.FindViewById<RelativeLayout>(2131296398);
-			RelativeLayout val5 = val.FindViewById<RelativeLayout>(2131296399);
-			RelativeLayout val6 = val.FindViewById<RelativeLayout>(2131296403);
-			RelativeLayout val7 = val.FindViewById<RelativeLayout>(2131296400);
-			RelativeLayout val8 = val.FindViewById<RelativeLayout>(2131296401);
-			RelativeLayout val9 = val.FindViewById<RelativeLayout>(2131296396);
-			RelativeLayout val10 = val.FindViewById<RelativeLayout>(2131296395);
-			TextView val11 = ((View)val2).FindViewById<TextView>(2131296394);
-			TextView val12 = ((View)val3).FindViewById<TextView>(2131296394);
-			TextView val13 = ((View)val4).FindViewById<TextView>(2131296394);
-			TextView val14 = ((View)val5).FindViewById<TextView>(2131296394);
-			TextView val15 = ((View)val6).FindViewById<TextView>(2131296394);
-			TextView val16 = ((View)val7).FindViewById<TextView>(2131296394);
-			TextView val17 = ((View)val8).FindViewById<TextView>(2131296394);
-			TextView val18 = ((View)val9).FindViewById<TextView>(2131296394);
-			TextView val19 = ((View)val10).FindViewById<TextView>(2131296394);
-			val11.set_Text(ConsentViewModel.get_CONSENT_ONE_TITLE());
-			val12.set_Text(ConsentViewModel.get_CONSENT_TWO_TITLE());
-			val13.set_Text(ConsentViewModel.get_CONSENT_THREE_TITLE());
-			val14.set_Text(ConsentViewModel.get_CONSENT_FOUR_TITLE());
-			val15.set_Text(ConsentViewModel.get_CONSENT_FIVE_TITLE());
-			val16.set_Text(ConsentViewModel.get_CONSENT_SIX_TITLE());
-			val17.set_Text(ConsentViewModel.get_CONSENT_SEVEN_TITLE());
-			val18.set_Text(ConsentViewModel.get_CONSENT_EIGHT_TITLE());
-			val19.set_Text(ConsentViewModel.get_CONSENT_NINE_TITLE());
-			((View)val11).set_ContentDescription(ConsentViewModel.get_CONSENT_ONE_TITLE().ToLower());
-			((View)val12).set_ContentDescription(ConsentViewModel.get_CONSENT_TWO_TITLE().ToLower());
-			((View)val13).set_ContentDescription(ConsentViewModel.get_CONSENT_THREE_TITLE().ToLower());
-			((View)val14).set_ContentDescription(ConsentViewModel.get_CONSENT_FOUR_TITLE().ToLower());
-			((View)val15).set_ContentDescription(ConsentViewModel.get_CONSENT_FIVE_TITLE().ToLower());
-			((View)val16).set_ContentDescription(ConsentViewModel.get_CONSENT_SIX_TITLE().ToLower());
-			((View)val17).set_ContentDescription(ConsentViewModel.get_CONSENT_SEVEN_TITLE().ToLower());
-			((View)val18).set_ContentDescription(ConsentViewModel.get_CONSENT_EIGHT_TITLE().ToLower());
-			((View)val19).set_ContentDescription(ConsentViewModel.get_CONSENT_NINE_TITLE().ToLower());
-			((View)val2).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_ONE_PARAGRAPH(), 0));
-			((View)val3).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_TWO_PARAGRAPH(), 0));
-			((View)val4).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_THREE_PARAGRAPH(), 0));
-			((View)val5).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_FOUR_PARAGRAPH(), 0));
-			((View)val6).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_FIVE_PARAGRAPH(), 0));
-			((View)val7).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_SIX_PARAGRAPH(), 0));
-			((View)val8).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_SEVEN_PARAGRAPH(), 0));
-			((View)val9).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_EIGHT_PARAGRAPH(), 0));
-			((View)val10).FindViewById<TextView>(2131296393).set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(ConsentViewModel.get_CONSENT_NINE_PARAGRAPH(), 0));
-			Button val20 = val.FindViewById<Button>(2131296402);
-			((TextView)val20).set_Text(ConsentViewModel.get_CONSENT_SEVEN_BUTTON_TEXT());
-			((View)val20).add_Click((EventHandler)PolicyLinkBtn_Click);
-			return val;
+			View view = inflater.Inflate(2131492902, container, attachToRoot: false);
+			RelativeLayout relativeLayout = view.FindViewById<RelativeLayout>(2131296397);
+			RelativeLayout relativeLayout2 = view.FindViewById<RelativeLayout>(2131296404);
+			RelativeLayout relativeLayout3 = view.FindViewById<RelativeLayout>(2131296398);
+			RelativeLayout relativeLayout4 = view.FindViewById<RelativeLayout>(2131296399);
+			RelativeLayout relativeLayout5 = view.FindViewById<RelativeLayout>(2131296403);
+			RelativeLayout relativeLayout6 = view.FindViewById<RelativeLayout>(2131296400);
+			RelativeLayout relativeLayout7 = view.FindViewById<RelativeLayout>(2131296401);
+			RelativeLayout relativeLayout8 = view.FindViewById<RelativeLayout>(2131296396);
+			RelativeLayout relativeLayout9 = view.FindViewById<RelativeLayout>(2131296395);
+			TextView textView = relativeLayout.FindViewById<TextView>(2131296394);
+			TextView textView2 = relativeLayout2.FindViewById<TextView>(2131296394);
+			TextView textView3 = relativeLayout3.FindViewById<TextView>(2131296394);
+			TextView textView4 = relativeLayout4.FindViewById<TextView>(2131296394);
+			TextView textView5 = relativeLayout5.FindViewById<TextView>(2131296394);
+			TextView textView6 = relativeLayout6.FindViewById<TextView>(2131296394);
+			TextView textView7 = relativeLayout7.FindViewById<TextView>(2131296394);
+			TextView textView8 = relativeLayout8.FindViewById<TextView>(2131296394);
+			TextView textView9 = relativeLayout9.FindViewById<TextView>(2131296394);
+			textView.Text = ConsentViewModel.CONSENT_ONE_TITLE;
+			textView2.Text = ConsentViewModel.CONSENT_TWO_TITLE;
+			textView3.Text = ConsentViewModel.CONSENT_THREE_TITLE;
+			textView4.Text = ConsentViewModel.CONSENT_FOUR_TITLE;
+			textView5.Text = ConsentViewModel.CONSENT_FIVE_TITLE;
+			textView6.Text = ConsentViewModel.CONSENT_SIX_TITLE;
+			textView7.Text = ConsentViewModel.CONSENT_SEVEN_TITLE;
+			textView8.Text = ConsentViewModel.CONSENT_EIGHT_TITLE;
+			textView9.Text = ConsentViewModel.CONSENT_NINE_TITLE;
+			textView.ContentDescription = ConsentViewModel.CONSENT_ONE_TITLE.ToLower();
+			textView2.ContentDescription = ConsentViewModel.CONSENT_TWO_TITLE.ToLower();
+			textView3.ContentDescription = ConsentViewModel.CONSENT_THREE_TITLE.ToLower();
+			textView4.ContentDescription = ConsentViewModel.CONSENT_FOUR_TITLE.ToLower();
+			textView5.ContentDescription = ConsentViewModel.CONSENT_FIVE_TITLE.ToLower();
+			textView6.ContentDescription = ConsentViewModel.CONSENT_SIX_TITLE.ToLower();
+			textView7.ContentDescription = ConsentViewModel.CONSENT_SEVEN_TITLE.ToLower();
+			textView8.ContentDescription = ConsentViewModel.CONSENT_EIGHT_TITLE.ToLower();
+			textView9.ContentDescription = ConsentViewModel.CONSENT_NINE_TITLE.ToLower();
+			relativeLayout.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_ONE_PARAGRAPH, 0);
+			relativeLayout2.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_TWO_PARAGRAPH, 0);
+			relativeLayout3.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_THREE_PARAGRAPH, 0);
+			relativeLayout4.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_FOUR_PARAGRAPH, 0);
+			relativeLayout5.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_FIVE_PARAGRAPH, 0);
+			relativeLayout6.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_SIX_PARAGRAPH, 0);
+			relativeLayout7.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_SEVEN_PARAGRAPH, 0);
+			relativeLayout8.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_EIGHT_PARAGRAPH, 0);
+			relativeLayout9.FindViewById<TextView>(2131296393).TextFormatted = HtmlCompat.FromHtml(ConsentViewModel.CONSENT_NINE_PARAGRAPH, 0);
+			Button button = view.FindViewById<Button>(2131296402);
+			button.Text = ConsentViewModel.CONSENT_SEVEN_BUTTON_TEXT;
+			button.Click += PolicyLinkBtn_Click;
+			return view;
 		}
 
 		private void PolicyLinkBtn_Click(object sender, EventArgs e)
@@ -12157,177 +12042,156 @@ namespace NDB.Covid19.Droid.Views.Settings
 			ConsentViewModel.OpenPrivacyPolicyLink();
 		}
 
-		private void OnCheckedChange(object sender, CheckedChangeEventArgs e)
+		private void OnCheckedChange(object sender, CompoundButton.CheckedChangeEventArgs e)
 		{
-			this.ButtonPressed?.Invoke(this, e.get_IsChecked());
-		}
-
-		public ConsentSettingPageFragment()
-			: this()
-		{
+			this.ButtonPressed?.Invoke(this, e.IsChecked);
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop, WindowSoftInputMode = SoftInput.AdjustResize)]
 	internal class SettingsAbout : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage5ViewModel.get_SETTINGS_PAGE_5_HEADER());
-			((Activity)this).SetContentView(2131492984);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER;
+			((Activity)(object)this).SetContentView(2131492984);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(2131296336);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296727);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296725);
-			TextView val4 = ((Activity)this).FindViewById<TextView>(2131296723);
-			((Activity)this).FindViewById<TextView>(2131296728).set_Text(SettingsPage5ViewModel.GetVersionInfo());
-			val2.set_Text(SettingsPage5ViewModel.get_SETTINGS_PAGE_5_HEADER());
-			val3.set_Text(SettingsPage5ViewModel.get_SETTINGS_PAGE_5_CONTENT() + " " + SettingsPage5ViewModel.get_SETTINGS_PAGE_5_LINK());
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(2131296336);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(2131296727);
+			TextView textView2 = base.FindViewById<TextView>(2131296725);
+			TextView textView3 = base.FindViewById<TextView>(2131296723);
+			base.FindViewById<TextView>(2131296728).Text = SettingsPage5ViewModel.GetVersionInfo();
+			textView.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER;
+			textView2.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_CONTENT + " " + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			val4.set_Text(SettingsPage5ViewModel.get_SETTINGS_PAGE_5_LINK());
-			LinkUtil.LinkifyTextView(val4);
-		}
-
-		public SettingsAbout()
-			: this()
-		{
+				((Activity)(object)this).Finish();
+			}).Run;
+			textView3.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK;
+			LinkUtil.LinkifyTextView(textView3);
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsActivity : AppCompatActivity
 	{
 		private static readonly SettingsViewModel _settingsViewModel = new SettingsViewModel();
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131492992);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131492992);
 			Init();
 		}
 
 		private void Init()
 		{
-			ConstraintLayout val = ((Activity)this).FindViewById<ConstraintLayout>(2131296761);
-			ConstraintLayout val2 = ((Activity)this).FindViewById<ConstraintLayout>(2131296764);
-			ConstraintLayout val3 = ((Activity)this).FindViewById<ConstraintLayout>(2131296729);
-			ConstraintLayout val4 = ((Activity)this).FindViewById<ConstraintLayout>(2131296756);
-			ConstraintLayout val5 = ((Activity)this).FindViewById<ConstraintLayout>(2131296649);
-			ConstraintLayout val6 = ((Activity)this).FindViewById<ConstraintLayout>(2131296810);
-			ConstraintLayout val7 = ((Activity)this).FindViewById<ConstraintLayout>(2131296502);
-			Button val8 = ((View)val).FindViewById<Button>(2131296762);
-			Button val9 = ((View)val2).FindViewById<Button>(2131296762);
-			Button val10 = ((View)val3).FindViewById<Button>(2131296762);
-			Button val11 = ((View)val4).FindViewById<Button>(2131296762);
-			Button val12 = ((View)val5).FindViewById<Button>(2131296762);
-			Button val13 = ((View)val7).FindViewById<Button>(2131296762);
-			Button val14 = ((View)val6).FindViewById<Button>(2131296762);
-			((TextView)val8).set_Text(_settingsViewModel.get_SettingItemList()[0].get_Text());
-			((TextView)val9).set_Text(_settingsViewModel.get_SettingItemList()[1].get_Text());
-			((TextView)val10).set_Text(_settingsViewModel.get_SettingItemList()[2].get_Text());
-			((TextView)val11).set_Text(_settingsViewModel.get_SettingItemList()[3].get_Text());
-			((TextView)val12).set_Text(_settingsViewModel.get_SettingItemList()[4].get_Text());
-			((TextView)val13).set_Text(_settingsViewModel.get_SettingItemList()[5].get_Text());
-			if (_settingsViewModel.get_ShowDebugItem())
+			ConstraintLayout constraintLayout = base.FindViewById<ConstraintLayout>(2131296761);
+			ConstraintLayout constraintLayout2 = base.FindViewById<ConstraintLayout>(2131296764);
+			ConstraintLayout constraintLayout3 = base.FindViewById<ConstraintLayout>(2131296729);
+			ConstraintLayout constraintLayout4 = base.FindViewById<ConstraintLayout>(2131296756);
+			ConstraintLayout constraintLayout5 = base.FindViewById<ConstraintLayout>(2131296649);
+			ConstraintLayout constraintLayout6 = base.FindViewById<ConstraintLayout>(2131296810);
+			ConstraintLayout constraintLayout7 = base.FindViewById<ConstraintLayout>(2131296502);
+			Button button = constraintLayout.FindViewById<Button>(2131296762);
+			Button button2 = constraintLayout2.FindViewById<Button>(2131296762);
+			Button button3 = constraintLayout3.FindViewById<Button>(2131296762);
+			Button button4 = constraintLayout4.FindViewById<Button>(2131296762);
+			Button button5 = constraintLayout5.FindViewById<Button>(2131296762);
+			Button button6 = constraintLayout7.FindViewById<Button>(2131296762);
+			Button button7 = constraintLayout6.FindViewById<Button>(2131296762);
+			button.Text = _settingsViewModel.SettingItemList[0].Text;
+			button2.Text = _settingsViewModel.SettingItemList[1].Text;
+			button3.Text = _settingsViewModel.SettingItemList[2].Text;
+			button4.Text = _settingsViewModel.SettingItemList[3].Text;
+			button5.Text = _settingsViewModel.SettingItemList[4].Text;
+			button6.Text = _settingsViewModel.SettingItemList[5].Text;
+			if (_settingsViewModel.ShowDebugItem)
 			{
-				((TextView)val14).set_Text(_settingsViewModel.get_SettingItemList()[6].get_Text());
-				((View)val6).set_Visibility((ViewStates)0);
+				button7.Text = _settingsViewModel.SettingItemList[6].Text;
+				constraintLayout6.Visibility = ViewStates.Visible;
 			}
-			ViewGroup val15 = ((Activity)this).FindViewById<ViewGroup>(2131296519);
-			((View)val15).set_ContentDescription(SettingsViewModel.get_SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON());
-			((View)val15).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			ViewGroup viewGroup = base.FindViewById<ViewGroup>(2131296519);
+			viewGroup.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
+			viewGroup.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			((View)val8).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				((Activity)(object)this).Finish();
+			}).Run;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToOnBoarding((Activity)(object)this, isOnBoarding: false);
-			}).Run);
-			((View)val9).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button2.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsHowItWorksPage((Activity)(object)this);
-			}).Run);
-			((View)val11).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button4.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsHelpPage((Activity)(object)this);
-			}).Run);
-			((View)val12).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button5.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsAboutPage((Activity)(object)this);
-			}).Run);
-			((View)val10).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button3.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToConsentsWithdrawPage((Activity)(object)this);
-			}).Run);
-			((View)val14).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button7.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToDebugPage((Activity)(object)this);
-			}).Run);
-			((View)val13).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			button6.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToGenetalSettingsPage((Activity)(object)this);
-			}).Run);
-		}
-
-		public SettingsActivity()
-			: this()
-		{
+			}).Run;
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsHelpActivity : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage4ViewModel.get_HEADER());
-			((Activity)this).SetContentView(2131492988);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage4ViewModel.HEADER;
+			((Activity)(object)this).SetContentView(2131492988);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(2131296338);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296753);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296755);
-			TextView val4 = ((Activity)this).FindViewById<TextView>(2131296751);
-			val3.set_Text(SettingsPage4ViewModel.get_HEADER());
-			val2.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage4ViewModel.get_CONTENT_TEXT_BEFORE_SUPPORT_LINK() + " <a href=\"https://" + SettingsPage4ViewModel.get_SUPPORT_LINK() + "\">" + SettingsPage4ViewModel.get_SUPPORT_LINK_SHOWN_TEXT() + "</a><br><br>" + SettingsPage4ViewModel.get_EMAIL_TEXT() + " <a href=\"mailto:" + SettingsPage4ViewModel.get_EMAIL() + "\">" + SettingsPage4ViewModel.get_EMAIL() + "</a> " + SettingsPage4ViewModel.get_PHONE_NUM_Text() + " <a href=\"tel:" + SettingsPage4ViewModel.get_PHONE_NUM() + "\">" + SettingsPage4ViewModel.get_PHONE_NUM() + "</a>.<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_TEXT() + "<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_MON_THU() + "<br>" + SettingsPage4ViewModel.get_PHONE_OPEN_FRE() + "<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_SAT_SUN_HOLY(), 0));
-			((View)val2).set_ContentDescriptionFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage4ViewModel.get_CONTENT_TEXT_BEFORE_SUPPORT_LINK() + " <a href=\"https://" + SettingsPage4ViewModel.get_SUPPORT_LINK() + "\">" + SettingsPage4ViewModel.get_SUPPORT_LINK_SHOWN_TEXT() + "</a><br><br>" + SettingsPage4ViewModel.get_EMAIL_TEXT() + " <a href=\"mailto:" + SettingsPage4ViewModel.get_EMAIL() + "\">" + SettingsPage4ViewModel.get_EMAIL() + "</a> " + SettingsPage4ViewModel.get_PHONE_NUM_Text() + " <a href=\"tel:" + SettingsPage4ViewModel.get_PHONE_NUM() + "\">" + SettingsPage4ViewModel.get_PHONE_NUM_ACCESSIBILITY() + "</a>.<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_TEXT() + "<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_MON_THU_ACCESSIBILITY() + "<br>" + SettingsPage4ViewModel.get_PHONE_OPEN_FRE_ACCESSIBILITY() + "<br><br>" + SettingsPage4ViewModel.get_PHONE_OPEN_SAT_SUN_HOLY(), 0));
-			val2.set_MovementMethod(LinkMovementMethod.get_Instance());
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(2131296338);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(2131296753);
+			TextView textView2 = base.FindViewById<TextView>(2131296755);
+			TextView textView3 = base.FindViewById<TextView>(2131296751);
+			textView2.Text = SettingsPage4ViewModel.HEADER;
+			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0);
+			textView.ContentDescriptionFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + " <a href=\"https://" + SettingsPage4ViewModel.SUPPORT_LINK + "\">" + SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT + "</a><br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + " <a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a> " + SettingsPage4ViewModel.PHONE_NUM_Text + " <a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM_ACCESSIBILITY + "</a>.<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_TEXT + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_MON_THU_ACCESSIBILITY + "<br>" + SettingsPage4ViewModel.PHONE_OPEN_FRE_ACCESSIBILITY + "<br><br>" + SettingsPage4ViewModel.PHONE_OPEN_SAT_SUN_HOLY, 0);
+			textView.MovementMethod = LinkMovementMethod.Instance;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			val4.set_Text(SettingsPage4ViewModel.get_SUPPORT_LINK());
-			((View)val4).set_ContentDescription(SettingsPage4ViewModel.get_SUPPORT_LINK_SHOWN_TEXT());
-			LinkUtil.LinkifyTextView(val4);
-		}
-
-		public SettingsHelpActivity()
-			: this()
-		{
+				((Activity)(object)this).Finish();
+			}).Run;
+			textView3.Text = SettingsPage4ViewModel.SUPPORT_LINK;
+			textView3.ContentDescription = SettingsPage4ViewModel.SUPPORT_LINK_SHOWN_TEXT;
+			LinkUtil.LinkifyTextView(textView3);
 		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class SettingsHowItWorksActivity : AppCompatActivity
 	{
-		private class OnClickListener : Object, IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
+		private class OnClickListener : Java.Lang.Object, View.IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
 		{
 			private SettingsHowItWorksActivity _self;
 
 			private string _link;
 
 			public OnClickListener(SettingsHowItWorksActivity self, string link)
-				: this()
 			{
 				_self = self;
 				_link = link;
@@ -12335,87 +12199,75 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 			public void OnClick(View v)
 			{
-				//IL_0005: Unknown result type (might be due to invalid IL or missing references)
-				//IL_000b: Expected O, but got Unknown
-				Intent val = new Intent("android.intent.action.VIEW");
-				val.SetData(Uri.Parse(_link));
-				((Context)_self).StartActivity(val);
+				Intent intent = new Intent("android.intent.action.VIEW");
+				intent.SetData(Android.Net.Uri.Parse(_link));
+				((Context)(object)_self).StartActivity(intent);
 			}
 		}
 
 		private class URLSpanNoUnderline : URLSpan
 		{
 			public URLSpanNoUnderline(string url)
-				: this(url)
+				: base(url)
 			{
 			}
 
 			public override void UpdateDrawState(TextPaint ds)
 			{
-				//IL_000f: Unknown result type (might be due to invalid IL or missing references)
-				((ClickableSpan)this).UpdateDrawState(ds);
-				((Paint)ds).set_UnderlineText(false);
-				((Paint)ds).set_Color(Color.get_White());
+				base.UpdateDrawState(ds);
+				ds.UnderlineText = false;
+				ds.Color = Color.White;
 			}
 		}
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(SettingsPage2ViewModel.get_SETTINGS_PAGE_2_HEADER());
-			((Activity)this).SetContentView(2131492990);
+			base.OnCreate(savedInstanceState);
+			base.Title = SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER;
+			((Activity)(object)this).SetContentView(2131492990);
 			Init();
 		}
 
 		private void Init()
 		{
-			Button val = ((Activity)this).FindViewById<Button>(2131296333);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296758);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296760);
-			TextView val4 = ((Activity)this).FindViewById<TextView>(2131296757);
-			val3.set_Text(SettingsPage2ViewModel.get_SETTINGS_PAGE_2_HEADER());
-			val2.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(SettingsPage2ViewModel.get_SETTINGS_PAGE_2_CONTENT(), 0));
-			string text = "<a href=\"" + SettingsPage2ViewModel.get_SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK() + "\">" + SettingsPage2ViewModel.get_SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT() + "</a>";
-			val4.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(text, 0));
-			FormatLink(val4);
-			((View)val4).SetOnClickListener((IOnClickListener)(object)new OnClickListener(this, SettingsPage2ViewModel.get_SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK()));
-			((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			Button button = base.FindViewById<Button>(2131296333);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			TextView textView = base.FindViewById<TextView>(2131296758);
+			TextView textView2 = base.FindViewById<TextView>(2131296760);
+			TextView textView3 = base.FindViewById<TextView>(2131296757);
+			textView2.Text = SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER;
+			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT, 0);
+			string source = "<a href=\"" + SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK + "\">" + SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT + "</a>";
+			textView3.TextFormatted = HtmlCompat.FromHtml(source, 0);
+			FormatLink(textView3);
+			textView3.SetOnClickListener(new OnClickListener(this, SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK));
+			button.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
+				((Activity)(object)this).Finish();
+			}).Run;
 		}
 
 		private void FormatLink(TextView textView)
 		{
-			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000c: Expected O, but got Unknown
-			//IL_0032: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0039: Expected O, but got Unknown
-			SpannableStringBuilder val = new SpannableStringBuilder(textView.get_TextFormatted());
-			Object[] spans = val.GetSpans(0, val.Length(), Class.FromType(typeof(URLSpan)));
-			Object[] array = spans;
+			SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder(textView.TextFormatted);
+			Java.Lang.Object[] spans = spannableStringBuilder.GetSpans(0, spannableStringBuilder.Length(), Class.FromType(typeof(URLSpan)));
+			Java.Lang.Object[] array = spans;
 			for (int i = 0; i < array.Length; i++)
 			{
-				URLSpan val2 = (URLSpan)array[i];
-				int spanStart = val.GetSpanStart((Object)(object)val2);
-				int spanEnd = val.GetSpanEnd((Object)(object)val2);
-				val.RemoveSpan((Object)(object)val2);
-				URLSpanNoUnderline uRLSpanNoUnderline = new URLSpanNoUnderline(val2.get_URL());
-				val.SetSpan((Object)(object)uRLSpanNoUnderline, spanStart, spanEnd, (SpanTypes)0);
+				URLSpan uRLSpan = (URLSpan)array[i];
+				int spanStart = spannableStringBuilder.GetSpanStart(uRLSpan);
+				int spanEnd = spannableStringBuilder.GetSpanEnd(uRLSpan);
+				spannableStringBuilder.RemoveSpan(uRLSpan);
+				URLSpanNoUnderline what = new URLSpanNoUnderline(uRLSpan.URL);
+				spannableStringBuilder.SetSpan(what, spanStart, spanEnd, (SpanTypes)0);
 			}
-			textView.set_TextFormatted((ICharSequence)(object)val);
-		}
-
-		public SettingsHowItWorksActivity()
-			: this()
-		{
+			textView.TextFormatted = spannableStringBuilder;
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.InfectionStatus
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class InfectionStatusActivity : AppCompatActivity
 	{
 		private InfectionStatusViewModel _viewModel;
@@ -12450,15 +12302,13 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private bool _dialogDisplayed;
 
-		private readonly PermissionUtils _permissionUtils = ServiceLocator.get_Current().GetInstance<PermissionUtils>();
+		private readonly PermissionUtils _permissionUtils = ServiceLocator.Current.GetInstance<PermissionUtils>();
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_001e: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0028: Expected O, but got Unknown
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(InfectionStatusViewModel.get_INFECTION_STATUS_PAGE_TITLE());
-			((Activity)this).SetContentView(2131492924);
+			base.OnCreate(savedInstanceState);
+			base.Title = InfectionStatusViewModel.INFECTION_STATUS_PAGE_TITLE;
+			((Activity)(object)this).SetContentView(2131492924);
 			_viewModel = new InfectionStatusViewModel();
 			InitLayout();
 			UpdateMessagesStatus();
@@ -12466,7 +12316,7 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		protected override void OnResume()
 		{
-			((Activity)this).OnResume();
+			base.OnResume();
 			_permissionUtils.SubscribePermissionsMessagingCenter(this, delegate
 			{
 				PreventMultiplePermissionsDialogsForAction(_permissionUtils.HasPermissions);
@@ -12475,19 +12325,19 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 			Task.Run(async delegate
 			{
 				await Task.Delay(1000);
-				((Activity)this).RunOnUiThread((Action)delegate
+				base.RunOnUiThread((System.Action)delegate
 				{
 					_viewModel.UpdateNotificationDot();
 				});
 			});
 			UpdateUI();
 			InfectionStatusViewModel viewModel = _viewModel;
-			viewModel.set_NewMessagesIconVisibilityChanged((EventHandler)Delegate.Combine(viewModel.get_NewMessagesIconVisibilityChanged(), new EventHandler(OnNewMessagesIconVisibilityChanged)));
+			viewModel.NewMessagesIconVisibilityChanged = (EventHandler)System.Delegate.Combine(viewModel.NewMessagesIconVisibilityChanged, new EventHandler(OnNewMessagesIconVisibilityChanged));
 		}
 
 		private void ShowPermissionsDialogIfTheyHavChangedWhileInIdle()
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
 				PreventMultiplePermissionsDialogsForAction(_permissionUtils.CheckPermissionsIfChangedWhileIdle);
 			});
@@ -12510,96 +12360,96 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		protected override void OnPause()
 		{
-			((Activity)this).OnPause();
+			base.OnPause();
 			_permissionUtils.UnsubscribePErmissionsMessagingCenter(this);
 			InfectionStatusViewModel viewModel = _viewModel;
-			viewModel.set_NewMessagesIconVisibilityChanged((EventHandler)Delegate.Remove(viewModel.get_NewMessagesIconVisibilityChanged(), new EventHandler(OnNewMessagesIconVisibilityChanged)));
+			viewModel.NewMessagesIconVisibilityChanged = (EventHandler)System.Delegate.Remove(viewModel.NewMessagesIconVisibilityChanged, new EventHandler(OnNewMessagesIconVisibilityChanged));
 		}
 
 		private async void InitLayout()
 		{
-			_activityStatusText = ((Activity)this).FindViewById<TextView>(2131296527);
-			_activityStatusDescription = ((Activity)this).FindViewById<TextView>(2131296528);
-			_messeageHeader = ((Activity)this).FindViewById<TextView>(2131296536);
-			_messageSubHeader = ((Activity)this).FindViewById<TextView>(2131296540);
-			_registrationHeader = ((Activity)this).FindViewById<TextView>(2131296547);
-			_registrationSubheader = ((Activity)this).FindViewById<TextView>(2131296546);
-			_onOffButton = ((Activity)this).FindViewById<ImageButton>(2131296541);
-			_messageRelativeLayout = ((Activity)this).FindViewById<RelativeLayout>(2131296537);
-			_registrationRelativeLayout = ((Activity)this).FindViewById<RelativeLayout>(2131296543);
-			_menuIcon = ((Activity)this).FindViewById<ImageButton>(2131296532);
-			_messageCoverButton = ((Activity)this).FindViewById<Button>(2131296538);
-			_registrationCoverButton = ((Activity)this).FindViewById<Button>(2131296544);
-			_notificationDot = ((Activity)this).FindViewById<ImageView>(2131296535);
-			_activityStatusText.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_ACTIVE_TEXT());
-			_activityStatusDescription.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT());
-			_messeageHeader.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_MESSAGE_HEADER_TEXT());
-			_messageSubHeader.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT());
-			_registrationHeader.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_REGISTRATION_HEADER_TEXT());
-			_registrationSubheader.set_Text(InfectionStatusViewModel.get_INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT());
-			((View)_menuIcon).set_ContentDescription(InfectionStatusViewModel.get_INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT());
-			((View)_notificationDot).set_ContentDescription(InfectionStatusViewModel.get_INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT());
-			((View)_messageCoverButton).set_ContentDescription(InfectionStatusViewModel.get_INFECTION_STATUS_MESSAGE_HEADER_TEXT() + " " + InfectionStatusViewModel.get_INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT());
-			((View)_registrationCoverButton).set_ContentDescription(InfectionStatusViewModel.get_INFECTION_STATUS_REGISTRATION_HEADER_TEXT() + " " + InfectionStatusViewModel.get_INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT());
-			((View)_onOffButton).add_Click((EventHandler)new StressUtils.SingleClick(StartStopButton_Click, 500).Run);
-			((View)_messageRelativeLayout).add_Click((EventHandler)new StressUtils.SingleClick(MessageLayoutButton_Click, 500).Run);
-			((View)_messageCoverButton).add_Click((EventHandler)new StressUtils.SingleClick(MessageLayoutButton_Click, 500).Run);
-			((View)_registrationRelativeLayout).add_Click((EventHandler)new StressUtils.SingleClick(RegistrationLayoutButton_Click, 500).Run);
-			((View)_registrationCoverButton).add_Click((EventHandler)new StressUtils.SingleClick(RegistrationLayoutButton_Click, 500).Run);
-			((View)_menuIcon).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			_activityStatusText = base.FindViewById<TextView>(2131296527);
+			_activityStatusDescription = base.FindViewById<TextView>(2131296528);
+			_messeageHeader = base.FindViewById<TextView>(2131296536);
+			_messageSubHeader = base.FindViewById<TextView>(2131296540);
+			_registrationHeader = base.FindViewById<TextView>(2131296547);
+			_registrationSubheader = base.FindViewById<TextView>(2131296546);
+			_onOffButton = base.FindViewById<ImageButton>(2131296541);
+			_messageRelativeLayout = base.FindViewById<RelativeLayout>(2131296537);
+			_registrationRelativeLayout = base.FindViewById<RelativeLayout>(2131296543);
+			_menuIcon = base.FindViewById<ImageButton>(2131296532);
+			_messageCoverButton = base.FindViewById<Button>(2131296538);
+			_registrationCoverButton = base.FindViewById<Button>(2131296544);
+			_notificationDot = base.FindViewById<ImageView>(2131296535);
+			_activityStatusText.Text = InfectionStatusViewModel.INFECTION_STATUS_ACTIVE_TEXT;
+			_activityStatusDescription.Text = InfectionStatusViewModel.INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT;
+			_messeageHeader.Text = InfectionStatusViewModel.INFECTION_STATUS_MESSAGE_HEADER_TEXT;
+			_messageSubHeader.Text = InfectionStatusViewModel.INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT;
+			_registrationHeader.Text = InfectionStatusViewModel.INFECTION_STATUS_REGISTRATION_HEADER_TEXT;
+			_registrationSubheader.Text = InfectionStatusViewModel.INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
+			_menuIcon.ContentDescription = InfectionStatusViewModel.INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT;
+			_notificationDot.ContentDescription = InfectionStatusViewModel.INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT;
+			_messageCoverButton.ContentDescription = InfectionStatusViewModel.INFECTION_STATUS_MESSAGE_HEADER_TEXT + " " + InfectionStatusViewModel.INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT;
+			_registrationCoverButton.ContentDescription = InfectionStatusViewModel.INFECTION_STATUS_REGISTRATION_HEADER_TEXT + " " + InfectionStatusViewModel.INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
+			_onOffButton.Click += new StressUtils.SingleClick(StartStopButton_Click, 500).Run;
+			_messageRelativeLayout.Click += new StressUtils.SingleClick(MessageLayoutButton_Click, 500).Run;
+			_messageCoverButton.Click += new StressUtils.SingleClick(MessageLayoutButton_Click, 500).Run;
+			_registrationRelativeLayout.Click += new StressUtils.SingleClick(RegistrationLayoutButton_Click, 500).Run;
+			_registrationCoverButton.Click += new StressUtils.SingleClick(RegistrationLayoutButton_Click, 500).Run;
+			_menuIcon.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToSettingsPage((Activity)(object)this);
-			}, 500).Run);
-			_buttonBackgroundAnimated = ((Activity)this).FindViewById<ImageView>(2131296530);
+			}, 500).Run;
+			_buttonBackgroundAnimated = base.FindViewById<ImageView>(2131296530);
 			if (!(await _viewModel.IsRunning()))
 			{
-				((View)_onOffButton).PerformClick();
+				_onOffButton.PerformClick();
 			}
 			UpdateUI();
-			FlightModeHandlerBroadcastReceiver.OnFlightModeChange = (Action)Delegate.Combine(FlightModeHandlerBroadcastReceiver.OnFlightModeChange, new Action(UpdateUI));
+			FlightModeHandlerBroadcastReceiver.OnFlightModeChange = (System.Action)System.Delegate.Combine(FlightModeHandlerBroadcastReceiver.OnFlightModeChange, new System.Action(UpdateUI));
 		}
 
 		private void CreatePulseAnimation(ImageView buttonBackgroundAnimated, bool isRunning)
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
 				if (isRunning)
 				{
-					Animation val = AnimationUtils.LoadAnimation((Context)(object)this, 2130771980);
-					((View)buttonBackgroundAnimated).set_Visibility((ViewStates)0);
-					((View)buttonBackgroundAnimated).StartAnimation(val);
+					Animation animation = AnimationUtils.LoadAnimation((Context)(object)this, 2130771980);
+					buttonBackgroundAnimated.Visibility = ViewStates.Visible;
+					buttonBackgroundAnimated.StartAnimation(animation);
 				}
 				else
 				{
-					((View)buttonBackgroundAnimated).set_Visibility((ViewStates)4);
-					((View)buttonBackgroundAnimated).ClearAnimation();
+					buttonBackgroundAnimated.Visibility = ViewStates.Invisible;
+					buttonBackgroundAnimated.ClearAnimation();
 				}
 			});
 		}
 
 		private void UpdateUI()
 		{
-			((Activity)this).RunOnUiThread((Action)async delegate
+			base.RunOnUiThread((System.Action)async delegate
 			{
 				bool isRunning = await _viewModel.IsRunning();
 				TextView activityStatusText = _activityStatusText;
-				activityStatusText.set_Text(await _viewModel.StatusTxt());
+				activityStatusText.Text = await _viewModel.StatusTxt();
 				activityStatusText = _activityStatusDescription;
-				activityStatusText.set_Text(await _viewModel.StatusTxtDescription());
-				((View)_onOffButton).SetBackgroundResource(isRunning ? 2131165375 : 2131165376);
-				((ImageView)_onOffButton).SetImageResource(isRunning ? 2131165363 : 2131165365);
-				((View)_onOffButton).set_ContentDescription(isRunning ? InfectionStatusViewModel.get_INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT() : InfectionStatusViewModel.get_INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT());
+				activityStatusText.Text = await _viewModel.StatusTxtDescription();
+				_onOffButton.SetBackgroundResource(isRunning ? 2131165375 : 2131165376);
+				_onOffButton.SetImageResource(isRunning ? 2131165363 : 2131165365);
+				_onOffButton.ContentDescription = (isRunning ? InfectionStatusViewModel.INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT : InfectionStatusViewModel.INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT);
 				CreatePulseAnimation(_buttonBackgroundAnimated, isRunning);
 			});
 		}
 
 		private void UpdateMessagesStatus()
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				((View)_notificationDot).set_Visibility((ViewStates)((!_viewModel.get_ShowNewMessageIcon()) ? 8 : 0));
-				_messageSubHeader.set_Text(_viewModel.get_NewMessageSubheaderTxt());
-				((View)_messageCoverButton).set_ContentDescription(InfectionStatusViewModel.get_INFECTION_STATUS_MESSAGE_HEADER_TEXT() + " " + _viewModel.get_NewMessageSubheaderTxt());
+				_notificationDot.Visibility = ((!_viewModel.ShowNewMessageIcon) ? ViewStates.Gone : ViewStates.Visible);
+				_messageSubHeader.Text = _viewModel.NewMessageSubheaderTxt;
+				_messageCoverButton.ContentDescription = InfectionStatusViewModel.INFECTION_STATUS_MESSAGE_HEADER_TEXT + " " + _viewModel.NewMessageSubheaderTxt;
 			});
 		}
 
@@ -12612,18 +12462,18 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 		{
 			if (!(await _viewModel.IsRunning()))
 			{
-				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.get_OnDialogViewModel(), StartGoogleAPI);
+				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.OnDialogViewModel, StartGoogleAPI);
 			}
 			else
 			{
-				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.get_OffDialogViewModel(), StopGoogleAPI);
+				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.OffDialogViewModel, StopGoogleAPI);
 			}
 			UpdateUI();
 		}
 
 		public override void OnWindowFocusChanged(bool hasFocus)
 		{
-			((Activity)this).OnWindowFocusChanged(hasFocus);
+			base.OnWindowFocusChanged(hasFocus);
 			if (hasFocus)
 			{
 				ShowPermissionsDialogIfTheyHavChangedWhileInIdle();
@@ -12632,17 +12482,12 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		protected override void OnActivityResult(int requestCode, Result resultCode, Intent data)
 		{
-			//IL_0002: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0009: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Invalid comparison between Unknown and I4
-			//IL_000e: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001e: Unknown result type (might be due to invalid IL or missing references)
-			((Activity)this).OnActivityResult(requestCode, resultCode, data);
+			base.OnActivityResult(requestCode, resultCode, data);
 			try
 			{
-				if ((int)resultCode == -1)
+				if (resultCode == Result.Ok)
 				{
-					ExposureNotification.OnActivityResult(requestCode, resultCode, data);
+					Xamarin.ExposureNotifications.ExposureNotification.OnActivityResult(requestCode, resultCode, data);
 				}
 			}
 			finally
@@ -12698,31 +12543,24 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private void MessageLayoutButton_Click(object sender, EventArgs e)
 		{
-			//IL_000c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0016: Expected O, but got Unknown
-			((Context)this).StartActivity(new Intent((Context)(object)this, typeof(MessagesActivity)));
+			((Context)(object)this).StartActivity(new Intent((Context)(object)this, typeof(MessagesActivity)));
 		}
 
 		private async void RegistrationLayoutButton_Click(object sender, EventArgs e)
 		{
 			if (!(await _viewModel.IsRunning()))
 			{
-				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.get_ReportingIllDialogViewModel());
+				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.ReportingIllDialogViewModel);
 				return;
 			}
-			Intent val = new Intent((Context)(object)this, typeof(InformationAndConsentActivity));
-			((Context)this).StartActivity(val);
-		}
-
-		public InfectionStatusActivity()
-			: this()
-		{
+			Intent intent = new Intent((Context)(object)this, typeof(InformationAndConsentActivity));
+			((Context)(object)this).StartActivity(intent);
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Label = "ENDeveloperToolsActivity", Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class ENDeveloperToolsActivity : AppCompatActivity
 	{
 		private ENDeveloperToolsViewModel _viewModel;
@@ -12785,145 +12623,143 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_0013: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001d: Expected O, but got Unknown
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131492921);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131492921);
 			_viewModel = new ENDeveloperToolsViewModel();
 			InitLayout();
 		}
 
 		private void InitLayout()
 		{
-			_buttonBack = ((Activity)this).FindViewById<Button>(2131296448);
-			((View)_buttonBack).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			_buttonBack = base.FindViewById<Button>(2131296448);
+			_buttonBack.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}).Run);
-			_buttonPullKeys = ((Activity)this).FindViewById<Button>(2131296453);
-			((View)_buttonPullKeys).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				((Activity)(object)this).Finish();
+			}).Run;
+			_buttonPullKeys = base.FindViewById<Button>(2131296453);
+			_buttonPullKeys.Click += new StressUtils.SingleClick(delegate
 			{
 				PullKeys();
-			}).Run);
-			_buttonPullKeysAndGetExposureInfo = ((Activity)this).FindViewById<Button>(2131296454);
-			((View)_buttonPullKeysAndGetExposureInfo).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonPullKeysAndGetExposureInfo = base.FindViewById<Button>(2131296454);
+			_buttonPullKeysAndGetExposureInfo.Click += new StressUtils.SingleClick(delegate
 			{
 				PullKeysAndGetExposureInfo();
-			}).Run);
-			_buttonPushKeys = ((Activity)this).FindViewById<Button>(2131296455);
-			((View)_buttonPushKeys).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonPushKeys = base.FindViewById<Button>(2131296455);
+			_buttonPushKeys.Click += new StressUtils.SingleClick(delegate
 			{
 				GetPushKeyInfo();
-			}).Run);
-			_buttonSendExposureMessage = ((Activity)this).FindViewById<Button>(2131296457);
-			((View)_buttonSendExposureMessage).add_Click((EventHandler)new StressUtils.SingleClick(async delegate
+			}).Run;
+			_buttonSendExposureMessage = base.FindViewById<Button>(2131296457);
+			_buttonSendExposureMessage.Click += new StressUtils.SingleClick(async delegate
 			{
 				await SendExposureMessage();
-			}).Run);
-			_buttonSendExposureMessageIncrement = ((Activity)this).FindViewById<Button>(2131296460);
-			((View)_buttonSendExposureMessageIncrement).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonSendExposureMessageIncrement = base.FindViewById<Button>(2131296460);
+			_buttonSendExposureMessageIncrement.Click += new StressUtils.SingleClick(delegate
 			{
 				SendExposureMessageIncrement();
-			}).Run);
-			_buttonSendExposureMessageDecrement = ((Activity)this).FindViewById<Button>(2131296459);
-			((View)_buttonSendExposureMessageDecrement).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonSendExposureMessageDecrement = base.FindViewById<Button>(2131296459);
+			_buttonSendExposureMessageDecrement.Click += new StressUtils.SingleClick(delegate
 			{
 				SendExposureMessageDecrement();
-			}).Run);
-			_buttonSendExposureMessageAfter10Sec = ((Activity)this).FindViewById<Button>(2131296458);
-			((View)_buttonSendExposureMessageAfter10Sec).add_Click((EventHandler)new StressUtils.SingleClick(async delegate
+			}).Run;
+			_buttonSendExposureMessageAfter10Sec = base.FindViewById<Button>(2131296458);
+			_buttonSendExposureMessageAfter10Sec.Click += new StressUtils.SingleClick(async delegate
 			{
 				await SendExposureMessageAfter10Sec();
-			}).Run);
-			_buttonFetchExposureConfiguration = ((Activity)this).FindViewById<Button>(2131296449);
-			((View)_buttonFetchExposureConfiguration).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonFetchExposureConfiguration = base.FindViewById<Button>(2131296449);
+			_buttonFetchExposureConfiguration.Click += new StressUtils.SingleClick(delegate
 			{
 				FetchExposureConfiguration();
-			}).Run);
-			_buttonLastUsedExposureConfiguration = ((Activity)this).FindViewById<Button>(2131296450);
-			((View)_buttonLastUsedExposureConfiguration).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonLastUsedExposureConfiguration = base.FindViewById<Button>(2131296450);
+			_buttonLastUsedExposureConfiguration.Click += new StressUtils.SingleClick(delegate
 			{
 				LastUsedExposureConfiguration();
-			}).Run);
-			_buttonResetLocalData = ((Activity)this).FindViewById<Button>(2131296456);
-			((View)_buttonResetLocalData).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonResetLocalData = base.FindViewById<Button>(2131296456);
+			_buttonResetLocalData.Click += new StressUtils.SingleClick(delegate
 			{
 				ResetLocalData();
-			}).Run);
-			_buttonToggleMessageRetentionLength = ((Activity)this).FindViewById<Button>(2131296464);
-			((View)_buttonToggleMessageRetentionLength).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonToggleMessageRetentionLength = base.FindViewById<Button>(2131296464);
+			_buttonToggleMessageRetentionLength.Click += new StressUtils.SingleClick(delegate
 			{
 				ToggleRetentionTime();
-			}).Run);
-			_buttonPrintLastSymptomOnsetDate = ((Activity)this).FindViewById<Button>(2131296452);
-			((View)_buttonPrintLastSymptomOnsetDate).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonPrintLastSymptomOnsetDate = base.FindViewById<Button>(2131296452);
+			_buttonPrintLastSymptomOnsetDate.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastSymptomsOnsetDate();
-			}).Run);
-			_buttonPrintLastKeysPulledAndTimestamp = ((Activity)this).FindViewById<Button>(2131296451);
-			((View)_buttonPrintLastKeysPulledAndTimestamp).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonPrintLastKeysPulledAndTimestamp = base.FindViewById<Button>(2131296451);
+			_buttonPrintLastKeysPulledAndTimestamp.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastPulledKeysAndTimestamp();
-			}).Run);
-			_buttonShowLastSummary = ((Activity)this).FindViewById<Button>(2131296462);
-			((View)_buttonShowLastSummary).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonShowLastSummary = base.FindViewById<Button>(2131296462);
+			_buttonShowLastSummary.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastSummary();
-			}).Run);
-			_buttonShowLastExposureInfo = ((Activity)this).FindViewById<Button>(2131296461);
-			((View)_buttonShowLastExposureInfo).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonShowLastExposureInfo = base.FindViewById<Button>(2131296461);
+			_buttonShowLastExposureInfo.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastExposureInfo();
-			}).Run);
-			_buttonShowLatestPullKeysTimesAndStatuses = ((Activity)this).FindViewById<Button>(2131296463);
-			((View)_buttonShowLatestPullKeysTimesAndStatuses).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_buttonShowLatestPullKeysTimesAndStatuses = base.FindViewById<Button>(2131296463);
+			_buttonShowLatestPullKeysTimesAndStatuses.Click += new StressUtils.SingleClick(delegate
 			{
 				ShowLatestPullKeysTimesAndStatuses();
-			}).Run);
-			_textViewDevOutput = ((Activity)this).FindViewById<TextView>(2131296468);
-			_buttonNoConsents = ((Activity)this).FindViewById<Button>(2131296632);
-			_buttonOnlyV1Consents = ((Activity)this).FindViewById<Button>(2131296652);
-			_buttonAllConsents = ((Activity)this).FindViewById<Button>(2131296327);
-			((View)_buttonNoConsents).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			_textViewDevOutput = base.FindViewById<TextView>(2131296468);
+			_buttonNoConsents = base.FindViewById<Button>(2131296632);
+			_buttonOnlyV1Consents = base.FindViewById<Button>(2131296652);
+			_buttonAllConsents = base.FindViewById<Button>(2131296327);
+			_buttonNoConsents.Click += new StressUtils.SingleClick(delegate
 			{
-				ChangeConsentsAndRestart((OnboardingStatus)0);
-			}).Run);
-			((View)_buttonOnlyV1Consents).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				ChangeConsentsAndRestart(OnboardingStatus.NoConsentsGiven);
+			}).Run;
+			_buttonOnlyV1Consents.Click += new StressUtils.SingleClick(delegate
 			{
-				ChangeConsentsAndRestart((OnboardingStatus)1);
-			}).Run);
-			((View)_buttonAllConsents).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				ChangeConsentsAndRestart(OnboardingStatus.OnlyMainOnboardingCompleted);
+			}).Run;
+			_buttonAllConsents.Click += new StressUtils.SingleClick(delegate
 			{
-				ChangeConsentsAndRestart((OnboardingStatus)2);
-			}).Run);
-			_buttonPrintActualPreferences = ((Activity)this).FindViewById<Button>(2131296664);
-			((View)_buttonPrintActualPreferences).add_Click((EventHandler)OnPrintActualPreferences().Run);
-			_buttonFakeGateway = ((Activity)this).FindViewById<Button>(2131296484);
-			((View)_buttonFakeGateway).add_Click((EventHandler)OnFakeGateway().Run);
-			_pullWithDelay = ((Activity)this).FindViewById<Button>(2131296674);
-			((View)_pullWithDelay).add_Click((EventHandler)OnPullWithDelay().Run);
-			_buttonNoConsentsNoRestart = ((Activity)this).FindViewById<Button>(2131296633);
-			_buttonOnlyV1ConsentsNoRestart = ((Activity)this).FindViewById<Button>(2131296653);
-			_buttonAllConsentNoRestarts = ((Activity)this).FindViewById<Button>(2131296328);
-			((View)_buttonNoConsentsNoRestart).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				ChangeConsentsAndRestart(OnboardingStatus.CountriesOnboardingCompleted);
+			}).Run;
+			_buttonPrintActualPreferences = base.FindViewById<Button>(2131296664);
+			_buttonPrintActualPreferences.Click += OnPrintActualPreferences().Run;
+			_buttonFakeGateway = base.FindViewById<Button>(2131296484);
+			_buttonFakeGateway.Click += OnFakeGateway().Run;
+			_pullWithDelay = base.FindViewById<Button>(2131296674);
+			_pullWithDelay.Click += OnPullWithDelay().Run;
+			_buttonNoConsentsNoRestart = base.FindViewById<Button>(2131296633);
+			_buttonOnlyV1ConsentsNoRestart = base.FindViewById<Button>(2131296653);
+			_buttonAllConsentNoRestarts = base.FindViewById<Button>(2131296328);
+			_buttonNoConsentsNoRestart.Click += new StressUtils.SingleClick(delegate
 			{
-				OnboardingStatusHelper.set_Status((OnboardingStatus)0);
-			}).Run);
-			((View)_buttonOnlyV1ConsentsNoRestart).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				OnboardingStatusHelper.Status = OnboardingStatus.NoConsentsGiven;
+			}).Run;
+			_buttonOnlyV1ConsentsNoRestart.Click += new StressUtils.SingleClick(delegate
 			{
-				OnboardingStatusHelper.set_Status((OnboardingStatus)1);
-			}).Run);
-			((View)_buttonAllConsentNoRestarts).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				OnboardingStatusHelper.Status = OnboardingStatus.OnlyMainOnboardingCompleted;
+			}).Run;
+			_buttonAllConsentNoRestarts.Click += new StressUtils.SingleClick(delegate
 			{
-				OnboardingStatusHelper.set_Status((OnboardingStatus)2);
-			}).Run);
+				OnboardingStatusHelper.Status = OnboardingStatus.CountriesOnboardingCompleted;
+			}).Run;
 		}
 
 		private StressUtils.SingleClick OnPullWithDelay()
 		{
 			return new StressUtils.SingleClick(delegate
 			{
-				_viewModel.PullWithDelay((Func<Task<bool>>)_viewModel.PullKeysFromServer);
+				_viewModel.PullWithDelay(_viewModel.PullKeysFromServer);
 			});
 		}
 
@@ -12931,36 +12767,29 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 		{
 			return new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).RunOnUiThread((Action)delegate
+				base.RunOnUiThread((System.Action)delegate
 				{
-					//IL_000f: Unknown result type (might be due to invalid IL or missing references)
-					//IL_0019: Expected O, but got Unknown
-					//IL_001a: Unknown result type (might be due to invalid IL or missing references)
-					//IL_0020: Expected O, but got Unknown
-					//IL_003d: Unknown result type (might be due to invalid IL or missing references)
-					//IL_0047: Expected O, but got Unknown
-					//IL_0048: Unknown result type (might be due to invalid IL or missing references)
 					EditText input = new EditText((Context)(object)this);
-					InputFilterLengthFilter val = new InputFilterLengthFilter(2);
-					((TextView)input).SetFilters((IInputFilter[])(object)new IInputFilter[1]
+					InputFilterLengthFilter inputFilterLengthFilter = new InputFilterLengthFilter(2);
+					input.SetFilters(new IInputFilter[1]
 					{
-						(IInputFilter)val
+						inputFilterLengthFilter
 					});
-					((View)input).set_LayoutParameters((LayoutParams)new LayoutParams(-1, -1));
-					new Builder((Context)(object)this).SetMessage("Enter region code (2 chars country code)").SetTitle("Fake Gateway").SetView((View)(object)input)
-						.SetPositiveButton("OK", (EventHandler<DialogClickEventArgs>)async delegate
+					input.LayoutParameters = new LinearLayout.LayoutParams(-1, -1);
+					new AndroidX.AppCompat.App.AlertDialog.Builder((Context)(object)this).SetMessage("Enter region code (2 chars country code)").SetTitle("Fake Gateway").SetView(input)
+						.SetPositiveButton("OK", async delegate
 						{
-							ApiResponse val2 = await _viewModel.FakeGateway(((TextView)input).get_Text());
-							if (val2 != null)
+							ApiResponse apiResponse = await _viewModel.FakeGateway(input.Text);
+							if (apiResponse != null)
 							{
-								UpdateText("Pushed keys to region: " + ((TextView)input).get_Text() + "\n" + $"isSuccessful: {val2.get_IsSuccessfull()}\n" + $"StatusCode: {val2.get_StatusCode()}\n" + "Error Message: " + val2.get_ErrorLogMessage() + "\n\n");
+								UpdateText("Pushed keys to region: " + input.Text + "\n" + $"isSuccessful: {apiResponse.IsSuccessfull}\n" + $"StatusCode: {apiResponse.StatusCode}\n" + "Error Message: " + apiResponse.ErrorLogMessage + "\n\n");
 							}
 							else
 							{
 								UpdateText("Pushing of keys failed with unknown error");
 							}
 						})
-						.SetNegativeButton("Cancel", (EventHandler<DialogClickEventArgs>)delegate
+						.SetNegativeButton("Cancel", delegate
 						{
 						})
 						.Show();
@@ -12978,8 +12807,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 
 		private void ChangeConsentsAndRestart(OnboardingStatus status)
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			OnboardingStatusHelper.set_Status(status);
+			OnboardingStatusHelper.Status = status;
 			NavigationHelper.RestartApp((Activity)(object)this);
 		}
 
@@ -12995,9 +12823,9 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 
 		private void UpdateText(string text)
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				_textViewDevOutput.set_Text(text);
+				_textViewDevOutput.Text = text;
 			});
 		}
 
@@ -13038,9 +12866,9 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			UpdateText("Sending Exposure Message");
 			try
 			{
-				await _viewModel.SimulateExposureMessage(0);
+				await _viewModel.SimulateExposureMessage();
 			}
-			catch (Exception)
+			catch (System.Exception)
 			{
 				UpdateText("Test method: _viewModel.SimulateExposureMessage() failed on android");
 			}
@@ -13053,7 +12881,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			{
 				await _viewModel.SimulateExposureMessageAfter10Sec();
 			}
-			catch (Exception)
+			catch (System.Exception)
 			{
 				UpdateText("Test method: _viewModel.SimulateExposureMessageAfter10Sec() failed on android");
 			}
@@ -13064,7 +12892,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			Task.Run(async delegate
 			{
 				string res = await _viewModel.FetchExposureConfigurationAsync();
-				((Activity)this).RunOnUiThread((Action)delegate
+				base.RunOnUiThread((System.Action)delegate
 				{
 					UpdateText("Copied to clipboard:\n" + res);
 				});
@@ -13074,7 +12902,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 		private void LastUsedExposureConfiguration()
 		{
 			string res = _viewModel.LastUsedExposureConfigurationAsync();
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
 				UpdateText("Copied to clipboard:\n" + res);
 			});
@@ -13101,33 +12929,27 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 		{
 			UpdateText(_viewModel.GetPullHistory());
 		}
-
-		public ENDeveloperToolsActivity()
-			: this()
-		{
-		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.Messages
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ParentActivity = typeof(InfectionStatusActivity), ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class MessagesActivity : AppCompatActivity
 	{
-		private class ItemClickListener : Object, IOnItemClickListener, IJavaObject, IDisposable, IJavaPeerable
+		private class ItemClickListener : Java.Lang.Object, AdapterView.IOnItemClickListener, IJavaObject, IDisposable, IJavaPeerable
 		{
 			private MessagesAdapter _adapterMessages;
 
 			public ItemClickListener(MessagesAdapter adapterMessages)
-				: this()
 			{
 				_adapterMessages = adapterMessages;
 			}
 
 			public async void OnItemClick(AdapterView parent, View view, int position, long id)
 			{
-				await ServiceLocator.get_Current().GetInstance<IBrowser>().OpenAsync(((BaseAdapter<MessageItemViewModel>)_adapterMessages).get_Item(position).get_MessageLink(), (BrowserLaunchMode)0);
-				((BaseAdapter<MessageItemViewModel>)_adapterMessages).get_Item(position).set_IsRead(true);
-				((BaseAdapter)_adapterMessages).NotifyDataSetChanged();
+				await ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(_adapterMessages[position].MessageLink, BrowserLaunchMode.SystemPreferred);
+				_adapterMessages[position].IsRead = true;
+				_adapterMessages.NotifyDataSetChanged();
 			}
 		}
 
@@ -13141,25 +12963,25 @@ namespace NDB.Covid19.Droid.Views.Messages
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(MessagesViewModel.get_MESSAGES_HEADER());
-			((Activity)this).SetContentView(2131492931);
+			base.OnCreate(savedInstanceState);
+			base.Title = MessagesViewModel.MESSAGES_HEADER;
+			((Activity)(object)this).SetContentView(2131492931);
 			Init();
 		}
 
 		protected override void OnDestroy()
 		{
-			MessagesViewModel.UnsubscribeMessages((object)this);
+			MessagesViewModel.UnsubscribeMessages(this);
 			Task.Run(async delegate
 			{
 				await MessagesViewModel.MarkAllMessagesAsRead();
 			});
-			((Activity)this).OnDestroy();
+			base.OnDestroy();
 		}
 
 		protected override async void OnResume()
 		{
-			<>n__0();
+			base.OnResume();
 			await MessageUtils.RemoveAllOlderThan(Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES);
 			CloseLocalNotification();
 			Update();
@@ -13168,49 +12990,44 @@ namespace NDB.Covid19.Droid.Views.Messages
 
 		private void RemoveBadgeCounterOnOlderPlatforms()
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0007: Invalid comparison between Unknown and I4
-			bool flag = (int)VERSION.get_SdkInt() < 26;
-			bool flag2 = ShortcutBadger.IsBadgeCounterSupported(((Context)this).get_ApplicationContext());
+			bool flag = Build.VERSION.SdkInt < BuildVersionCodes.O;
+			bool flag2 = ShortcutBadger.IsBadgeCounterSupported(((Context)(object)this).ApplicationContext);
 			if (flag && flag2)
 			{
-				ShortcutBadger.RemoveCount(((Context)this).get_ApplicationContext());
+				ShortcutBadger.RemoveCount(((Context)(object)this).ApplicationContext);
 			}
 		}
 
 		private void CloseLocalNotification()
 		{
-			NotificationManagerCompat val = NotificationManagerCompat.From((Context)(object)CrossCurrentActivity.get_Current().get_Activity());
-			val.Cancel(616);
+			NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity);
+			notificationManagerCompat.Cancel(616);
 		}
 
 		private void Init()
 		{
 			SetLogoBasedOnAppLanguage();
-			MessagesViewModel.SubscribeMessages((object)this, (Action<List<MessageItemViewModel>>)ClearAndAddNewMessages);
-			((Activity)this).FindViewById<TextView>(2131296598).set_Text(MessagesViewModel.get_MESSAGES_HEADER());
-			((Activity)this).FindViewById<TextView>(2131296589).set_Text(MessagesViewModel.get_LastUpdateString());
-			((Activity)this).FindViewById<TextView>(2131296636).set_Text(MessagesViewModel.get_MESSAGES_NO_ITEMS_TITLE());
-			((Activity)this).FindViewById<TextView>(2131296634).set_Text(MessagesViewModel.get_MESSAGES_NO_ITEMS_DESCRIPTION());
-			_messagesList = ((Activity)this).FindViewById<ListView>(2131296597);
-			_noItemsLayout = ((Activity)this).FindViewById<LinearLayout>(2131296635);
-			_closeButton = ((Activity)this).FindViewById<ViewGroup>(2131296383);
-			((View)_closeButton).add_Click((EventHandler)new StressUtils.SingleClick(OnCloseBtnClicked).Run);
-			((View)_closeButton).set_ContentDescription(MessagesViewModel.get_MESSAGES_ACCESSIBILITY_CLOSE_BUTTON());
-			_adapterMessages = new MessagesAdapter((Activity)(object)this, (MessageItemViewModel[])(object)new MessageItemViewModel[0]);
-			((AdapterView<IListAdapter>)(object)_messagesList).set_Adapter((IListAdapter)(object)_adapterMessages);
-			((AdapterView)_messagesList).set_OnItemClickListener((IOnItemClickListener)(object)new ItemClickListener(_adapterMessages));
+			MessagesViewModel.SubscribeMessages(this, ClearAndAddNewMessages);
+			base.FindViewById<TextView>(2131296598).Text = MessagesViewModel.MESSAGES_HEADER;
+			base.FindViewById<TextView>(2131296589).Text = MessagesViewModel.LastUpdateString;
+			base.FindViewById<TextView>(2131296636).Text = MessagesViewModel.MESSAGES_NO_ITEMS_TITLE;
+			base.FindViewById<TextView>(2131296634).Text = MessagesViewModel.MESSAGES_NO_ITEMS_DESCRIPTION;
+			_messagesList = base.FindViewById<ListView>(2131296597);
+			_noItemsLayout = base.FindViewById<LinearLayout>(2131296635);
+			_closeButton = base.FindViewById<ViewGroup>(2131296383);
+			_closeButton.Click += new StressUtils.SingleClick(OnCloseBtnClicked).Run;
+			_closeButton.ContentDescription = MessagesViewModel.MESSAGES_ACCESSIBILITY_CLOSE_BUTTON;
+			_adapterMessages = new MessagesAdapter((Activity)(object)this, new MessageItemViewModel[0]);
+			_messagesList.Adapter = _adapterMessages;
+			_messagesList.OnItemClickListener = new ItemClickListener(_adapterMessages);
 			ShowList(isShown: false);
 		}
 
 		private void SetLogoBasedOnAppLanguage()
 		{
-			View val = ((Activity)this).FindViewById<View>(2131296591);
+			View view = base.FindViewById<View>(2131296591);
 			string language = LocalesService.GetLanguage();
-			if (val != null)
-			{
-				val.SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165410 : 2131165409);
-			}
+			view?.SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165410 : 2131165409);
 		}
 
 		private async Task HandleBeforeActivityClose()
@@ -13221,13 +13038,13 @@ namespace NDB.Covid19.Droid.Views.Messages
 		public override async void OnBackPressed()
 		{
 			await HandleBeforeActivityClose();
-			<>n__1();
+			base.OnBackPressed();
 		}
 
 		private async void OnCloseBtnClicked(object arg1, EventArgs arg2)
 		{
 			await HandleBeforeActivityClose();
-			((Activity)this).Finish();
+			((Activity)(object)this).Finish();
 		}
 
 		public void ClearAndAddNewMessages(List<MessageItemViewModel> messages)
@@ -13235,7 +13052,7 @@ namespace NDB.Covid19.Droid.Views.Messages
 			_adapterMessages.ClearList();
 			ShowList(messages.Count > 0);
 			_adapterMessages.AddItems(messages);
-			((Activity)this).FindViewById<TextView>(2131296589).set_Text(MessagesViewModel.get_LastUpdateString());
+			base.FindViewById<TextView>(2131296589).Text = MessagesViewModel.LastUpdateString;
 		}
 
 		public async void Update()
@@ -13245,13 +13062,8 @@ namespace NDB.Covid19.Droid.Views.Messages
 
 		private void ShowList(bool isShown)
 		{
-			((View)_messagesList).set_Visibility((ViewStates)((!isShown) ? 4 : 0));
-			((View)_noItemsLayout).set_Visibility((ViewStates)(isShown ? 4 : 0));
-		}
-
-		public MessagesActivity()
-			: this()
-		{
+			_messagesList.Visibility = ((!isShown) ? ViewStates.Invisible : ViewStates.Visible);
+			_noItemsLayout.Visibility = (isShown ? ViewStates.Invisible : ViewStates.Visible);
 		}
 	}
 	internal class MessagesAdapter : BaseAdapter<MessageItemViewModel>
@@ -13267,13 +13079,13 @@ namespace NDB.Covid19.Droid.Views.Messages
 		public MessagesAdapter(Activity context, MessageItemViewModel[] items)
 		{
 			_context = context;
-			_items = Enumerable.ToList<MessageItemViewModel>((IEnumerable<MessageItemViewModel>)items);
+			_items = items.ToList();
 		}
 
 		public void AddItems(List<MessageItemViewModel> messages)
 		{
 			_items.AddRange(messages);
-			((BaseAdapter)this).NotifyDataSetChanged();
+			NotifyDataSetChanged();
 		}
 
 		public override long GetItemId(int position)
@@ -13283,25 +13095,25 @@ namespace NDB.Covid19.Droid.Views.Messages
 
 		public override View GetView(int position, View convertView, ViewGroup parent)
 		{
-			View val = convertView ?? _context.get_LayoutInflater().Inflate(2131492930, (ViewGroup)null);
-			val.FindViewById<TextView>(2131296596).set_Text(_items[position].get_Title());
-			val.FindViewById<TextView>(2131296594).set_Text(_items[position].get_DayAndMonthString());
-			val.FindViewById<TextView>(2131296595).set_Text(MessageItemViewModel.MESSAGES_RECOMMENDATIONS);
-			val.FindViewById<View>(2131296447).set_Visibility((ViewStates)(_items[position].get_IsRead() ? 4 : 0));
-			val.SetBackgroundResource(_items[position].get_IsRead() ? 2131165380 : 2131165381);
-			return val;
+			View view = convertView ?? _context.LayoutInflater.Inflate(2131492930, null);
+			view.FindViewById<TextView>(2131296596).Text = _items[position].Title;
+			view.FindViewById<TextView>(2131296594).Text = _items[position].DayAndMonthString;
+			view.FindViewById<TextView>(2131296595).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
+			view.FindViewById<View>(2131296447).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
+			view.SetBackgroundResource(_items[position].IsRead ? 2131165380 : 2131165381);
+			return view;
 		}
 
 		public void ClearList()
 		{
 			_items.Clear();
-			((BaseAdapter)this).NotifyDataSetChanged();
+			NotifyDataSetChanged();
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class QuestionnaireCountriesSelectionActivity : Activity
 	{
 		private readonly QuestionnaireCountriesViewModel _viewModel = new QuestionnaireCountriesViewModel();
@@ -13324,56 +13136,56 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(QuestionnaireCountriesViewModel.get_COUNTRY_QUESTIONAIRE_HEADER_TEXT());
+			base.OnCreate(savedInstanceState);
+			base.Title = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_HEADER_TEXT;
 			InitView();
 		}
 
 		private async void InitView()
 		{
-			((Activity)this).SetContentView(2131492977);
-			_title = ((Activity)this).FindViewById<TextView>(2131296419);
-			_subtitle = ((Activity)this).FindViewById<TextView>(2131296418);
-			_footer = ((Activity)this).FindViewById<TextView>(2131296676);
-			_nextButton = ((Activity)this).FindViewById<Button>(2131296414);
-			_recyclerView = ((Activity)this).FindViewById<RecyclerView>(2131296417);
-			_progressBar = ((Activity)this).FindViewById<ProgressBar>(2131296665);
-			_closeButton = ((Activity)this).FindViewById<Button>(2131296383);
-			((View)_closeButton).set_ContentDescription(InformationAndConsentViewModel.get_CLOSE_BUTTON_ACCESSIBILITY_LABEL());
-			((Activity)this).RunOnUiThread((Action)delegate
+			SetContentView(2131492977);
+			_title = FindViewById<TextView>(2131296419);
+			_subtitle = FindViewById<TextView>(2131296418);
+			_footer = FindViewById<TextView>(2131296676);
+			_nextButton = FindViewById<Button>(2131296414);
+			_recyclerView = FindViewById<RecyclerView>(2131296417);
+			_progressBar = FindViewById<ProgressBar>(2131296665);
+			_closeButton = FindViewById<Button>(2131296383);
+			_closeButton.ContentDescription = InformationAndConsentViewModel.CLOSE_BUTTON_ACCESSIBILITY_LABEL;
+			RunOnUiThread(delegate
 			{
 				ShowSpinner(show: true);
 			});
 			List<CountryDetailsViewModel> countries = _countries;
 			countries.AddRange((await _viewModel.GetListOfCountriesAsync()) ?? new List<CountryDetailsViewModel>());
-			if (!Enumerable.Any<CountryDetailsViewModel>((IEnumerable<CountryDetailsViewModel>)_countries))
+			if (!_countries.Any())
 			{
-				((Activity)this).RunOnUiThread((Action)delegate
+				RunOnUiThread(delegate
 				{
 					ShowSpinner(show: false);
 				});
 				OnServerError();
 				return;
 			}
-			((Activity)this).RunOnUiThread((Action)delegate
+			RunOnUiThread(delegate
 			{
 				ShowSpinner(show: false);
 			});
-			((View)_closeButton).add_Click((EventHandler)new StressUtils.SingleClick(OnExitClick).Run);
-			((View)_nextButton).add_Click((EventHandler)new StressUtils.SingleClick(OnNextButtonClick).Run);
-			_title.set_Text(QuestionnaireCountriesViewModel.get_COUNTRY_QUESTIONAIRE_HEADER_TEXT());
-			_subtitle.set_Text(QuestionnaireCountriesViewModel.get_COUNTRY_QUESTIONAIRE_INFORMATION_TEXT());
-			_footer.set_Text(QuestionnaireCountriesViewModel.get_COUNTRY_QUESTIONAIRE_FOOTER());
-			((TextView)_nextButton).set_Text(QuestionnaireCountriesViewModel.get_COUNTRY_QUESTIONAIRE_BUTTON_TEXT());
+			_closeButton.Click += new StressUtils.SingleClick(OnExitClick).Run;
+			_nextButton.Click += new StressUtils.SingleClick(OnNextButtonClick).Run;
+			_title.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_HEADER_TEXT;
+			_subtitle.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_INFORMATION_TEXT;
+			_footer.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_FOOTER;
+			_nextButton.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_BUTTON_TEXT;
 			QuestionnaireCountriesSelectionAdapter adapter = new QuestionnaireCountriesSelectionAdapter(_countries);
-			LinearLayoutManager layoutManager = new LinearLayoutManager((Context)(object)this);
-			_recyclerView.SetLayoutManager((LayoutManager)(object)layoutManager);
-			_recyclerView.SetAdapter((Adapter)(object)adapter);
+			LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+			_recyclerView.SetLayoutManager(layoutManager);
+			_recyclerView.SetAdapter(adapter);
 		}
 
 		private async void OnExitClick(object sender, EventArgs args)
 		{
-			if (await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.get_CloseDialogViewModel()))
+			if (await DialogUtils.DisplayDialogAsync(this, _viewModel.CloseDialogViewModel))
 			{
 				GoToInfectionStatusPage();
 			}
@@ -13381,24 +13193,22 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void GoToInfectionStatusPage()
 		{
-			NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
+			NavigationHelper.GoToResultPageAndClearTop(this);
 		}
 
 		private void GoToLoadingPage()
 		{
-			//IL_000c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0016: Expected O, but got Unknown
-			((Context)this).StartActivity(new Intent((Context)(object)this, typeof(LoadingPageActivity)));
+			StartActivity(new Intent(this, typeof(LoadingPageActivity)));
 		}
 
 		private void OnNextButtonClick(object sender, EventArgs args)
 		{
-			_viewModel.InvokeNextButtonClick((Action)GoToLoadingPage, (Action)OnFail, _countries);
+			_viewModel.InvokeNextButtonClick(GoToLoadingPage, OnFail, _countries);
 		}
 
 		private void OnServerError()
 		{
-			LogUtils.LogMessage((LogSeverity)2, "QuestionnaireCountriesSelectionActivity.OnServerError: Skipping language selection because countries failed to be fetched. (Android)", "");
+			LogUtils.LogMessage(LogSeverity.ERROR, "QuestionnaireCountriesSelectionActivity.OnServerError: Skipping language selection because countries failed to be fetched. (Android)");
 			_countries = new List<CountryDetailsViewModel>();
 			ShowSpinner(show: false);
 			OnNextButtonClick(null, null);
@@ -13407,35 +13217,28 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		private void OnFail()
 		{
 			ShowSpinner(show: false);
-			AuthErrorUtils.GoToTechnicalError((Activity)(object)this, (LogSeverity)2, null, "QuestionnaireCountriesSelectionActivity.OnFail: AuthenticationState.personaldata was garbage collected (Android)");
+			AuthErrorUtils.GoToTechnicalError(this, LogSeverity.ERROR, null, "QuestionnaireCountriesSelectionActivity.OnFail: AuthenticationState.personaldata was garbage collected (Android)");
 		}
 
 		private void ShowSpinner(bool show)
 		{
 			if (show)
 			{
-				((View)_nextButton).set_Enabled(false);
-				((View)_nextButton).set_Visibility((ViewStates)4);
-				((View)_progressBar).set_Visibility((ViewStates)0);
-				((View)_recyclerView).set_Visibility((ViewStates)4);
+				_nextButton.Enabled = false;
+				_nextButton.Visibility = ViewStates.Invisible;
+				_progressBar.Visibility = ViewStates.Visible;
+				_recyclerView.Visibility = ViewStates.Invisible;
 			}
 			else
 			{
-				((View)_nextButton).set_Enabled(true);
-				((View)_nextButton).set_Visibility((ViewStates)0);
-				((View)_progressBar).set_Visibility((ViewStates)8);
-				((View)_recyclerView).set_Visibility((ViewStates)0);
+				_nextButton.Enabled = true;
+				_nextButton.Visibility = ViewStates.Visible;
+				_progressBar.Visibility = ViewStates.Gone;
+				_recyclerView.Visibility = ViewStates.Visible;
 			}
 		}
-
-		public QuestionnaireCountriesSelectionActivity()
-			: this()
-		{
-		}//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-		//IL_000b: Expected O, but got Unknown
-
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	public class InformationAndConsentActivity : AppCompatActivity
 	{
 		private ViewGroup _closeButton;
@@ -13460,84 +13263,74 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			//IL_003c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0046: Expected O, but got Unknown
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(InformationAndConsentViewModel.get_INFORMATION_CONSENT_HEADER_TEXT());
-			((Activity)this).SetContentView(2131492925);
-			CustomTabsConfiguration.set_CustomTabsClosingMessage((string)null);
-			_viewModel = new InformationAndConsentViewModel((EventHandler)OnAuthSuccess, (EventHandler<AuthErrorType>)OnAuthError);
+			base.OnCreate(savedInstanceState);
+			base.Title = InformationAndConsentViewModel.INFORMATION_CONSENT_HEADER_TEXT;
+			((Activity)(object)this).SetContentView(2131492925);
+			CustomTabsConfiguration.CustomTabsClosingMessage = null;
+			_viewModel = new InformationAndConsentViewModel(OnAuthSuccess, OnAuthError);
 			_viewModel.Init();
 			InitLayout();
 		}
 
 		private void OnAuthError(object sender, AuthErrorType e)
 		{
-			//IL_0001: Unknown result type (might be due to invalid IL or missing references)
 			GoToErrorPage(e);
 		}
 
 		private void OnAuthSuccess(object sender, EventArgs e)
 		{
-			LogUtils.LogMessage((LogSeverity)0, "Successfully authenticated and verified user. Navigation to QuestionnairePageActivity", "");
+			LogUtils.LogMessage(LogSeverity.INFO, "Successfully authenticated and verified user. Navigation to QuestionnairePageActivity");
 			GoToQuestionnairePage();
 		}
 
 		private void InitLayout()
 		{
-			_closeButton = ((Activity)this).FindViewById<ViewGroup>(2131296383);
-			_nemIdButton = ((Activity)this).FindViewById<Button>(2131296559);
-			_header = ((Activity)this).FindViewById<TextView>(2131296558);
-			_contentText = ((Activity)this).FindViewById<TextView>(2131296556);
-			_subtitleText = ((Activity)this).FindViewById<TextView>(2131296563);
-			_bodyOneText = ((Activity)this).FindViewById<TextView>(2131296553);
-			_bodyTwoText = ((Activity)this).FindViewById<TextView>(2131296555);
-			_contentTwoText = ((Activity)this).FindViewById<TextView>(2131296557);
-			((TextView)_nemIdButton).set_Text(InformationAndConsentViewModel.get_INFORMATION_CONSENT_NEMID_BUTTON_TEXT());
-			_header.set_Text(InformationAndConsentViewModel.get_INFORMATION_CONSENT_HEADER_TEXT());
-			_contentText.set_TextFormatted((ICharSequence)(object)HtmlCompat.FromHtml(InformationAndConsentViewModel.get_INFORMATION_CONSENT_CONTENT_TEXT() ?? "", 0));
-			_subtitleText.set_Text(InformationAndConsentViewModel.get_INFOCONSENT_TITLE());
-			_bodyOneText.set_Text(InformationAndConsentViewModel.get_INFOCONSENT_BODY_ONE());
-			_bodyTwoText.set_Text(InformationAndConsentViewModel.get_INFOCONSENT_BODY_TWO());
-			_contentTwoText.set_Text(InformationAndConsentViewModel.get_INFOCONSENT_DESCRIPTION_ONE());
-			((View)_closeButton).set_ContentDescription(InformationAndConsentViewModel.get_CLOSE_BUTTON_ACCESSIBILITY_LABEL());
-			((View)_closeButton).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			_closeButton = base.FindViewById<ViewGroup>(2131296383);
+			_nemIdButton = base.FindViewById<Button>(2131296559);
+			_header = base.FindViewById<TextView>(2131296558);
+			_contentText = base.FindViewById<TextView>(2131296556);
+			_subtitleText = base.FindViewById<TextView>(2131296563);
+			_bodyOneText = base.FindViewById<TextView>(2131296553);
+			_bodyTwoText = base.FindViewById<TextView>(2131296555);
+			_contentTwoText = base.FindViewById<TextView>(2131296557);
+			_nemIdButton.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_NEMID_BUTTON_TEXT;
+			_header.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_HEADER_TEXT;
+			_contentText.TextFormatted = HtmlCompat.FromHtml(InformationAndConsentViewModel.INFORMATION_CONSENT_CONTENT_TEXT ?? "", 0);
+			_subtitleText.Text = InformationAndConsentViewModel.INFOCONSENT_TITLE;
+			_bodyOneText.Text = InformationAndConsentViewModel.INFOCONSENT_BODY_ONE;
+			_bodyTwoText.Text = InformationAndConsentViewModel.INFOCONSENT_BODY_TWO;
+			_contentTwoText.Text = InformationAndConsentViewModel.INFOCONSENT_DESCRIPTION_ONE;
+			_closeButton.ContentDescription = InformationAndConsentViewModel.CLOSE_BUTTON_ACCESSIBILITY_LABEL;
+			_closeButton.Click += new StressUtils.SingleClick(delegate
 			{
-				((Activity)this).Finish();
-			}, 500).Run);
-			((View)_nemIdButton).add_Click((EventHandler)new StressUtils.SingleClick(NemIdButton_Click, 500).Run);
-			_progressBar = ((Activity)this).FindViewById<ProgressBar>(2131296560);
+				((Activity)(object)this).Finish();
+			}, 500).Run;
+			_nemIdButton.Click += new StressUtils.SingleClick(NemIdButton_Click, 500).Run;
+			_progressBar = base.FindViewById<ProgressBar>(2131296560);
 		}
 
 		private async void NemIdButton_Click(object sender, EventArgs e)
 		{
-			LogUtils.LogMessage((LogSeverity)0, "Startet login with nemid", "");
-			Intent uI = ((Authenticator)AuthenticationState.Authenticator).GetUI((Context)(object)this);
-			((Context)this).StartActivity(uI);
+			LogUtils.LogMessage(LogSeverity.INFO, "Startet login with nemid");
+			Intent uI = AuthenticationState.Authenticator.GetUI((Context)(object)this);
+			((Context)(object)this).StartActivity(uI);
 		}
 
 		private void GoToErrorPage(AuthErrorType error)
 		{
-			//IL_0007: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0008: Unknown result type (might be due to invalid IL or missing references)
 			_viewModel.Cleanup();
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0006: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0007: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0019: Expected I4, but got Unknown
-				AuthErrorType val = error;
-				switch ((int)val)
+				switch (error)
 				{
-				case 1:
-					AuthErrorUtils.GoToManyTriesError((Activity)(object)this, (LogSeverity)1, null, "Max number of tries was exceeded");
+				case AuthErrorType.MaxTriesExceeded:
+					AuthErrorUtils.GoToManyTriesError((Activity)(object)this, LogSeverity.WARNING, null, "Max number of tries was exceeded");
 					break;
-				case 2:
-					AuthErrorUtils.GoToNotInfectedError((Activity)(object)this, (LogSeverity)1, null, "User is not infected");
+				case AuthErrorType.NotInfected:
+					AuthErrorUtils.GoToNotInfectedError((Activity)(object)this, LogSeverity.WARNING, null, "User is not infected");
 					break;
-				case 0:
-					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, (LogSeverity)1, null, "User sees Technical error page after NemID login: Unknown auth error or user press backbtn");
+				case AuthErrorType.Unknown:
+					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.WARNING, null, "User sees Technical error page after NemID login: Unknown auth error or user press backbtn");
 					break;
 				}
 			});
@@ -13546,12 +13339,10 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		private void GoToQuestionnairePage()
 		{
 			_viewModel.Cleanup();
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0011: Expected O, but got Unknown
-				Intent val = new Intent((Context)(object)this, typeof(QuestionnairePageActivity));
-				((Context)this).StartActivity(val);
+				Intent intent = new Intent((Context)(object)this, typeof(QuestionnairePageActivity));
+				((Context)(object)this).StartActivity(intent);
 			});
 		}
 
@@ -13559,39 +13350,34 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		{
 			if (show)
 			{
-				((View)_nemIdButton).set_Enabled(false);
-				((View)_nemIdButton).set_Visibility((ViewStates)4);
-				((View)_progressBar).set_Visibility((ViewStates)0);
+				_nemIdButton.Enabled = false;
+				_nemIdButton.Visibility = ViewStates.Invisible;
+				_progressBar.Visibility = ViewStates.Visible;
 			}
 			else
 			{
-				((View)_nemIdButton).set_Enabled(true);
-				((View)_nemIdButton).set_Visibility((ViewStates)0);
-				((View)_progressBar).set_Visibility((ViewStates)8);
+				_nemIdButton.Enabled = true;
+				_nemIdButton.Visibility = ViewStates.Visible;
+				_progressBar.Visibility = ViewStates.Gone;
 			}
 		}
-
-		public InformationAndConsentActivity()
-			: this()
-		{
-		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class LoadingPageActivity : AppCompatActivity
 	{
 		private bool _isRunning;
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE());
-			((Activity)this).SetContentView(2131492928);
-			((View)((Activity)this).FindViewById<ProgressBar>(2131296665)).set_Visibility((ViewStates)0);
+			base.OnCreate(savedInstanceState);
+			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE;
+			((Activity)(object)this).SetContentView(2131492928);
+			base.FindViewById<ProgressBar>(2131296665).Visibility = ViewStates.Visible;
 		}
 
 		protected override void OnResume()
 		{
-			((Activity)this).OnResume();
+			base.OnResume();
 			if (!_isRunning)
 			{
 				StartPushActivity();
@@ -13603,13 +13389,13 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		{
 			try
 			{
-				await ExposureNotification.SubmitSelfDiagnosisAsync();
-				LogUtils.LogMessage((LogSeverity)0, "Successfully pushed keys to server", "");
+				await Xamarin.ExposureNotifications.ExposureNotification.SubmitSelfDiagnosisAsync();
+				LogUtils.LogMessage(LogSeverity.INFO, "Successfully pushed keys to server");
 				OnActivityFinished();
 			}
-			catch (Exception e)
+			catch (System.Exception e)
 			{
-				if (!((Activity)this).get_IsFinishing())
+				if (!((Activity)(object)this).IsFinishing)
 				{
 					OnError(e);
 				}
@@ -13618,98 +13404,86 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		protected override void OnActivityResult(int requestCode, [GeneratedEnum] Result resultCode, Intent data)
 		{
-			//IL_0002: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000a: Unknown result type (might be due to invalid IL or missing references)
-			((Activity)this).OnActivityResult(requestCode, resultCode, data);
-			ExposureNotification.OnActivityResult(requestCode, resultCode, data);
+			base.OnActivityResult(requestCode, resultCode, data);
+			Xamarin.ExposureNotifications.ExposureNotification.OnActivityResult(requestCode, resultCode, data);
 		}
 
 		private void OnActivityFinished()
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				//IL_000c: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0016: Expected O, but got Unknown
-				((Context)this).StartActivity(new Intent((Context)(object)this, typeof(RegisteredActivity)));
+				((Context)(object)this).StartActivity(new Intent((Context)(object)this, typeof(RegisteredActivity)));
 			});
 		}
 
-		private void OnError(Exception e)
+		private void OnError(System.Exception e)
 		{
-			((Activity)this).RunOnUiThread((Action)delegate
+			base.RunOnUiThread((System.Action)delegate
 			{
-				AuthErrorUtils.GoToTechnicalError((Activity)(object)this, (LogSeverity)2, e, "Pushing keys failed");
+				AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, e, "Pushing keys failed");
 			});
 		}
 
 		public override void OnBackPressed()
 		{
 		}
-
-		public LoadingPageActivity()
-			: this()
-		{
-		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class RegisteredActivity : AppCompatActivity
 	{
 		private Button _closeButton;
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_HEADER());
-			((Activity)this).SetContentView(2131492980);
+			base.OnCreate(savedInstanceState);
+			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_HEADER;
+			((Activity)(object)this).SetContentView(2131492980);
 			Init();
 		}
 
 		private void Init()
 		{
-			_closeButton = ((Activity)this).FindViewById<Button>(2131296383);
-			((View)_closeButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT());
-			((View)_closeButton).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			_closeButton = base.FindViewById<Button>(2131296383);
+			_closeButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT;
+			_closeButton.Click += new StressUtils.SingleClick(delegate
 			{
 				GoToInfectionStatusActivity();
-			}).Run);
-			TextView val = ((Activity)this).FindViewById<TextView>(2131296692);
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296691);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296690);
-			TextView val4 = ((Activity)this).FindViewById<TextView>(2131296684);
-			TextView val5 = ((Activity)this).FindViewById<TextView>(2131296686);
+			}).Run;
+			TextView textView = base.FindViewById<TextView>(2131296692);
+			TextView textView2 = base.FindViewById<TextView>(2131296691);
+			TextView textView3 = base.FindViewById<TextView>(2131296690);
+			TextView textView4 = base.FindViewById<TextView>(2131296684);
+			TextView textView5 = base.FindViewById<TextView>(2131296686);
 			SetLogoBasedOnAppLanguage();
-			val.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_HEADER());
-			val2.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_TEXT());
-			val3.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION());
-			val4.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER());
-			val5.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE());
-			((View)val).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_HEADER());
-			((View)val2).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_TEXT());
-			((View)val3).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION());
-			((View)val4).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER());
-			((View)val5).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE());
-			Button val6 = ((Activity)this).FindViewById<Button>(2131296688);
-			((TextView)val6).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_DISMISS());
-			((View)val6).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_DISMISS());
-			((View)val6).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_HEADER;
+			textView2.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_TEXT;
+			textView3.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION;
+			textView4.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER;
+			textView5.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
+			textView.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_HEADER;
+			textView2.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_TEXT;
+			textView3.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION;
+			textView4.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER;
+			textView5.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
+			Button button = base.FindViewById<Button>(2131296688);
+			button.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
+			button.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
 				GoToInfectionStatusActivity();
-			}).Run);
-			((View)((Activity)this).FindViewById<RelativeLayout>(2131296687)).add_Click((EventHandler)async delegate
+			}).Run;
+			base.FindViewById<RelativeLayout>(2131296687).Click += async delegate
 			{
-				await ServiceLocator.get_Current().GetInstance<IBrowser>().OpenAsync(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_RECEIPT_LINK(), (BrowserLaunchMode)0);
-			});
-			LogUtils.LogMessage((LogSeverity)0, "User has succesfully shared their keys", "");
+				await ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_LINK, BrowserLaunchMode.SystemPreferred);
+			};
+			LogUtils.LogMessage(LogSeverity.INFO, "User has succesfully shared their keys");
 		}
 
 		private void SetLogoBasedOnAppLanguage()
 		{
-			ImageView val = ((Activity)this).FindViewById<ImageView>(2131296685);
+			ImageView imageView = base.FindViewById<ImageView>(2131296685);
 			string language = LocalesService.GetLanguage();
-			if (val != null)
-			{
-				((View)val).SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165378 : 2131165377);
-			}
+			imageView?.SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165378 : 2131165377);
 		}
 
 		public override void OnBackPressed()
@@ -13721,16 +13495,11 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		{
 			NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
 		}
-
-		public RegisteredActivity()
-			: this()
-		{
-		}
 	}
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class QuestionnairePageActivity : AppCompatActivity
 	{
-		private class CustomRadioOnClickListener : Object, IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
+		private class CustomRadioOnClickListener : Java.Lang.Object, View.IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
 		{
 			private readonly Action<RadioButton> _action;
 
@@ -13739,7 +13508,6 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			private readonly int _radioButtonToCheck;
 
 			public CustomRadioOnClickListener(List<RadioButton> radioButtons, int radioButtonToCheck, Action<RadioButton> onCheckChange)
-				: this()
 			{
 				_action = onCheckChange;
 				_radioButtonList = radioButtons;
@@ -13748,10 +13516,10 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 			public void OnClick(View v)
 			{
-				((CompoundButton)_radioButtonList[_radioButtonToCheck]).set_Checked(true);
-				ForEachExtension.ForEach<RadioButton>(Enumerable.Where<RadioButton>((IEnumerable<RadioButton>)_radioButtonList, (Func<RadioButton, int, bool>)((RadioButton button, int i) => i != _radioButtonToCheck)), (Action<RadioButton>)delegate(RadioButton button)
+				_radioButtonList[_radioButtonToCheck].Checked = true;
+				_radioButtonList.Where((RadioButton button, int i) => i != _radioButtonToCheck).ForEach(delegate(RadioButton button)
 				{
-					((CompoundButton)button).set_Checked(false);
+					button.Checked = false;
 				});
 				_action?.Invoke(_radioButtonList[_radioButtonToCheck]);
 			}
@@ -13779,63 +13547,59 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private QuestionnaireViewModel _questionnaireViewModel;
 
-		private ISpanned GetFormattedText => HtmlCompat.FromHtml(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES() + " <input type=\"date\">" + ((View)_datePickerTextView).get_ContentDescription() + "</input>", 0);
+		private ISpanned GetFormattedText => HtmlCompat.FromHtml(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES + " <input type=\"date\">" + _datePickerTextView.ContentDescription + "</input>", 0);
 
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).set_Title(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_HEADER());
-			((Activity)this).SetContentView(2131492978);
+			base.OnCreate(savedInstanceState);
+			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
+			((Activity)(object)this).SetContentView(2131492978);
 			Init();
 		}
 
 		private void Init()
 		{
-			//IL_0001: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000b: Expected O, but got Unknown
 			_questionnaireViewModel = new QuestionnaireViewModel();
-			TextView val = ((Activity)this).FindViewById<TextView>(2131296679);
-			val.set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_HEADER());
-			((View)val).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_HEADER());
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296678);
-			ISpanned val3 = HtmlCompat.FromHtml(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT(), 0);
-			val2.set_TextFormatted((ICharSequence)(object)val3);
-			((View)val2).set_ContentDescriptionFormatted((ICharSequence)(object)val3);
-			_questionnaireButton = ((Activity)this).FindViewById<Button>(2131296675);
-			((TextView)_questionnaireButton).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_NEXT());
-			((View)_questionnaireButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_NEXT());
-			((View)_questionnaireButton).add_Click((EventHandler)OnNextButtonClick);
-			_infoButton = ((Activity)this).FindViewById<ImageButton>(2131296677);
-			((View)_infoButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON());
-			((View)_infoButton).add_Click((EventHandler)OnInfoButtonPressed);
-			_closeButton = ((Activity)this).FindViewById<Button>(2131296383);
-			((View)_closeButton).set_ContentDescription(SettingsViewModel.get_SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON());
-			((View)_closeButton).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			TextView textView = base.FindViewById<TextView>(2131296679);
+			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
+			textView.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
+			TextView textView2 = base.FindViewById<TextView>(2131296678);
+			ISpanned spanned = (ISpanned)(textView2.ContentDescriptionFormatted = (textView2.TextFormatted = HtmlCompat.FromHtml(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT, 0)));
+			_questionnaireButton = base.FindViewById<Button>(2131296675);
+			_questionnaireButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
+			_questionnaireButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
+			_questionnaireButton.Click += OnNextButtonClick;
+			_infoButton = base.FindViewById<ImageButton>(2131296677);
+			_infoButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON;
+			_infoButton.Click += OnInfoButtonPressed;
+			_closeButton = base.FindViewById<Button>(2131296383);
+			_closeButton.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
+			_closeButton.Click += new StressUtils.SingleClick(delegate
 			{
 				ShowAreYouSureToExitDialog();
-			}).Run);
-			LogUtils.LogMessage((LogSeverity)0, "The user is seeing the Questionnaire page", "");
+			}).Run;
+			LogUtils.LogMessage(LogSeverity.INFO, "The user is seeing the Questionnaire page");
 			PrepareRadioButtons();
 		}
 
 		private void PrepareRadioButtons()
 		{
-			_firstRadioButton = ((Activity)this).FindViewById<RadioButton>(2131296490);
-			_secondRadioButton = ((Activity)this).FindViewById<RadioButton>(2131296720);
-			_thirdRadioButton = ((Activity)this).FindViewById<RadioButton>(2131296822);
-			_fourthRadioButton = ((Activity)this).FindViewById<RadioButton>(2131296499);
-			((CompoundButton)_fourthRadioButton).set_Checked(true);
-			_datePickerTextView = ((Activity)this).FindViewById<TextView>(2131296431);
-			_datePickerTextView.set_Text(QuestionnaireViewModel.get_DateLabel());
-			((View)_datePickerTextView).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT());
-			((TextView)_firstRadioButton).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES());
-			((TextView)_secondRadioButton).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT());
-			((TextView)_thirdRadioButton).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO());
-			((TextView)_fourthRadioButton).set_Text(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP());
-			((View)_firstRadioButton).set_ContentDescriptionFormatted((ICharSequence)(object)GetFormattedText);
-			((View)_secondRadioButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT());
-			((View)_thirdRadioButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO());
-			((View)_fourthRadioButton).set_ContentDescription(QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP());
+			_firstRadioButton = base.FindViewById<RadioButton>(2131296490);
+			_secondRadioButton = base.FindViewById<RadioButton>(2131296720);
+			_thirdRadioButton = base.FindViewById<RadioButton>(2131296822);
+			_fourthRadioButton = base.FindViewById<RadioButton>(2131296499);
+			_fourthRadioButton.Checked = true;
+			_datePickerTextView = base.FindViewById<TextView>(2131296431);
+			_datePickerTextView.Text = QuestionnaireViewModel.DateLabel;
+			_datePickerTextView.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT;
+			_firstRadioButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES;
+			_secondRadioButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT;
+			_thirdRadioButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO;
+			_fourthRadioButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP;
+			_firstRadioButton.ContentDescriptionFormatted = GetFormattedText;
+			_secondRadioButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT;
+			_thirdRadioButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO;
+			_fourthRadioButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP;
 			List<RadioButton> radioButtons = new List<RadioButton>
 			{
 				_firstRadioButton,
@@ -13843,19 +13607,19 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 				_thirdRadioButton,
 				_fourthRadioButton
 			};
-			ForEachExtension.ForEach<RadioButton>((IEnumerable<RadioButton>)radioButtons, (Action<RadioButton, int>)delegate(RadioButton button, int i)
+			radioButtons.ForEach(delegate(RadioButton button, int i)
 			{
-				((View)button).SetOnClickListener((IOnClickListener)(object)new CustomRadioOnClickListener(radioButtons, i, OnCheckChange));
+				button.SetOnClickListener(new CustomRadioOnClickListener(radioButtons, i, OnCheckChange));
 			});
-			((View)_datePickerTextView).SetOnClickListener((IOnClickListener)(object)new CustomRadioOnClickListener(radioButtons, 0, OnDateEditTextClick));
+			_datePickerTextView.SetOnClickListener(new CustomRadioOnClickListener(radioButtons, 0, OnDateEditTextClick));
 		}
 
 		private void OnCheckChange(RadioButton radioButton)
 		{
-			switch (((View)radioButton).get_Id())
+			switch (radioButton.Id)
 			{
 			case 2131296490:
-				_questionnaireViewModel.SetSelection((QuestionaireSelection)0);
+				_questionnaireViewModel.SetSelection(QuestionaireSelection.YesSince);
 				if (!_isChangedFromDatePicker)
 				{
 					ShowDatePickerDialog();
@@ -13866,21 +13630,21 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 				}
 				break;
 			case 2131296720:
-				_questionnaireViewModel.SetSelection((QuestionaireSelection)1);
+				_questionnaireViewModel.SetSelection(QuestionaireSelection.YesBut);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
 				}
 				break;
 			case 2131296822:
-				_questionnaireViewModel.SetSelection((QuestionaireSelection)2);
+				_questionnaireViewModel.SetSelection(QuestionaireSelection.No);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
 				}
 				break;
 			case 2131296499:
-				_questionnaireViewModel.SetSelection((QuestionaireSelection)3);
+				_questionnaireViewModel.SetSelection(QuestionaireSelection.Skip);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
@@ -13898,23 +13662,21 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void ShowDatePickerDialog()
 		{
-			//IL_0081: Unknown result type (might be due to invalid IL or missing references)
-			//IL_008b: Expected O, but got Unknown
 			DateTime localSelectedDate = QuestionnaireViewModel.GetLocalSelectedDate();
-			int num = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Day : DateTime.Now.Day);
-			int num2 = (QuestionnaireViewModel.DateHasBeenSet ? (localSelectedDate.Month - 1) : (DateTime.Now.Month - 1));
-			int num3 = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Year : DateTime.Now.Year);
-			_datePicker = new DatePickerDialog((Context)(object)CrossCurrentActivity.get_Current().get_Activity(), (EventHandler<DateSetEventArgs>)delegate(object sender, DateSetEventArgs args)
+			int dayOfMonth = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Day : DateTime.Now.Day);
+			int monthOfYear = (QuestionnaireViewModel.DateHasBeenSet ? (localSelectedDate.Month - 1) : (DateTime.Now.Month - 1));
+			int year = (QuestionnaireViewModel.DateHasBeenSet ? localSelectedDate.Year : DateTime.Now.Year);
+			_datePicker = new DatePickerDialog(CrossCurrentActivity.Current.Activity, delegate(object sender, DatePickerDialog.DateSetEventArgs args)
 			{
-				_questionnaireViewModel.SetSelectedDateUTC(args.get_Date().ToUniversalTime());
-				((CompoundButton)_firstRadioButton).set_Checked(true);
-				((View)_firstRadioButton).set_ContentDescriptionFormatted((ICharSequence)(object)GetFormattedText);
-				_datePickerTextView.set_Text(QuestionnaireViewModel.get_DateLabel());
-				_datePickerTextView.set_Ellipsize(TruncateAt.get_End());
-			}, num3, num2, num);
-			_datePicker.get_DatePicker().set_MinDate(DateTimeToAndroidDatePickerLong(_questionnaireViewModel.get_MinimumDate().ToLocalTime()));
-			_datePicker.get_DatePicker().set_MaxDate(DateTimeToAndroidDatePickerLong(DateTime.Now));
-			((Dialog)_datePicker).Show();
+				_questionnaireViewModel.SetSelectedDateUTC(args.Date.ToUniversalTime());
+				_firstRadioButton.Checked = true;
+				_firstRadioButton.ContentDescriptionFormatted = GetFormattedText;
+				_datePickerTextView.Text = QuestionnaireViewModel.DateLabel;
+				_datePickerTextView.Ellipsize = TextUtils.TruncateAt.End;
+			}, year, monthOfYear, dayOfMonth);
+			_datePicker.DatePicker.MinDate = DateTimeToAndroidDatePickerLong(_questionnaireViewModel.MinimumDate.ToLocalTime());
+			_datePicker.DatePicker.MaxDate = DateTimeToAndroidDatePickerLong(DateTime.Now);
+			_datePicker.Show();
 		}
 
 		private long DateTimeToAndroidDatePickerLong(DateTime dateTime)
@@ -13929,7 +13691,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private async void ShowAreYouSureToExitDialog()
 		{
-			if (await DialogUtils.DisplayDialogAsync((Activity)(object)this, ErrorViewModel.get_REGISTER_LEAVE_HEADER(), ErrorViewModel.get_REGISTER_LEAVE_DESCRIPTION(), ErrorViewModel.get_REGISTER_LEAVE_CONFIRM(), ErrorViewModel.get_REGISTER_LEAVE_CANCEL()))
+			if (await DialogUtils.DisplayDialogAsync((Activity)(object)this, ErrorViewModel.REGISTER_LEAVE_HEADER, ErrorViewModel.REGISTER_LEAVE_DESCRIPTION, ErrorViewModel.REGISTER_LEAVE_CONFIRM, ErrorViewModel.REGISTER_LEAVE_CANCEL))
 			{
 				GoToInfectionStatusPage();
 			}
@@ -13937,84 +13699,73 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void OnNextButtonClick(object o, EventArgs args)
 		{
-			_questionnaireViewModel.InvokeNextButtonClick((Action)GoToQuestionnaireCountriesSelectionPage, (Action)null, (Action)null, (PlatformDialogServiceArguments)null);
+			_questionnaireViewModel.InvokeNextButtonClick(GoToQuestionnaireCountriesSelectionPage, null, null);
 		}
 
 		private void OnInfoButtonPressed(object o, EventArgs args)
 		{
-			DialogUtils.DisplayBubbleDialog((Activity)(object)this, QuestionnaireViewModel.get_REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP(), Extensions.Translate("ERROR_OK_BTN", Array.Empty<object>()));
+			DialogUtils.DisplayBubbleDialog((Activity)(object)this, QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP, "ERROR_OK_BTN".Translate());
 		}
 
 		private void GoToQuestionnaireCountriesSelectionPage()
 		{
-			//IL_000c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0016: Expected O, but got Unknown
-			((Context)this).StartActivity(new Intent((Context)(object)this, typeof(QuestionnaireCountriesSelectionActivity)));
+			((Context)(object)this).StartActivity(new Intent((Context)(object)this, typeof(QuestionnaireCountriesSelectionActivity)));
 		}
 
 		private void GoToInfectionStatusPage()
 		{
 			NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
 		}
-
-		public QuestionnairePageActivity()
-			: this()
-		{
-		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.AuthenticationFlow.ErrorActivities
 {
-	[Activity(/*Could not decode attribute arguments.*/)]
+	[Activity(Theme = "@style/AppTheme", ScreenOrientation = ScreenOrientation.Portrait, LaunchMode = LaunchMode.SingleTop)]
 	internal class GeneralErrorActivity : AppCompatActivity
 	{
 		protected override void OnCreate(Bundle savedInstanceState)
 		{
-			((Activity)this).OnCreate(savedInstanceState);
-			((Activity)this).SetContentView(2131492922);
+			base.OnCreate(savedInstanceState);
+			((Activity)(object)this).SetContentView(2131492922);
 			Init();
 		}
 
 		private void Init()
 		{
-			Bundle extras = ((Activity)this).get_Intent().get_Extras();
-			string @string = ((BaseBundle)extras).GetString("title");
-			string string2 = ((BaseBundle)extras).GetString("description");
-			string string3 = ((BaseBundle)extras).GetString("button");
-			TextView val = ((Activity)this).FindViewById<TextView>(2131296477);
-			if (((BaseBundle)extras).ContainsKey("subtitle"))
+			Bundle extras = ((Activity)(object)this).Intent.Extras;
+			string @string = extras.GetString("title");
+			string string2 = extras.GetString("description");
+			string string3 = extras.GetString("button");
+			TextView textView = base.FindViewById<TextView>(2131296477);
+			if (extras.ContainsKey("subtitle"))
 			{
-				string string4 = ((BaseBundle)extras).GetString("subtitle");
-				val.set_Text(string4);
-				((View)val).set_ContentDescription(string4);
-				((View)val).set_Visibility((ViewStates)0);
+				string text2 = (textView.ContentDescription = (textView.Text = extras.GetString("subtitle")));
+				textView.Visibility = ViewStates.Visible;
 			}
 			else
 			{
-				((View)val).set_Visibility((ViewStates)8);
+				textView.Visibility = ViewStates.Gone;
 			}
-			TextView val2 = ((Activity)this).FindViewById<TextView>(2131296478);
-			val2.set_Text(@string);
-			((View)val2).set_ContentDescription(@string);
-			TextView val3 = ((Activity)this).FindViewById<TextView>(2131296475);
-			ISpanned val4 = HtmlCompat.FromHtml(string2, 0);
-			val3.set_TextFormatted((ICharSequence)(object)val4);
-			((View)val3).set_ContentDescriptionFormatted((ICharSequence)(object)val4);
-			val3.set_MovementMethod(LinkMovementMethod.get_Instance());
-			ViewGroup val5 = ((Activity)this).FindViewById<ViewGroup>(2131296383);
-			((View)val5).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			TextView textView2 = base.FindViewById<TextView>(2131296478);
+			textView2.Text = @string;
+			textView2.ContentDescription = @string;
+			TextView textView3 = base.FindViewById<TextView>(2131296475);
+			ISpanned spanned = (ISpanned)(textView3.ContentDescriptionFormatted = (textView3.TextFormatted = HtmlCompat.FromHtml(string2, 0)));
+			textView3.MovementMethod = LinkMovementMethod.Instance;
+			ViewGroup viewGroup = base.FindViewById<ViewGroup>(2131296383);
+			viewGroup.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
-			}).Run);
-			((View)val5).set_ContentDescription(SettingsViewModel.get_SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON());
-			Button val6 = ((Activity)this).FindViewById<Button>(2131296474);
-			((TextView)val6).set_Text(string3);
-			((View)val6).set_ContentDescription(string3);
-			((View)val6).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+			}).Run;
+			viewGroup.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
+			Button button = base.FindViewById<Button>(2131296474);
+			button.Text = string3;
+			button.ContentDescription = string3;
+			button.Click += new StressUtils.SingleClick(delegate
 			{
 				NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
-			}).Run);
-			((Activity)this).set_Title(((BaseBundle)extras).GetString("title"));
+			}).Run;
+			base.Title = extras.GetString("title");
 		}
 
 		public override void OnBackPressed()
@@ -14022,31 +13773,25 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.ErrorActivities
 			Intent startPageIntent = NavigationHelper.GetStartPageIntent((Activity)(object)this);
 			if (startPageIntent != null)
 			{
-				startPageIntent.AddFlags((ActivityFlags)268468224);
-				((Context)this).StartActivity(startPageIntent);
+				startPageIntent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+				((Context)(object)this).StartActivity(startPageIntent);
 			}
-		}
-
-		public GeneralErrorActivity()
-			: this()
-		{
 		}
 	}
 }
 namespace NDB.Covid19.Droid.Views.AuthenticationFlow.QuestionnaireAdapters
 {
-	internal class QuestionnaireCountriesSelectionAdapter : Adapter
+	internal class QuestionnaireCountriesSelectionAdapter : RecyclerView.Adapter
 	{
-		private class CheckedChangeListener : Object, IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
+		private class CheckedChangeListener : Java.Lang.Object, View.IOnClickListener, IJavaObject, IDisposable, IJavaPeerable
 		{
-			private readonly ViewHolder _holder;
+			private readonly RecyclerView.ViewHolder _holder;
 
 			private readonly QuestionnaireCountriesSelectionAdapter _self;
 
 			private readonly int _position;
 
-			public CheckedChangeListener(QuestionnaireCountriesSelectionAdapter self, ViewHolder holder, int position)
-				: this()
+			public CheckedChangeListener(QuestionnaireCountriesSelectionAdapter self, RecyclerView.ViewHolder holder, int position)
 			{
 				_holder = holder;
 				_self = self;
@@ -14055,9 +13800,9 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.QuestionnaireAdapters
 
 			public void OnClick(View v)
 			{
-				QuestionnaireCountriesSelectionAdapterViewHolder questionnaireCountriesSelectionAdapterViewHolder = (QuestionnaireCountriesSelectionAdapterViewHolder)(object)_holder;
-				((CompoundButton)questionnaireCountriesSelectionAdapterViewHolder.Check).set_Checked(!((CompoundButton)questionnaireCountriesSelectionAdapterViewHolder.Check).get_Checked());
-				_self.Data[_position].set_Checked(((CompoundButton)questionnaireCountriesSelectionAdapterViewHolder.Check).get_Checked());
+				QuestionnaireCountriesSelectionAdapterViewHolder questionnaireCountriesSelectionAdapterViewHolder = (QuestionnaireCountriesSelectionAdapterViewHolder)_holder;
+				questionnaireCountriesSelectionAdapterViewHolder.Check.Checked = !questionnaireCountriesSelectionAdapterViewHolder.Check.Checked;
+				_self.Data[_position].Checked = questionnaireCountriesSelectionAdapterViewHolder.Check.Checked;
 			}
 		}
 
@@ -14074,38 +13819,36 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.QuestionnaireAdapters
 			set
 			{
 				_countryList = value;
-				((Adapter)this).NotifyDataSetChanged();
+				NotifyDataSetChanged();
 			}
 		}
 
 		public override int ItemCount => Data.Count;
 
 		public QuestionnaireCountriesSelectionAdapter(List<CountryDetailsViewModel> countryList)
-			: this()
 		{
 			_countryList = countryList;
 		}
 
-		public override void OnBindViewHolder(ViewHolder holder, int position)
+		public override void OnBindViewHolder(RecyclerView.ViewHolder holder, int position)
 		{
-			CountryDetailsViewModel val = Data[position];
+			CountryDetailsViewModel countryDetailsViewModel = Data[position];
 			QuestionnaireCountriesSelectionAdapterViewHolder questionnaireCountriesSelectionAdapterViewHolder = holder as QuestionnaireCountriesSelectionAdapterViewHolder;
 			if (questionnaireCountriesSelectionAdapterViewHolder != null)
 			{
-				questionnaireCountriesSelectionAdapterViewHolder.Caption.set_Text(val.get_Name());
-				((CompoundButton)questionnaireCountriesSelectionAdapterViewHolder.Check).set_Checked(_selectedItems.Contains(position));
-				questionnaireCountriesSelectionAdapterViewHolder.SetOnClickListener((IOnClickListener)(object)new CheckedChangeListener(this, holder, position));
+				questionnaireCountriesSelectionAdapterViewHolder.Caption.Text = countryDetailsViewModel.Name;
+				questionnaireCountriesSelectionAdapterViewHolder.Check.Checked = _selectedItems.Contains(position);
+				questionnaireCountriesSelectionAdapterViewHolder.SetOnClickListener(new CheckedChangeListener(this, holder, position));
 			}
 		}
 
-		public override ViewHolder OnCreateViewHolder(ViewGroup parent, int viewType)
+		public override RecyclerView.ViewHolder OnCreateViewHolder(ViewGroup parent, int viewType)
 		{
-			View obj = LayoutInflater.From(((View)parent).get_Context()).Inflate(2131492904, parent, false);
-			LinearLayout item = obj as LinearLayout;
-			return (ViewHolder)(object)new QuestionnaireCountriesSelectionAdapterViewHolder((View)(object)item);
+			LinearLayout item = LayoutInflater.From(parent.Context).Inflate(2131492904, parent, attachToRoot: false) as LinearLayout;
+			return new QuestionnaireCountriesSelectionAdapterViewHolder(item);
 		}
 	}
-	internal class QuestionnaireCountriesSelectionAdapterViewHolder : ViewHolder
+	internal class QuestionnaireCountriesSelectionAdapterViewHolder : RecyclerView.ViewHolder
 	{
 		private readonly View _itemView;
 
@@ -14122,15 +13865,15 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.QuestionnaireAdapters
 		}
 
 		public QuestionnaireCountriesSelectionAdapterViewHolder(View item)
-			: this(item)
+			: base(item)
 		{
 			_itemView = item;
 			Check = item.FindViewById<CheckBox>(2131296421);
 			Caption = item.FindViewById<TextView>(2131296420);
-			((View)Check).set_Clickable(false);
+			Check.Clickable = false;
 		}
 
-		public void SetOnClickListener(IOnClickListener onClickListener)
+		public void SetOnClickListener(View.IOnClickListener onClickListener)
 		{
 			_itemView.SetOnClickListener(onClickListener);
 		}
@@ -14142,58 +13885,51 @@ namespace NDB.Covid19.Droid.Utils
 	{
 		public static void AdjustFontScale(Activity context)
 		{
-			Configuration configuration = ((Context)context).get_Resources().get_Configuration();
-			if ((double)configuration.get_FontScale() > 1.25)
+			Android.Content.Res.Configuration configuration = context.Resources.Configuration;
+			if ((double)configuration.FontScale > 1.25)
 			{
-				configuration.set_FontScale(1.25f);
-				DisplayMetrics displayMetrics = ((Context)context).get_Resources().get_DisplayMetrics();
-				IWindowManager val = Extensions.JavaCast<IWindowManager>((IJavaObject)(object)Application.get_Context().GetSystemService("window"));
-				val.get_DefaultDisplay().GetMetrics(displayMetrics);
-				displayMetrics.set_ScaledDensity(configuration.get_FontScale() * displayMetrics.get_Density());
-				((Context)context).CreateConfigurationContext(configuration);
+				configuration.FontScale = 1.25f;
+				DisplayMetrics displayMetrics = context.Resources.DisplayMetrics;
+				IWindowManager windowManager = Android.Runtime.Extensions.JavaCast<IWindowManager>(Application.Context.GetSystemService("window"));
+				windowManager.DefaultDisplay.GetMetrics(displayMetrics);
+				displayMetrics.ScaledDensity = configuration.FontScale * displayMetrics.Density;
+				context.CreateConfigurationContext(configuration);
 			}
 		}
 	}
 	public static class AuthErrorUtils
 	{
-		public static void GoToNotInfectedError(Activity parent, LogSeverity severity, Exception e, string errorMessage)
+		public static void GoToNotInfectedError(Activity parent, LogSeverity severity, System.Exception e, string errorMessage)
 		{
-			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
-			GoToErrorPage(parent, ErrorViewModel.get_REGISTER_ERROR_NOMATCH_HEADER(), ErrorViewModel.get_REGISTER_ERROR_NOMATCH_DESCRIPTION(), ErrorViewModel.get_REGISTER_ERROR_DISMISS());
-			LogUtils.LogException(severity, e, errorMessage, "");
+			GoToErrorPage(parent, ErrorViewModel.REGISTER_ERROR_NOMATCH_HEADER, ErrorViewModel.REGISTER_ERROR_NOMATCH_DESCRIPTION, ErrorViewModel.REGISTER_ERROR_DISMISS);
+			LogUtils.LogException(severity, e, errorMessage);
 		}
 
-		public static void GoToManyTriesError(Activity parent, LogSeverity severity, Exception e, string errorMessage)
+		public static void GoToManyTriesError(Activity parent, LogSeverity severity, System.Exception e, string errorMessage)
 		{
-			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
-			GoToErrorPage(parent, ErrorViewModel.get_REGISTER_ERROR_TOOMANYTRIES_HEADER(), ErrorViewModel.get_REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION(), ErrorViewModel.get_REGISTER_ERROR_DISMISS());
-			LogUtils.LogException(severity, e, errorMessage, "");
+			GoToErrorPage(parent, ErrorViewModel.REGISTER_ERROR_TOOMANYTRIES_HEADER, ErrorViewModel.REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION, ErrorViewModel.REGISTER_ERROR_DISMISS);
+			LogUtils.LogException(severity, e, errorMessage);
 		}
 
-		public static void GoToTechnicalError(Activity parent, LogSeverity severity, Exception e, string errorMessage)
+		public static void GoToTechnicalError(Activity parent, LogSeverity severity, System.Exception e, string errorMessage)
 		{
-			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
-			GoToErrorPage(parent, ErrorViewModel.get_REGISTER_ERROR_HEADER(), ErrorViewModel.get_REGISTER_ERROR_DESCRIPTION(), ErrorViewModel.get_REGISTER_ERROR_DISMISS());
-			LogUtils.LogException(severity, e, errorMessage, "");
+			GoToErrorPage(parent, ErrorViewModel.REGISTER_ERROR_HEADER, ErrorViewModel.REGISTER_ERROR_DESCRIPTION, ErrorViewModel.REGISTER_ERROR_DISMISS);
+			LogUtils.LogException(severity, e, errorMessage);
 		}
 
 		public static void GoToErrorPage(Activity parent, string title, string description, string button, string subtitle = null)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			//IL_0011: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0017: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(GeneralErrorActivity));
-			Bundle val2 = new Bundle();
-			((BaseBundle)val2).PutString("title", title);
-			((BaseBundle)val2).PutString("description", description);
-			((BaseBundle)val2).PutString("button", button);
+			Intent intent = new Intent(parent, typeof(GeneralErrorActivity));
+			Bundle bundle = new Bundle();
+			bundle.PutString("title", title);
+			bundle.PutString("description", description);
+			bundle.PutString("button", button);
 			if (subtitle != null)
 			{
-				((BaseBundle)val2).PutString("subtitle", subtitle);
+				bundle.PutString("subtitle", subtitle);
 			}
-			val.PutExtras(val2);
-			((Context)parent).StartActivity(val);
+			intent.PutExtras(bundle);
+			parent.StartActivity(intent);
 		}
 	}
 	internal class BackgroundFetchScheduler
@@ -14203,7 +13939,7 @@ namespace NDB.Covid19.Droid.Utils
 			private static int _runAttemptCount;
 
 			public BackgroundFetchWorker(Context context, WorkerParameters workerParameters)
-				: this(context, workerParameters)
+				: base(context, workerParameters)
 			{
 			}
 
@@ -14211,19 +13947,19 @@ namespace NDB.Covid19.Droid.Utils
 			{
 				try
 				{
-					((ListenableWorker)this).SetForegroundAsync(CreateForegroundInfo());
-					Task.Run(new Func<Task>(DoAsyncWork)).GetAwaiter().GetResult();
+					SetForegroundAsync(CreateForegroundInfo());
+					Task.Run((Func<Task>)DoAsyncWork).GetAwaiter().GetResult();
 					return Result.InvokeSuccess();
 				}
-				catch (Exception ex)
+				catch (System.Exception e)
 				{
 					if (_runAttemptCount < 3)
 					{
-						LogUtils.LogException((LogSeverity)1, ex, "BackgroundFetchScheduler.BackgroundFetchWorker.DoWork: Failed to perform key background fetch. Retrying now.", "");
+						LogUtils.LogException(LogSeverity.WARNING, e, "BackgroundFetchScheduler.BackgroundFetchWorker.DoWork: Failed to perform key background fetch. Retrying now.");
 						_runAttemptCount++;
 						return Result.InvokeRetry();
 					}
-					LogUtils.LogException((LogSeverity)1, ex, "BackgroundFetchScheduler.BackgroundFetchWorker.DoWork: Failed to perform key background fetch. Pull aborted. BG Task is rescheduled", "");
+					LogUtils.LogException(LogSeverity.WARNING, e, "BackgroundFetchScheduler.BackgroundFetchWorker.DoWork: Failed to perform key background fetch. Pull aborted. BG Task is rescheduled");
 					_runAttemptCount = 0;
 					return Result.InvokeFailure();
 				}
@@ -14231,9 +13967,7 @@ namespace NDB.Covid19.Droid.Utils
 
 			private ForegroundInfo CreateForegroundInfo()
 			{
-				//IL_0022: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0028: Expected O, but got Unknown
-				return new ForegroundInfo(617, new LocalNotificationsManager().CreateNotification(NotificationsEnumExtensions.Data((NotificationsEnum)4)).GetAwaiter().GetResult());
+				return new ForegroundInfo(617, new LocalNotificationsManager().CreateNotification(NotificationsEnum.BackgroundFetch.Data()).GetAwaiter().GetResult());
 			}
 
 			private async Task DoAsyncWork()
@@ -14241,18 +13975,18 @@ namespace NDB.Covid19.Droid.Utils
 				_ = 1;
 				try
 				{
-					if (await ExposureNotification.IsEnabledAsync())
+					if (await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync())
 					{
-						await ExposureNotification.UpdateKeysFromServer(default(CancellationToken));
+						await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
 					}
 					else
 					{
-						LogUtils.LogMessage((LogSeverity)1, "BackgroundFetchScheduler.DoAsyncWork (Android): EN API is not enabled. Aborting pull.", "");
+						LogUtils.LogMessage(LogSeverity.WARNING, "BackgroundFetchScheduler.DoAsyncWork (Android): EN API is not enabled. Aborting pull.");
 					}
 				}
-				catch (Exception ex)
+				catch (System.Exception ex)
 				{
-					if (!ExceptionExtensions.HandleExposureNotificationException(ex, "BackgroundFetchScheduler", "DoAsyncWork"))
+					if (!ex.HandleExposureNotificationException("BackgroundFetchScheduler", "DoAsyncWork"))
 					{
 						throw ex;
 					}
@@ -14262,14 +13996,11 @@ namespace NDB.Covid19.Droid.Utils
 
 		public static void ScheduleBackgroundFetch()
 		{
-			//IL_000f: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0015: Expected O, but got Unknown
-			//IL_0041: Unknown result type (might be due to invalid IL or missing references)
-			Builder val = new Builder(typeof(BackgroundFetchWorker), Conf.BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID);
-			val.SetPeriodStartTime(TimeSpan.FromSeconds(1.0)).SetBackoffCriteria(BackoffPolicy.get_Linear(), TimeSpan.FromSeconds(10.0)).SetConstraints(new Builder().SetRequiredNetworkType(NetworkType.get_Connected()).Build());
-			PeriodicWorkRequest val2 = val.Build();
-			WorkManager instance = WorkManager.GetInstance(Platform.get_AppContext());
-			instance.EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.get_Replace(), val2);
+			PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(typeof(BackgroundFetchWorker), Conf.BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID);
+			builder.SetPeriodStartTime(TimeSpan.FromSeconds(1.0)).SetBackoffCriteria(BackoffPolicy.Linear, TimeSpan.FromSeconds(10.0)).SetConstraints(new AndroidX.Work.Constraints.Builder().SetRequiredNetworkType(NetworkType.Connected).Build());
+			PeriodicWorkRequest p = builder.Build();
+			WorkManager instance = WorkManager.GetInstance(Platform.AppContext);
+			instance.EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.Replace, p);
 		}
 	}
 	public class PermissionUtils
@@ -14309,7 +14040,7 @@ namespace NDB.Covid19.Droid.Utils
 
 		public bool HasPermissionsWithoutDialogs()
 		{
-			if (BluetoothAdapter.get_DefaultAdapter() != null && BluetoothAdapter.get_DefaultAdapter().get_IsEnabled())
+			if (BluetoothAdapter.DefaultAdapter != null && BluetoothAdapter.DefaultAdapter.IsEnabled)
 			{
 				return IsLocationEnabled();
 			}
@@ -14318,32 +14049,32 @@ namespace NDB.Covid19.Droid.Utils
 
 		public async Task<bool> HasBluetoothSupportAsync()
 		{
-			if (await HasBluetoothAdapter() && BluetoothAdapter.get_DefaultAdapter().get_IsEnabled())
+			if (await HasBluetoothAdapter() && BluetoothAdapter.DefaultAdapter.IsEnabled)
 			{
 				return true;
 			}
-			Activity activity = CrossCurrentActivity.get_Current().get_Activity();
-			DialogViewModel val = new DialogViewModel();
-			val.set_Title(Extensions.Translate("PERMISSION_BLUETOOTH_NEEDED_TITLE", Array.Empty<object>()));
-			val.set_Body(Extensions.Translate("PERMISSION_ENABLE_LOCATION_AND_BLUETOOTH", Array.Empty<object>()));
-			val.set_OkBtnTxt(((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(17039370));
-			val.set_CancelbtnTxt(((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(17039360));
-			await DialogUtils.DisplayDialogAsync(activity, val, GoToBluetoothSettings, CancelTask);
+			await DialogUtils.DisplayDialogAsync(CrossCurrentActivity.Current.Activity, new DialogViewModel
+			{
+				Title = "PERMISSION_BLUETOOTH_NEEDED_TITLE".Translate(),
+				Body = "PERMISSION_ENABLE_LOCATION_AND_BLUETOOTH".Translate(),
+				OkBtnTxt = CrossCurrentActivity.Current.Activity.Resources.GetString(17039370),
+				CancelbtnTxt = CrossCurrentActivity.Current.Activity.Resources.GetString(17039360)
+			}, GoToBluetoothSettings, CancelTask);
 			return false;
 		}
 
 		public async Task<bool> HasBluetoothAdapter()
 		{
-			if (BluetoothAdapter.get_DefaultAdapter() != null)
+			if (BluetoothAdapter.DefaultAdapter != null)
 			{
 				return true;
 			}
-			Activity activity = CrossCurrentActivity.get_Current().get_Activity();
-			DialogViewModel val = new DialogViewModel();
-			val.set_Title(Extensions.Translate("NO_BLUETOOTH_TITLE", Array.Empty<object>()));
-			val.set_Body(Extensions.Translate("NO_BLUETOOTH_MSG", Array.Empty<object>()));
-			val.set_OkBtnTxt(((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(17039370));
-			await DialogUtils.DisplayDialogAsync(activity, val);
+			await DialogUtils.DisplayDialogAsync(CrossCurrentActivity.Current.Activity, new DialogViewModel
+			{
+				Title = "NO_BLUETOOTH_TITLE".Translate(),
+				Body = "NO_BLUETOOTH_MSG".Translate(),
+				OkBtnTxt = CrossCurrentActivity.Current.Activity.Resources.GetString(17039370)
+			});
 			return false;
 		}
 
@@ -14353,27 +14084,23 @@ namespace NDB.Covid19.Droid.Utils
 			{
 				return true;
 			}
-			Activity activity = CrossCurrentActivity.get_Current().get_Activity();
-			DialogViewModel val = new DialogViewModel();
-			val.set_Title(Extensions.Translate("PERMISSION_LOCATION_NEEDED_TITLE", Array.Empty<object>()));
-			val.set_Body(Extensions.Translate("PERMISSION_ENABLE_LOCATION_AND_BLUETOOTH", Array.Empty<object>()));
-			val.set_OkBtnTxt(((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(17039370));
-			await DialogUtils.DisplayDialogAsync(activity, val, GoToLocationSettings);
+			await DialogUtils.DisplayDialogAsync(CrossCurrentActivity.Current.Activity, new DialogViewModel
+			{
+				Title = "PERMISSION_LOCATION_NEEDED_TITLE".Translate(),
+				Body = "PERMISSION_ENABLE_LOCATION_AND_BLUETOOTH".Translate(),
+				OkBtnTxt = CrossCurrentActivity.Current.Activity.Resources.GetString(17039370)
+			}, GoToLocationSettings);
 			return false;
 		}
 
 		public bool IsLocationEnabled()
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0007: Invalid comparison between Unknown and I4
-			//IL_001d: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0023: Expected O, but got Unknown
-			if ((int)VERSION.get_SdkInt() >= 28)
+			if (Build.VERSION.SdkInt >= BuildVersionCodes.P)
 			{
-				LocationManager val = (LocationManager)CrossCurrentActivity.get_Current().get_AppContext().GetSystemService("location");
-				return val.get_IsLocationEnabled();
+				LocationManager locationManager = (LocationManager)CrossCurrentActivity.Current.AppContext.GetSystemService("location");
+				return locationManager.IsLocationEnabled;
 			}
-			int @int = Secure.GetInt(CrossCurrentActivity.get_Current().get_AppContext().get_ContentResolver(), "location_mode", 0);
+			int @int = Settings.Secure.GetInt(CrossCurrentActivity.Current.AppContext.ContentResolver, "location_mode", 0);
 			return @int != 0;
 		}
 
@@ -14384,35 +14111,31 @@ namespace NDB.Covid19.Droid.Utils
 
 		private void GoToBluetoothSettings()
 		{
-			//IL_000a: Unknown result type (might be due to invalid IL or missing references)
 			try
 			{
-				CrossCurrentActivity.get_Current().get_Activity().StartActivityForResult(new Intent().SetAction("android.settings.BLUETOOTH_SETTINGS"), 1);
+				CrossCurrentActivity.Current.Activity.StartActivityForResult(new Intent().SetAction("android.settings.BLUETOOTH_SETTINGS"), 1);
 			}
-			catch (Exception ex)
+			catch (System.Exception e)
 			{
-				LogUtils.LogException((LogSeverity)1, ex, "PermissionUtils.GoToBluetoothSettings: Failed to go to bluetooth settings", "");
+				LogUtils.LogException(LogSeverity.WARNING, e, "PermissionUtils.GoToBluetoothSettings: Failed to go to bluetooth settings");
 			}
 		}
 
 		private void GoToLocationSettings()
 		{
-			//IL_000a: Unknown result type (might be due to invalid IL or missing references)
 			try
 			{
-				CrossCurrentActivity.get_Current().get_Activity().StartActivityForResult(new Intent().SetAction("android.settings.LOCATION_SOURCE_SETTINGS"), 2);
+				CrossCurrentActivity.Current.Activity.StartActivityForResult(new Intent().SetAction("android.settings.LOCATION_SOURCE_SETTINGS"), 2);
 			}
-			catch (Exception ex)
+			catch (System.Exception e)
 			{
-				LogUtils.LogException((LogSeverity)1, ex, "GoToLocationSettings", "");
+				LogUtils.LogException(LogSeverity.WARNING, e, "GoToLocationSettings");
 			}
 		}
 
 		public void OnActivityResult(int requestCode, Result resultCode, Intent data)
 		{
-			//IL_0008: Unknown result type (might be due to invalid IL or missing references)
-			//IL_000a: Invalid comparison between Unknown and I4
-			if ((requestCode == 1 || requestCode == 2) && (int)resultCode != 1)
+			if ((requestCode == 1 || requestCode == 2) && resultCode != Result.FirstUser)
 			{
 				_tcs.TrySetResult(HasPermissionsWithoutDialogs());
 			}
@@ -14428,9 +14151,7 @@ namespace NDB.Covid19.Droid.Utils
 
 		public LocalNotificationsManager()
 		{
-			//IL_0011: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0018: Invalid comparison between Unknown and I4
-			if ((int)VERSION.get_SdkInt() >= 26)
+			if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
 			{
 				CreateChannel();
 			}
@@ -14438,121 +14159,101 @@ namespace NDB.Covid19.Droid.Utils
 
 		private void CreateChannel()
 		{
-			//IL_0035: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0046: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0047: Unknown result type (might be due to invalid IL or missing references)
-			//IL_004c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0058: Expected O, but got Unknown
-			//IL_0078: Unknown result type (might be due to invalid IL or missing references)
-			//IL_007e: Expected O, but got Unknown
-			string @string = ((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(2131689506);
-			string string2 = ((Context)CrossCurrentActivity.get_Current().get_Activity()).get_Resources().GetString(2131689505);
-			NotificationImportance val = (NotificationImportance)4;
+			string @string = CrossCurrentActivity.Current.Activity.Resources.GetString(2131689506);
+			string string2 = CrossCurrentActivity.Current.Activity.Resources.GetString(2131689505);
+			NotificationImportance importance = NotificationImportance.High;
 			if (_channel == null)
 			{
-				NotificationChannel val2 = new NotificationChannel(_channelId, @string, val);
-				val2.set_Description(string2);
-				_channel = val2;
-				_channel.SetShowBadge(true);
-				NotificationManager val3 = (NotificationManager)((Context)CrossCurrentActivity.get_Current().get_Activity()).GetSystemService("notification");
-				if (val3 != null)
+				_channel = new NotificationChannel(_channelId, @string, importance)
 				{
-					val3.CreateNotificationChannel(_channel);
-				}
+					Description = string2
+				};
+				_channel.SetShowBadge(showBadge: true);
+				((NotificationManager)CrossCurrentActivity.Current.Activity.GetSystemService("notification"))?.CreateNotificationChannel(_channel);
 			}
 		}
 
 		public void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds)
 		{
-			CrossCurrentActivity.get_Current().get_Activity().RunOnUiThread((Action)async delegate
+			CrossCurrentActivity.Current.Activity.RunOnUiThread(async delegate
 			{
-				NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From((Context)(object)CrossCurrentActivity.get_Current().get_Activity());
+				NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(CrossCurrentActivity.Current.Activity);
 				await Task.Delay(triggerInSeconds * 1000);
-				NotificationManagerCompat val = notificationManagerCompat;
-				val.Notify(616, await CreateNotification(notificationViewModel));
+				NotificationManagerCompat notificationManagerCompat2 = notificationManagerCompat;
+				notificationManagerCompat2.Notify(616, await CreateNotification(notificationViewModel));
 			});
 		}
 
 		public async Task<Notification> CreateNotification(NotificationViewModel notificationViewModel)
 		{
 			PendingIntent contentIntent = InitResultIntentBasingOnViewModel(notificationViewModel);
-			Builder val = new Builder((Context)(object)CrossCurrentActivity.get_Current().get_Activity(), _channelId).SetAutoCancel(true).SetContentTitle(notificationViewModel.get_Title()).SetContentText(notificationViewModel.get_Body())
+			NotificationCompat.Builder builder = new NotificationCompat.Builder(CrossCurrentActivity.Current.Activity, _channelId).SetAutoCancel(autoCancel: true).SetContentTitle(notificationViewModel.Title).SetContentText(notificationViewModel.Body)
 				.SetContentIntent(contentIntent)
-				.SetVibrate((long[])null)
-				.SetSound((Uri)null)
+				.SetVibrate(null)
+				.SetSound(null)
 				.SetNumber(1)
 				.SetCategory("msg")
-				.SetOnlyAlertOnce(true);
-			if ((int)VERSION.get_SdkInt() >= 21)
+				.SetOnlyAlertOnce(onlyAlertOnce: true);
+			if (Build.VERSION.SdkInt >= BuildVersionCodes.Lollipop)
 			{
-				val.SetColor(2131034164);
+				builder.SetColor(2131034164);
 			}
-			val.SetSmallIcon(2131165367);
-			Notification val2 = val.Build();
-			bool flag = (int)VERSION.get_SdkInt() < 26;
-			bool flag2 = ShortcutBadger.IsBadgeCounterSupported(CrossCurrentActivity.get_Current().get_AppContext());
-			bool flag3 = (int)notificationViewModel.get_Type() == 0;
-			bool flag4 = NotificationManagerCompat.From(CrossCurrentActivity.get_Current().get_AppContext()).AreNotificationsEnabled();
+			builder.SetSmallIcon(2131165367);
+			Notification notification = builder.Build();
+			bool flag = Build.VERSION.SdkInt < BuildVersionCodes.O;
+			bool flag2 = ShortcutBadger.IsBadgeCounterSupported(CrossCurrentActivity.Current.AppContext);
+			bool flag3 = notificationViewModel.Type == NotificationsEnum.NewMessageReceived;
+			bool flag4 = NotificationManagerCompat.From(CrossCurrentActivity.Current.AppContext).AreNotificationsEnabled();
 			if (flag && flag2 && flag3 && flag4)
 			{
-				ShortcutBadger.ApplyNotification(CrossCurrentActivity.get_Current().get_AppContext(), val2, 1);
+				ShortcutBadger.ApplyNotification(CrossCurrentActivity.Current.AppContext, notification, 1);
 			}
-			return val2;
+			return notification;
 		}
 
 		public void GenerateLocalNotificationOnlyIfInBackground(NotificationViewModel viewModel)
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Expected O, but got Unknown
-			//IL_000d: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0014: Invalid comparison between Unknown and I4
-			RunningAppProcessInfo val = new RunningAppProcessInfo();
-			ActivityManager.GetMyMemoryState(val);
-			if ((int)val.get_Importance() != 100)
+			ActivityManager.RunningAppProcessInfo runningAppProcessInfo = new ActivityManager.RunningAppProcessInfo();
+			ActivityManager.GetMyMemoryState(runningAppProcessInfo);
+			if (runningAppProcessInfo.Importance != Importance.Foreground)
 			{
 				new LocalNotificationsManager().GenerateLocalNotification(viewModel, 0);
-				LocalPreferencesHelper.set_TermsNotificationWasShown(true);
+				LocalPreferencesHelper.TermsNotificationWasShown = true;
 			}
 		}
 
 		private PendingIntent InitResultIntentBasingOnViewModel(NotificationViewModel notificationViewModel)
 		{
-			//IL_0011: Unknown result type (might be due to invalid IL or missing references)
-			//IL_001c: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0037: Unknown result type (might be due to invalid IL or missing references)
-			//IL_003d: Expected O, but got Unknown
-			//IL_0069: Unknown result type (might be due to invalid IL or missing references)
-			//IL_006f: Expected O, but got Unknown
-			TaskStackBuilder val = TaskStackBuilder.Create((Context)(object)CrossCurrentActivity.get_Current().get_Activity());
-			Intent val2;
-			if (notificationViewModel.get_Type() == NotificationsEnumExtensions.Data((NotificationsEnum)0).get_Type())
+			TaskStackBuilder taskStackBuilder = TaskStackBuilder.Create(CrossCurrentActivity.Current.Activity);
+			Intent nextIntent;
+			if (notificationViewModel.Type == NotificationsEnum.NewMessageReceived.Data().Type)
 			{
-				val2 = new Intent((Context)(object)CrossCurrentActivity.get_Current().get_Activity(), typeof(MessagesActivity));
-				val.AddParentStack(Class.FromType(typeof(MessagesActivity)));
+				nextIntent = new Intent(CrossCurrentActivity.Current.Activity, typeof(MessagesActivity));
+				taskStackBuilder.AddParentStack(Class.FromType(typeof(MessagesActivity)));
 			}
 			else
 			{
-				val2 = new Intent((Context)(object)CrossCurrentActivity.get_Current().get_Activity(), typeof(InitializerActivity));
-				val.AddParentStack(Class.FromType(typeof(InitializerActivity)));
+				nextIntent = new Intent(CrossCurrentActivity.Current.Activity, typeof(InitializerActivity));
+				taskStackBuilder.AddParentStack(Class.FromType(typeof(InitializerActivity)));
 			}
-			val.AddNextIntent(val2);
-			return val.GetPendingIntent(0, 134217728);
+			taskStackBuilder.AddNextIntent(nextIntent);
+			return taskStackBuilder.GetPendingIntent(0, 134217728);
 		}
 	}
 	public static class WelcomePageTools
 	{
 		public static void SetArrowVisibility(View view)
 		{
-			bool flag = (CrossCurrentActivity.get_Current().get_Activity() as WelcomeActivity)?.IsOnBoarding ?? false;
-			Button val = view.FindViewById<Button>(2131296333);
-			((View)val).set_ContentDescription(SettingsViewModel.get_SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON());
-			((View)val).set_Visibility((ViewStates)(flag ? 8 : 0));
+			bool flag = (CrossCurrentActivity.Current.Activity as WelcomeActivity)?.IsOnBoarding ?? false;
+			Button button = view.FindViewById<Button>(2131296333);
+			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
+			button.Visibility = (flag ? ViewStates.Gone : ViewStates.Visible);
 			if (!flag)
 			{
-				((View)val).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				button.Click += new StressUtils.SingleClick(delegate
 				{
-					CrossCurrentActivity.get_Current().get_Activity().Finish();
-				}).Run);
+					CrossCurrentActivity.Current.Activity.Finish();
+				}).Run;
 			}
 		}
 	}
@@ -14561,12 +14262,11 @@ namespace NDB.Covid19.Droid.Utils
 		public static bool PlayServicesVersionNumberIsLargeEnough(PackageManager packageManager)
 		{
 			long num = 201300000L;
-			long longVersionCode = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.get_Current().get_AppContext().get_PackageManager()
-				.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0));
+			long longVersionCode = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.Current.AppContext.PackageManager.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0));
 			bool flag = longVersionCode >= num;
 			if (!flag)
 			{
-				LogUtils.LogMessage((LogSeverity)0, "PlayServicesVersionUtils: User is prevented from using the app because of too low GPS version", "");
+				LogUtils.LogMessage(LogSeverity.INFO, "PlayServicesVersionUtils: User is prevented from using the app because of too low GPS version");
 			}
 			return flag;
 		}
@@ -14576,63 +14276,60 @@ namespace NDB.Covid19.Droid.Utils
 		private static string _logPrefix = "Android DialogUtils: ";
 
 		[Obsolete("Use DisplayDialogAsync instead")]
-		public static void DisplayDialog(Activity current, string title, string message, string okBtnText, Action action = null)
+		public static void DisplayDialog(Activity current, string title, string message, string okBtnText, System.Action action = null)
 		{
-			//IL_0020: Unknown result type (might be due to invalid IL or missing references)
-			if (current != null && !current.get_IsFinishing())
+			if (current != null && !current.IsFinishing)
 			{
-				new Builder((Context)(object)current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, (EventHandler<DialogClickEventArgs>)delegate
+				new Android.App.AlertDialog.Builder(current, 16974126).SetTitle(title).SetMessage(message).SetPositiveButton(okBtnText, delegate
 				{
 					action?.Invoke();
 				})
-					.SetCancelable(false)
+					.SetCancelable(cancelable: false)
 					.Show();
 			}
 		}
 
 		public static void DisplayBubbleDialog(Activity current, string message, string buttonText)
 		{
-			//IL_004c: Unknown result type (might be due to invalid IL or missing references)
-			if (current != null && !current.get_IsFinishing())
+			if (current != null && !current.IsFinishing)
 			{
-				View val = LayoutInflater.From((Context)(object)current).Inflate(2131492898, (ViewGroup)null);
-				TextView val2 = val.FindViewById<TextView>(2131296354);
-				Button val3 = val.FindViewById<Button>(2131296359);
-				val2.set_Text(message);
-				((TextView)val3).set_Text(buttonText);
-				AlertDialog dialog = new Builder((Context)(object)current).SetView(val).SetCancelable(true).Create();
-				((View)val3).add_Click((EventHandler)new StressUtils.SingleClick(delegate
+				View view = LayoutInflater.From(current).Inflate(2131492898, null);
+				TextView textView = view.FindViewById<TextView>(2131296354);
+				Button button = view.FindViewById<Button>(2131296359);
+				textView.Text = message;
+				button.Text = buttonText;
+				Android.App.AlertDialog dialog = new Android.App.AlertDialog.Builder(current).SetView(view).SetCancelable(cancelable: true).Create();
+				button.Click += new StressUtils.SingleClick(delegate
 				{
-					((Dialog)dialog).Dismiss();
-				}).Run);
-				((Dialog)dialog).get_Window().SetLayout(-2, -2);
-				((Dialog)dialog).Show();
+					dialog.Dismiss();
+				}).Run;
+				dialog.Window.SetLayout(-2, -2);
+				dialog.Show();
 			}
 		}
 
 		public static Task<bool> DisplayDialogAsync(Activity activity, string title, string message, string okBtnText = null, string noBtnText = null, int? okBtnTextResourceId = null, int? noBtnTextResourceId = null)
 		{
-			//IL_003b: Unknown result type (might be due to invalid IL or missing references)
 			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-			if (activity == null || activity.get_IsFinishing())
+			if (activity == null || activity.IsFinishing)
 			{
 				tcs.TrySetResult(result: false);
 				return tcs.Task;
 			}
-			Builder val = new Builder((Context)(object)activity, 16974126).SetTitle(title).SetMessage(message).SetCancelable(false);
+			Android.App.AlertDialog.Builder builder = new Android.App.AlertDialog.Builder(activity, 16974126).SetTitle(title).SetMessage(message).SetCancelable(cancelable: false);
 			string additionalInfo = AdditionalDialogInfoForLogging(activity, title, message, okBtnText, noBtnText);
 			if (!string.IsNullOrEmpty(okBtnText) || okBtnTextResourceId.HasValue)
 			{
 				if (!string.IsNullOrEmpty(okBtnText))
 				{
-					val.SetPositiveButton(okBtnText, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetPositiveButton(okBtnText, delegate
 					{
 						SetResultWithCatch(tcs, result: true, additionalInfo);
 					});
 				}
 				if (okBtnTextResourceId.HasValue)
 				{
-					val.SetPositiveButton(okBtnTextResourceId.Value, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetPositiveButton(okBtnTextResourceId.Value, delegate
 					{
 						SetResultWithCatch(tcs, result: true, additionalInfo);
 					});
@@ -14642,31 +14339,31 @@ namespace NDB.Covid19.Droid.Utils
 			{
 				if (!string.IsNullOrEmpty(noBtnText))
 				{
-					val.SetNegativeButton(noBtnText, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetNegativeButton(noBtnText, delegate
 					{
 						SetResultWithCatch(tcs, result: false, additionalInfo);
 					});
 				}
 				if (noBtnTextResourceId.HasValue)
 				{
-					val.SetNegativeButton(noBtnTextResourceId.Value, (EventHandler<DialogClickEventArgs>)delegate
+					builder.SetNegativeButton(noBtnTextResourceId.Value, delegate
 					{
 						SetResultWithCatch(tcs, result: false, additionalInfo);
 					});
 				}
 			}
-			val.Show();
+			builder.Show();
 			return tcs.Task;
 		}
 
 		public static Task<bool> DisplayDialogAsync(Activity activity, DialogViewModel dialogViewModel)
 		{
-			return DisplayDialogAsync(activity, dialogViewModel.get_Title(), dialogViewModel.get_Body(), dialogViewModel.get_OkBtnTxt(), dialogViewModel.get_CancelbtnTxt());
+			return DisplayDialogAsync(activity, dialogViewModel.Title, dialogViewModel.Body, dialogViewModel.OkBtnTxt, dialogViewModel.CancelbtnTxt);
 		}
 
 		private static string AdditionalDialogInfoForLogging(Activity current, string title, string message, string okBtnText, string noBtnText)
 		{
-			return "Exception occured in Activity " + ((Object)current).get_Class().get_SimpleName() + ". dialog title: " + title + ", dialog message: " + message + ", dialog okBtnText: " + okBtnText + ", dialog noBtnText: " + noBtnText;
+			return "Exception occured in Activity " + current.Class.SimpleName + ". dialog title: " + title + ", dialog message: " + message + ", dialog okBtnText: " + okBtnText + ", dialog noBtnText: " + noBtnText;
 		}
 
 		private static void SetResultWithCatch(TaskCompletionSource<bool> tcs, bool result, string additionalInfo)
@@ -14675,32 +14372,32 @@ namespace NDB.Covid19.Droid.Utils
 			{
 				tcs.SetResult(result);
 			}
-			catch (Exception ex)
+			catch (System.Exception ex)
 			{
 				if (ex is InvalidOperationException)
 				{
-					LogUtils.LogException((LogSeverity)1, ex, _logPrefix + "InvalidOperationException, this indicates the task was already in a final state when SetResult was called, (User most likely pressed both button at the same time)", additionalInfo);
+					LogUtils.LogException(LogSeverity.WARNING, ex, _logPrefix + "InvalidOperationException, this indicates the task was already in a final state when SetResult was called, (User most likely pressed both button at the same time)", additionalInfo);
 				}
 				else if (ex is ObjectDisposedException)
 				{
-					LogUtils.LogException((LogSeverity)2, ex, _logPrefix + "ObjectDisposedException, this indicates the task was disposed when SetResult was called.", additionalInfo);
+					LogUtils.LogException(LogSeverity.ERROR, ex, _logPrefix + "ObjectDisposedException, this indicates the task was disposed when SetResult was called.", additionalInfo);
 				}
 				else
 				{
-					LogUtils.LogException((LogSeverity)2, ex, _logPrefix + "Some Exception from SetResult operation.", additionalInfo);
+					LogUtils.LogException(LogSeverity.ERROR, ex, _logPrefix + "Some Exception from SetResult operation.", additionalInfo);
 				}
 			}
 		}
 
-		public static async Task<bool> DisplayDialogAsync(Activity current, DialogViewModel viewModel, Action actionOk = null, Action actionNotOk = null)
+		public static async Task<bool> DisplayDialogAsync(Activity current, DialogViewModel viewModel, System.Action actionOk = null, System.Action actionNotOk = null)
 		{
 			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-			if (current == null || current.get_IsFinishing())
+			if (current == null || current.IsFinishing)
 			{
 				tcs.TrySetResult(result: false);
 				return await tcs.Task;
 			}
-			if (await DisplayDialogAsync(current, viewModel.get_Title(), viewModel.get_Body(), viewModel.get_OkBtnTxt(), viewModel.get_CancelbtnTxt()))
+			if (await DisplayDialogAsync(current, viewModel.Title, viewModel.Body, viewModel.OkBtnTxt, viewModel.CancelbtnTxt))
 			{
 				actionOk?.Invoke();
 				tcs.TrySetResult(result: true);
@@ -14727,123 +14424,95 @@ namespace NDB.Covid19.Droid.Utils
 	{
 		public static void LinkifyTextView(TextView textView)
 		{
-			Pattern val = Pattern.Compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)");
-			Linkify.AddLinks(textView, val, "https://");
-			textView.set_MovementMethod(LinkMovementMethod.get_Instance());
+			Pattern pattern = Pattern.Compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)");
+			Linkify.AddLinks(textView, pattern, "https://");
+			textView.MovementMethod = LinkMovementMethod.Instance;
 		}
 	}
 	public static class NavigationHelper
 	{
 		public static void GoToSettingsPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToSettingsHowItWorksPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsHowItWorksActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsHowItWorksActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToSettingsHelpPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsHelpActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsHelpActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToSettingsAboutPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsAbout));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsAbout));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToDebugPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(ENDeveloperToolsActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(ENDeveloperToolsActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToGenetalSettingsPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsGeneralActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsGeneralActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToResultPageAndClearTop(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(InfectionStatusActivity));
-			val.AddFlags((ActivityFlags)268468224);
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(InfectionStatusActivity));
+			intent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToWelcomeWhatsNewPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(WelcomePageWhatIsNewActivity));
-			val.AddFlags((ActivityFlags)268468224);
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(WelcomePageWhatIsNewActivity));
+			intent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+			parent.StartActivity(intent);
 		}
 
 		public static void RestartApp(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(InitializerActivity));
-			val.AddFlags((ActivityFlags)268468224);
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(InitializerActivity));
+			intent.AddFlags(ActivityFlags.ClearTask | ActivityFlags.NewTask);
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToConsentsWithdrawPage(Activity parent)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(SettingsWithdrawConsentsActivity));
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(SettingsWithdrawConsentsActivity));
+			parent.StartActivity(intent);
 		}
 
 		public static void GoToOnBoarding(Activity parent, bool isOnBoarding)
 		{
-			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0011: Expected O, but got Unknown
-			Intent val = new Intent((Context)(object)parent, typeof(WelcomeActivity));
-			val.PutExtra("isOnBoarding", isOnBoarding);
-			((Context)parent).StartActivity(val);
+			Intent intent = new Intent(parent, typeof(WelcomeActivity));
+			intent.PutExtra("isOnBoarding", isOnBoarding);
+			parent.StartActivity(intent);
 		}
 
 		public static Intent GetStartPageIntent(Activity parent)
 		{
-			//IL_0012: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0018: Expected O, but got Unknown
-			//IL_0023: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0029: Expected O, but got Unknown
-			if (!LocalPreferencesHelper.get_IsOnboardingCompleted())
+			if (LocalPreferencesHelper.IsOnboardingCompleted)
 			{
-				return new Intent((Context)(object)parent, typeof(InitializerActivity));
+				return new Intent(parent, typeof(InfectionStatusActivity));
 			}
-			return new Intent((Context)(object)parent, typeof(InfectionStatusActivity));
+			return new Intent(parent, typeof(InitializerActivity));
 		}
 
 		public static void GoToStartPageIfIsOnboarded(Activity parent)
 		{
-			//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-			//IL_0006: Invalid comparison between Unknown and I4
-			if ((int)OnboardingStatusHelper.get_Status() == 2)
+			if (OnboardingStatusHelper.Status == OnboardingStatus.CountriesOnboardingCompleted)
 			{
 				GoToResultPageAndClearTop(parent);
 			}
@@ -14877,13 +14546,11 @@ namespace NDB.Covid19.Droid.Utils
 
 			private void Reset()
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0006: Expected O, but got Unknown
-				Handler val = new Handler();
-				val.PostDelayed((Action)delegate
+				Handler handler = new Handler();
+				handler.PostDelayed(delegate
 				{
 					_hasStarted = false;
-				}, (long)_delayMilliseconds);
+				}, _delayMilliseconds);
 			}
 		}
 
@@ -14899,11 +14566,11 @@ namespace NDB.Covid19.Droid.Utils
 		{
 			private bool _hasStarted;
 
-			private readonly Action _setOnAction;
+			private readonly System.Action _setOnAction;
 
 			private int _delayMilliseconds;
 
-			public SingleAction(Action setOnAction, int delayMilliseconds = 1000)
+			public SingleAction(System.Action setOnAction, int delayMilliseconds = 1000)
 			{
 				_setOnAction = setOnAction;
 				_delayMilliseconds = delayMilliseconds;
@@ -14921,13 +14588,11 @@ namespace NDB.Covid19.Droid.Utils
 
 			private void Reset()
 			{
-				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
-				//IL_0006: Expected O, but got Unknown
-				Handler val = new Handler();
-				val.PostDelayed((Action)delegate
+				Handler handler = new Handler();
+				handler.PostDelayed(delegate
 				{
 					_hasStarted = false;
-				}, (long)_delayMilliseconds);
+				}, _delayMilliseconds);
 			}
 		}
 
@@ -14964,18 +14629,18 @@ namespace NDB.Covid19.Droid.Utils.MessagingCenter
 
 		public static void SubscribeForPermissionsChanged(object sender, Action<object> action)
 		{
-			MessagingCenter.Subscribe<object>(sender, MessagingCenterKeys.get_KEY_PERMISSIONS_CHANGED(), action, (object)null);
+			NDB.Covid19.Utils.MessagingCenter.Subscribe(sender, MessagingCenterKeys.KEY_PERMISSIONS_CHANGED, action);
 		}
 
 		public static void Unsubscribe(object sender)
 		{
-			MessagingCenter.Unsubscribe<object>(sender, MessagingCenterKeys.get_KEY_PERMISSIONS_CHANGED());
+			NDB.Covid19.Utils.MessagingCenter.Unsubscribe<object>(sender, MessagingCenterKeys.KEY_PERMISSIONS_CHANGED);
 		}
 
 		public static void NotifyPermissionsChanged(object sender)
 		{
 			PermissionsChanged = true;
-			MessagingCenter.Send<object>(sender, MessagingCenterKeys.get_KEY_PERMISSIONS_CHANGED());
+			NDB.Covid19.Utils.MessagingCenter.Send(sender, MessagingCenterKeys.KEY_PERMISSIONS_CHANGED);
 		}
 	}
 }
@@ -14996,7 +14661,7 @@ namespace NDB.Covid19.Droid.Services
 	{
 		private TaskCompletionSource<bool> _isBluetoothOnAsync;
 
-		public Action OnBluetoothStateChange
+		public System.Action OnBluetoothStateChange
 		{
 			get;
 			set;
@@ -15004,10 +14669,10 @@ namespace NDB.Covid19.Droid.Services
 
 		public override void OnReceive(Context context, Intent intent)
 		{
-			string action = intent.get_Action();
+			string action = intent.Action;
 			if (action != null && (action.Equals("android.location.PROVIDERS_CHANGED") || action.Equals("android.bluetooth.adapter.action.STATE_CHANGED")))
 			{
-				switch (intent.GetIntExtra("android.bluetooth.adapter.extra.STATE", int.MinValue))
+				switch (intent.GetIntExtra("android.bluetooth.adapter.extra.STATE", -2147483648))
 				{
 				case 12:
 					_isBluetoothOnAsync?.TrySetResult(result: true);
@@ -15027,29 +14692,24 @@ namespace NDB.Covid19.Droid.Services
 			return _isBluetoothOnAsync.Task;
 		}
 
-		public static async Task<BluetoothState> GetBluetoothState(Action callbackAction)
+		public static async Task<BluetoothState> GetBluetoothState(System.Action callbackAction)
 		{
 			BluetoothStateBroadcastReceiver bluetoothStateBroadcastReceiver = new BluetoothStateBroadcastReceiver();
 			BluetoothStateBroadcastReceiver bluetoothStateBroadcastReceiver2 = bluetoothStateBroadcastReceiver;
-			bluetoothStateBroadcastReceiver2.OnBluetoothStateChange = (Action)Delegate.Combine(bluetoothStateBroadcastReceiver2.OnBluetoothStateChange, callbackAction);
-			CrossCurrentActivity.get_Current().get_AppContext().RegisterReceiver((BroadcastReceiver)(object)bluetoothStateBroadcastReceiver, new IntentFilter("android.bluetooth.adapter.action.STATE_CHANGED"));
+			bluetoothStateBroadcastReceiver2.OnBluetoothStateChange = (System.Action)Delegate.Combine(bluetoothStateBroadcastReceiver2.OnBluetoothStateChange, callbackAction);
+			CrossCurrentActivity.Current.AppContext.RegisterReceiver(bluetoothStateBroadcastReceiver, new IntentFilter("android.bluetooth.adapter.action.STATE_CHANGED"));
 			CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(2000);
 			cancellationTokenSource.Token.Register(delegate
 			{
-				bluetoothStateBroadcastReceiver._isBluetoothOnAsync?.TrySetResult(BluetoothAdapter.get_DefaultAdapter() != null && BluetoothAdapter.get_DefaultAdapter().get_IsEnabled());
+				bluetoothStateBroadcastReceiver._isBluetoothOnAsync?.TrySetResult(BluetoothAdapter.DefaultAdapter != null && BluetoothAdapter.DefaultAdapter.IsEnabled);
 				bluetoothStateBroadcastReceiver.OnBluetoothStateChange?.Invoke();
 			}, useSynchronizationContext: false);
-			if (BluetoothAdapter.get_DefaultAdapter() == null)
+			if (BluetoothAdapter.DefaultAdapter == null)
 			{
 			}
 			BluetoothState result = ((await bluetoothStateBroadcastReceiver.GetBluetoothStateAsync()) ? BluetoothState.ON : BluetoothState.OFF);
-			CrossCurrentActivity.get_Current().get_AppContext().UnregisterReceiver((BroadcastReceiver)(object)bluetoothStateBroadcastReceiver);
+			CrossCurrentActivity.Current.AppContext.UnregisterReceiver(bluetoothStateBroadcastReceiver);
 			return result;
-		}
-
-		public BluetoothStateBroadcastReceiver()
-			: this()
-		{
 		}
 	}
 	[BroadcastReceiver(Enabled = true)]
@@ -15065,7 +14725,7 @@ namespace NDB.Covid19.Droid.Services
 			set;
 		}
 
-		public static Action OnFlightModeChange
+		public static System.Action OnFlightModeChange
 		{
 			get;
 			set;
@@ -15073,35 +14733,29 @@ namespace NDB.Covid19.Droid.Services
 
 		public override async void OnReceive(Context context, Intent intent)
 		{
-			IsFlightModeOn = intent.GetBooleanExtra("state", false);
+			IsFlightModeOn = intent.GetBooleanExtra("state", defaultValue: false);
 			await BluetoothStateBroadcastReceiver.GetBluetoothState(OnFlightModeChange);
 			OnFlightModeChange?.Invoke();
-		}
-
-		public FlightModeHandlerBroadcastReceiver()
-			: this()
-		{
 		}
 	}
 	public class DroidDialogService : IDialogService
 	{
 		public void ShowMessageDialog(string title, string message, string okBtn, PlatformDialogServiceArguments platformArguments = null)
 		{
-			Activity obj;
-			if (platformArguments != null && platformArguments.get_Context() != null)
+			Activity activity2;
+			if (platformArguments != null && platformArguments.Context != null)
 			{
-				object context = platformArguments.get_Context();
-				Activity val = context as Activity;
-				if (val != null)
+				Activity activity = platformArguments.Context as Activity;
+				if (activity != null)
 				{
-					obj = val;
+					activity2 = activity;
 					goto IL_002a;
 				}
 			}
-			obj = CrossCurrentActivity.get_Current().get_Activity();
+			activity2 = CrossCurrentActivity.Current.Activity;
 			goto IL_002a;
 			IL_002a:
-			Activity current = obj;
+			Activity current = activity2;
 			DialogUtils.DisplayDialog(current, title, message, okBtn);
 		}
 	}
@@ -15109,22 +14763,19 @@ namespace NDB.Covid19.Droid.Services
 	{
 		public bool IsGoogleServiceEnabled()
 		{
-			return ((GoogleApiAvailabilityLight)GoogleApiAvailability.get_Instance()).IsGooglePlayServicesAvailable(CrossCurrentActivity.get_Current().get_AppContext()) == 0;
+			return GoogleApiAvailability.Instance.IsGooglePlayServicesAvailable(CrossCurrentActivity.Current.AppContext) == 0;
 		}
 
 		public string GetBackGroudServiceVersion()
 		{
-			//IL_0031: Expected O, but got Unknown
 			string result = "";
 			try
 			{
-				result = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.get_Current().get_AppContext().get_PackageManager()
-					.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0)).ToString();
+				result = PackageInfoCompat.GetLongVersionCode(CrossCurrentActivity.Current.AppContext.PackageManager.GetPackageInfo("com.google.android.gms", (PackageInfoFlags)0)).ToString();
 				return result;
 			}
-			catch (Exception val)
+			catch (Java.Lang.Exception)
 			{
-				Exception val2 = val;
 				return result;
 			}
 		}
@@ -15142,14 +14793,14 @@ namespace NDB.Covid19.Droid.Services
 	})]
 	internal class PermissionsBroadcastReceiver : BroadcastReceiver
 	{
-		private readonly PermissionUtils _permissionsUtils = ServiceLocator.get_Current().GetInstance<PermissionUtils>();
+		private readonly PermissionUtils _permissionsUtils = ServiceLocator.Current.GetInstance<PermissionUtils>();
 
 		public override void OnReceive(Context context, Intent intent)
 		{
-			if (BluetoothAdapter.get_DefaultAdapter() != null)
+			if (BluetoothAdapter.DefaultAdapter != null)
 			{
-				string action = intent.get_Action();
-				if (action.Equals("android.location.PROVIDERS_CHANGED") || (action.Equals("android.bluetooth.adapter.action.STATE_CHANGED") && intent.GetIntExtra("android.bluetooth.adapter.extra.STATE", int.MinValue) == 10))
+				string action = intent.Action;
+				if (action.Equals("android.location.PROVIDERS_CHANGED") || (action.Equals("android.bluetooth.adapter.action.STATE_CHANGED") && intent.GetIntExtra("android.bluetooth.adapter.extra.STATE", -2147483648) == 10))
 				{
 					NotifyAboutPermissionsChange();
 				}
@@ -15161,11 +14812,11 @@ namespace NDB.Covid19.Droid.Services
 			bool flag;
 			try
 			{
-				flag = await ExposureNotification.IsEnabledAsync();
+				flag = await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync();
 			}
-			catch (Exception ex)
+			catch (System.Exception ex)
 			{
-				if (!ExceptionExtensions.HandleExposureNotificationException(ex, "PermissionsBroadcastReceiver", "NotifyAboutPermissionsChange"))
+				if (!ex.HandleExposureNotificationException("PermissionsBroadcastReceiver", "NotifyAboutPermissionsChange"))
 				{
 					throw ex;
 				}
@@ -15175,11 +14826,6 @@ namespace NDB.Covid19.Droid.Services
 			{
 				PermissionsMessagingCenter.NotifyPermissionsChanged(this);
 			}
-		}
-
-		public PermissionsBroadcastReceiver()
-			: this()
-		{
 		}
 	}
 }
