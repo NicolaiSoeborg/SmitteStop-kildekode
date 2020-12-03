@@ -9142,14 +9142,19 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 
 		private async void ResendMessageIfNeeded()
 		{
-			DateTime dateTime = TimeZoneInfo.ConvertTimeFromUtc(SystemTime.Now(), TimeZoneInfo.Local);
+			DateTime t = TimeZoneInfo.ConvertTimeFromUtc(SystemTime.Now(), TimeZoneInfo.Local);
 			DateTime date = SystemTime.Now().Date;
 			DateTime dateTimeFromSecureStorageForKey = MessageUtils.GetDateTimeFromSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, "ResendMessageIfNeeded");
-			DateTime dateTime2 = dateTimeFromSecureStorageForKey.ToLocalTime();
-			if (dateTimeFromSecureStorageForKey < date && dateTime.Date.Subtract(dateTime2.Date).TotalHours >= (double)Conf.HOURS_UNTIL_RESEND_MESSAGES && dateTime.Hour >= Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND && (await MessageUtils.GetAllUnreadMessages()).FindAll((MessageSQLiteModel message) => SystemTime.Now().Subtract(message.TimeStamp).TotalMinutes < (double)Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES).ToList().Count > 0)
+			DateTime dateTime = dateTimeFromSecureStorageForKey.ToLocalTime();
+			if (dateTimeFromSecureStorageForKey < date && t.Date.Subtract(dateTime.Date).TotalHours >= (double)Conf.HOURS_UNTIL_RESEND_MESSAGES)
 			{
-				NotificationsHelper.CreateNotification(NotificationsEnum.NewMessageReceived, 0);
-				MessageUtils.SaveDateTimeToSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, SystemTime.Now(), "ResendMessageIfNeeded");
+				DateTime t2 = new DateTime(t.Year, t.Month, t.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_BEGIN, 0, 0);
+				DateTime t3 = new DateTime(t.Year, t.Month, t.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END, 0, 0);
+				if (t >= t2 && t <= t3 && (await MessageUtils.GetAllUnreadMessages()).FindAll((MessageSQLiteModel message) => SystemTime.Now().Subtract(message.TimeStamp).TotalMinutes < (double)Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES).ToList().Count > 0)
+				{
+					NotificationsHelper.CreateNotification(NotificationsEnum.NewMessageReceived, 0);
+					MessageUtils.SaveDateTimeToSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, SystemTime.Now(), "ResendMessageIfNeeded");
+				}
 			}
 		}
 
@@ -9501,7 +9506,7 @@ namespace NDB.Covid19.Config
 	{
 		public static readonly string BaseUrl = "https://app.smittestop.dk/API/";
 
-		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(120.0);
+		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(240.0);
 
 		public static readonly int APIVersion = 2;
 
@@ -9517,9 +9522,11 @@ namespace NDB.Covid19.Config
 
 		public static int HOURS_UNTIL_RESEND_MESSAGES = 48;
 
-		public static int HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND = 21;
+		public static int HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_BEGIN = 8;
 
-		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(1.0);
+		public static int HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END = 22;
+
+		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(4.0);
 
 		public static readonly int FETCH_MAX_ATTEMPTS = 1;
 
