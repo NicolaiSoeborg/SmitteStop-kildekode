@@ -445,6 +445,22 @@ namespace NDB.Covid19.WebServices
 			return obj?.Data;
 		}
 	}
+	public class DiseaseRateOfTheDayWebService : BaseWebService
+	{
+		public async Task<DiseaseRateOfTheDayDTO> GetSSIData(DateTime packageDate)
+		{
+			ApiResponse<DiseaseRateOfTheDayDTO> obj = await Get<DiseaseRateOfTheDayDTO>(Conf.URL_GET_SSI_DATA + "?packageDate=" + packageDate.ToString("dd'-'MM'-'yyyy"));
+			BaseWebService.HandleErrorsSilently(obj);
+			return obj?.Data;
+		}
+
+		public async Task<DiseaseRateOfTheDayDTO> GetSSIData()
+		{
+			ApiResponse<DiseaseRateOfTheDayDTO> obj = await Get<DiseaseRateOfTheDayDTO>(Conf.URL_GET_SSI_DATA ?? "");
+			BaseWebService.HandleErrorsSilently(obj);
+			return obj?.Data;
+		}
+	}
 	public class ExposureNotificationWebService : BaseWebService
 	{
 		public async Task<bool> PostSelvExposureKeys(IEnumerable<ExposureKeyModel> temporaryExposureKeys)
@@ -618,7 +634,7 @@ namespace NDB.Covid19.WebServices.Utils
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OSVersion", instance.VersionString);
 				HttpClientAccessor.HttpClient.DefaultRequestHeaders.Add("OS", DeviceUtils.DeviceType);
 			}
-			HttpClientAccessor.HttpClient.MaxResponseContentBufferSize = 3000000L;
+			HttpClientAccessor.HttpClient.MaxResponseContentBufferSize = Conf.MAX_CONTENT_BUFFER_SIZE;
 			HttpClientAccessor.HttpClient.Timeout = TimeSpan.FromSeconds(Conf.DEFAULT_TIMEOUT_SERVICECALLS_SECONDS);
 		}
 
@@ -629,10 +645,7 @@ namespace NDB.Covid19.WebServices.Utils
 
 		public static void MakeNewInstance()
 		{
-			if (_instance?.HttpClientAccessor?.HttpClient != null)
-			{
-				_instance.HttpClientAccessor.HttpClient.CancelPendingRequests();
-			}
+			_instance?.HttpClientAccessor?.HttpClient?.CancelPendingRequests();
 			_instance = new HttpClientManager();
 		}
 
@@ -1750,17 +1763,17 @@ namespace NDB.Covid19.Utils
 
 		private static readonly int _maxNumOfPersistedLogsOnSendError = 200;
 
-		public static void LogMessage(LogSeverity severity, string message, string additionalInfo = "")
+		public static void LogMessage(LogSeverity severity, string message, string additionalInfo = "", string correlationId = null)
 		{
-			LogSQLiteModel log = new LogSQLiteModel(new LogDeviceDetails(severity, message, additionalInfo));
+			LogSQLiteModel log = new LogSQLiteModel(new LogDeviceDetails(severity, message, additionalInfo), null, null, correlationId);
 			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
-		public static void LogException(LogSeverity severity, Exception e, string contextDescription, string additionalInfo = "")
+		public static void LogException(LogSeverity severity, Exception e, string contextDescription, string additionalInfo = "", string correlationId = null)
 		{
 			LogDeviceDetails info = new LogDeviceDetails(severity, contextDescription, additionalInfo);
 			LogExceptionDetails e2 = new LogExceptionDetails(e);
-			LogSQLiteModel log = new LogSQLiteModel(info, null, e2);
+			LogSQLiteModel log = new LogSQLiteModel(info, null, e2, correlationId);
 			ServiceLocator.Current.GetInstance<ILoggingManager>().SaveNewLog(log);
 		}
 
@@ -1780,6 +1793,7 @@ namespace NDB.Covid19.Utils
 
 		public static async void SendAllLogs()
 		{
+			LocalPreferencesHelper.UpdateCorrelationId(null);
 			ILoggingManager manager = ServiceLocator.Current.GetInstance<ILoggingManager>();
 			try
 			{
@@ -1836,6 +1850,11 @@ namespace NDB.Covid19.Utils
 					LogException((!e.IsTerminating) ? LogSeverity.WARNING : LogSeverity.ERROR, ex, contextDescription);
 				}
 			}
+		}
+
+		public static string GenerateCorrelationId()
+		{
+			return Guid.NewGuid().ToString();
 		}
 	}
 	public static class MessageUtils
@@ -2255,11 +2274,17 @@ namespace NDB.Covid19.Utils
 
 		public static string KEY_MESSAGE_RECEIVED => "KEY_MESSAGE_RECEIVED";
 
+		public static string KEY_APP_BECAME_ACTIVE => "KEY_APP_BECAME_ACTIVE";
+
+		public static string KEY_APP_RESIGN_ACTIVE => "KEY_APP_RESIGN_ACTIVE";
+
 		public static string KEY_PERMISSIONS_CHANGED => "PermissionsChangedKey";
 	}
 	public class NotificationsHelper
 	{
 		public static readonly ILocalNotificationsManager LocalNotificationsManager = ServiceLocator.Current.GetInstance<ILocalNotificationsManager>();
+
+		public static readonly IPermissionsHelper PermissionsHelper = ServiceLocator.Current.GetInstance<IPermissionsHelper>();
 
 		public static void CreateNotification(NotificationsEnum notificationType, int triggerInSeconds)
 		{
@@ -2269,6 +2294,40 @@ namespace NDB.Covid19.Utils
 		public static void CreateNotificationOnlyIfInBackground(NotificationsEnum notificationType)
 		{
 			LocalNotificationsManager.GenerateLocalNotificationOnlyIfInBackground(notificationType.Data());
+		}
+
+		public static void CreatePermissionsNotification()
+		{
+			if (PermissionsHelper.AreAllPermissionsGranted())
+			{
+				return;
+			}
+			DateTime dateTime = SystemTime.Now();
+			if (!(LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc.Date < dateTime.Date))
+			{
+				return;
+			}
+			bool flag = PermissionsHelper.IsBluetoothEnabled();
+			bool flag2 = PermissionsHelper.IsLocationEnabled();
+			NotificationViewModel notificationViewModel;
+			if (!flag && !flag2)
+			{
+				notificationViewModel = NotificationsEnum.BluetoothAndLocationOff.Data();
+			}
+			else if (!flag)
+			{
+				notificationViewModel = NotificationsEnum.BluetoothOff.Data();
+			}
+			else
+			{
+				if (flag2)
+				{
+					return;
+				}
+				notificationViewModel = NotificationsEnum.LocationOff.Data();
+			}
+			LocalNotificationsManager.GenerateLocalNotification(notificationViewModel, 0);
+			LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc = dateTime.Date;
 		}
 	}
 	public static class OnboardingStatusHelper
@@ -2367,6 +2426,146 @@ namespace NDB.Covid19.PersistedData
 {
 	public class LocalPreferencesHelper
 	{
+		public static class DiseaseRateOfTheDay
+		{
+			public static int SSIConfirmedCasesToday
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_CONFIRMED_CASES_TODAY_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_CONFIRMED_CASES_TODAY_PREF, value);
+				}
+			}
+
+			public static int SSIConfirmedCasesTotal
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_CONFIRMED_CASES_TOTAL_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_CONFIRMED_CASES_TOTAL_PREF, value);
+				}
+			}
+
+			public static int SSIDeathsToday
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_DEATHS_TODAY_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_DEATHS_TODAY_PREF, value);
+				}
+			}
+
+			public static int SSIDeathsTotal
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_DEATHS_TOTAL_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_DEATHS_TOTAL_PREF, value);
+				}
+			}
+
+			public static int SSITestsConductedToday
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_TESTS_CONDUCTED_TODAY_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_TESTS_CONDUCTED_TODAY_PREF, value);
+				}
+			}
+
+			public static int SSITestsConductedTotal
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF, value);
+				}
+			}
+
+			public static int SSIPatientsAdmittedToday
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF, value);
+				}
+			}
+
+			public static int APPNumberOfPositiveTestsResultsLast7Days
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF, value);
+				}
+			}
+
+			public static int APPNumberOfPositiveTestsResultsTotal
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF, value);
+				}
+			}
+
+			public static int APPSmittestopDownloadsTotal
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF, 0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF, value);
+				}
+			}
+
+			public static void UpdateAll(DiseaseRateOfTheDayDTO dto)
+			{
+				SSILastUpdateDateTime = dto.SSIStatistics.EntryDate;
+				SSIConfirmedCasesToday = dto.SSIStatistics.ConfirmedCasesToday;
+				SSIConfirmedCasesTotal = dto.SSIStatistics.ConfirmedCasesTotal;
+				SSIDeathsToday = dto.SSIStatistics.DeathsToday;
+				SSIDeathsTotal = dto.SSIStatistics.DeathsTotal;
+				SSITestsConductedToday = dto.SSIStatistics.TestsConductedToday;
+				SSITestsConductedTotal = dto.SSIStatistics.TestsConductedTotal;
+				SSIPatientsAdmittedToday = dto.SSIStatistics.patientsAdmittedToday;
+				APPNumberOfPositiveTestsResultsLast7Days = dto.AppStatistics.NumberOfPositiveTestsResultsLast7Days;
+				APPNumberOfPositiveTestsResultsTotal = dto.AppStatistics.NumberOfPositiveTestsResultsTotal;
+				APPSmittestopDownloadsTotal = dto.AppStatistics.SmittestopDownloadsTotal;
+				APPDownloadNumberLastUpdateDateTime = dto.AppStatistics.EntryDate;
+				HasNeverSuccessfullyFetchedSSIData = false;
+			}
+		}
+
 		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
 
 		public static int MigrationCount
@@ -2402,6 +2601,42 @@ namespace NDB.Covid19.PersistedData
 			set
 			{
 				_preferences.Set(PreferencesKeys.IS_ONBOARDING_COUNTRIES_COMPLETED_PREF, value);
+			}
+		}
+
+		public static DateTime SSILastUpdateDateTime
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.SSI_DATA_LAST_UPDATED_PREF, DateTime.MinValue);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.SSI_DATA_LAST_UPDATED_PREF, value);
+			}
+		}
+
+		public static DateTime APPDownloadNumberLastUpdateDateTime
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF, DateTime.MinValue);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF, value);
+			}
+		}
+
+		public static bool HasNeverSuccessfullyFetchedSSIData
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.SSI_DATA_HAS_NEVER_BEEN_CALLED, defaultValue: true);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.SSI_DATA_HAS_NEVER_BEEN_CALLED, value);
 			}
 		}
 
@@ -2501,6 +2736,18 @@ namespace NDB.Covid19.PersistedData
 			}
 		}
 
+		public static DateTime LastPermissionsNotificationDateTimeUtc
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.LAST_PERMISSIONS_NOTIFICATION_DATE_TIME, DateTime.MinValue);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.LAST_PERMISSIONS_NOTIFICATION_DATE_TIME, value);
+			}
+		}
+
 		public static bool GetIsDownloadWithMobileDataEnabled()
 		{
 			return _preferences.Get(PreferencesKeys.USE_MOBILE_DATA_PREF, defaultValue: true);
@@ -2540,6 +2787,16 @@ namespace NDB.Covid19.PersistedData
 		public static void SetAppLanguage(string language)
 		{
 			_preferences.Set(PreferencesKeys.APP_LANGUAGE, language);
+		}
+
+		public static string GetCorrelationId()
+		{
+			return _preferences.Get(PreferencesKeys.CORRELATION_ID, null);
+		}
+
+		public static void UpdateCorrelationId(string correlationId)
+		{
+			_preferences.Set(PreferencesKeys.CORRELATION_ID, correlationId);
 		}
 	}
 }
@@ -2589,6 +2846,7 @@ namespace NDB.Covid19.PersistedData.SQLite
 			{
 				await _database.InsertAsync(log);
 				_ = log.ExceptionMessage;
+				_ = log.CorrelationId;
 			}
 			catch (Exception)
 			{
@@ -3121,6 +3379,116 @@ namespace NDB.Covid19.ViewModels
 			set;
 		}
 	}
+	public class DiseaseRateViewModel
+	{
+		private static readonly DiseaseRateOfTheDayWebService WebService;
+
+		public static string DISEASE_RATE_HEADER => "DISEASE_RATE_HEADER".Translate();
+
+		public static string DISEASE_RATE_SUBHEADER => "DISEASE_RATE_SUBHEADER".Translate();
+
+		public static string KEY_FEATURE_ONE_UPDATE_NEW => "KEY_FEATURE_ONE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_ONE_UPDATE_ALL => "KEY_FEATURE_ONE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_ONE_LABEL => "KEY_FEATURE_ONE_LABEL".Translate();
+
+		public static string KEY_FEATURE_TWO_UPDATE_NEW => "KEY_FEATURE_TWO_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_TWO_UPDATE_ALL => "KEY_FEATURE_TWO_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_TWO_LABEL => "KEY_FEATURE_TWO_LABEL".Translate();
+
+		public static string KEY_FEATURE_THREE_UPDATE_NEW => "KEY_FEATURE_THREE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_THREE_UPDATE_ALL => "KEY_FEATURE_THREE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_THREE_LABEL => "KEY_FEATURE_THREE_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_UPDATE_NEW => "KEY_FEATURE_FOUR_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_FOUR_LABEL => "KEY_FEATURE_FOUR_LABEL".Translate();
+
+		public static string KEY_FEATURE_FIVE_UPDATE_NEW => "KEY_FEATURE_FIVE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_FIVE_UPDATE_ALL => "KEY_FEATURE_FIVE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_FIVE_LABEL => "KEY_FEATURE_FIVE_LABEL".Translate();
+
+		public static string KEY_FEATURE_SIX_UPDATE_ALL => "KEY_FEATURE_SIX_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_SIX_LABEL => "KEY_FEATURE_SIX_LABEL".Translate();
+
+		public static string DISEASE_RATE_SUBSUBHEADER => "DISEASE_RATE_SUBSUBHEADER".Translate();
+
+		public static string SMITTESPORING_DISEASE_RATE_HEADER => "SMITTESPORING_DISEASE_RATE_HEADER".Translate();
+
+		public static string SMITTESPORING_DISEASE_RATE_UPDATE => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
+
+		public static DateTime LastUpdateSSINumbersDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+
+		public static DateTime LastUpdateDownloadsNumbersDateTime => LocalPreferencesHelper.APPDownloadNumberLastUpdateDateTime.ToLocalTime();
+
+		public static string LastUpdateStringSubHeader
+		{
+			get
+			{
+				DateTime lastUpdateSSINumbersDateTime = LastUpdateSSINumbersDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(lastUpdateSSINumbersDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(DISEASE_RATE_SUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "t") ?? "");
+			}
+		}
+
+		public static string LastUpdateStringSubSubHeader
+		{
+			get
+			{
+				DateTime lastUpdateDownloadsNumbersDateTime = LastUpdateDownloadsNumbersDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(lastUpdateDownloadsNumbersDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(DISEASE_RATE_SUBSUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "t") ?? "");
+			}
+		}
+
+		public static string ConfirmedCasesToday => string.Format(KEY_FEATURE_ONE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesToday:N0}");
+
+		public static string ConfirmedCasesTotal => string.Format(KEY_FEATURE_ONE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesTotal:N0}");
+
+		public static string DeathsToday => string.Format(KEY_FEATURE_TWO_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsToday:N0}");
+
+		public static string DeathsTotal => string.Format(KEY_FEATURE_TWO_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsTotal:N0}");
+
+		public static string TestsConductedToday => string.Format(KEY_FEATURE_THREE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedToday:N0}");
+
+		public static string TestsConductedTotal => string.Format(KEY_FEATURE_THREE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedTotal:N0}");
+
+		public static string PatientsAdmittedToday => string.Format(KEY_FEATURE_FOUR_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIPatientsAdmittedToday:N0}");
+
+		public static string NumberOfPositiveTestsResultsLast7Days => string.Format(KEY_FEATURE_FIVE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsLast7Days:N0}");
+
+		public static string NumberOfPositiveTestsResultsTotal => string.Format(KEY_FEATURE_FIVE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsTotal:N0}");
+
+		public static string SmittestopDownloadsTotal => string.Format(KEY_FEATURE_SIX_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPSmittestopDownloadsTotal:N0}");
+
+		static DiseaseRateViewModel()
+		{
+			WebService = new DiseaseRateOfTheDayWebService();
+		}
+
+		public async Task<DiseaseRateOfTheDayDTO> GetSSIDataAsync()
+		{
+			DiseaseRateOfTheDayDTO obj = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
+			LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(obj);
+			return obj;
+		}
+	}
 	public class ENDeveloperToolsViewModel
 	{
 		private string _logPrefix = "ENDeveloperToolsViewModel: ";
@@ -3446,6 +3814,10 @@ namespace NDB.Covid19.ViewModels
 		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER".Translate();
 
 		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION".Translate();
+
+		public static string REGISTER_ERROR_FETCH_SSI_DATA_HEADER => "REGISTER_ERROR_FETCH_SSI_DATA_HEADER".Translate();
+
+		public static string REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION => "REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION".Translate();
 	}
 	public class ForceUpdateViewModel
 	{
@@ -3491,6 +3863,26 @@ namespace NDB.Covid19.ViewModels
 
 		public static string INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_STOP_BUTTON_ACCESSIBILITY".Translate();
 
+		public static string INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT => "SMITTESPORING_DISEASE_RATE_HEADER".Translate();
+
+		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
+
+		public static DateTime DiseaseRateUpdatedDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+
+		public static string LastUpdateString
+		{
+			get
+			{
+				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
+			}
+		}
+
 		public bool ShowNewMessageIcon
 		{
 			get;
@@ -3498,6 +3890,12 @@ namespace NDB.Covid19.ViewModels
 		}
 
 		public EventHandler NewMessagesIconVisibilityChanged
+		{
+			get;
+			set;
+		}
+
+		public bool IsAppRestricted
 		{
 			get;
 			set;
@@ -3518,6 +3916,8 @@ namespace NDB.Covid19.ViewModels
 		public string NewMessageAccessibilityText => INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT + ". " + NewMessageSubheaderTxt;
 
 		public string NewRegistrationAccessibilityText => INFECTION_STATUS_REGISTRATION_HEADER_TEXT + ". " + INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
+
+		public string NewDiseaseRateAccessibilityText => INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT + ". " + LastUpdateString;
 
 		public DialogViewModel OffDialogViewModel => new DialogViewModel
 		{
@@ -3554,9 +3954,19 @@ namespace NDB.Covid19.ViewModels
 			return (await IsRunning()) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
 		}
 
+		public async Task<string> StatusTxt(bool isLocationEnabled)
+		{
+			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
+		}
+
 		public async Task<string> StatusTxtDescription()
 		{
 			return (await IsRunning()) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
+		}
+
+		public async Task<string> StatusTxtDescription(bool isLocationEnabled)
+		{
+			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
 		}
 
 		public InfectionStatusViewModel()
@@ -3566,6 +3976,10 @@ namespace NDB.Covid19.ViewModels
 
 		public async Task<bool> IsRunning()
 		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
 			try
 			{
 				return await Xamarin.ExposureNotifications.ExposureNotification.GetStatusAsync() == Status.Active;
@@ -3578,6 +3992,11 @@ namespace NDB.Covid19.ViewModels
 				}
 				return false;
 			}
+		}
+
+		public async Task<bool> IsRunning(bool isLocationEnabled)
+		{
+			return await IsRunning() && isLocationEnabled;
 		}
 
 		public async Task<bool> IsEnabled()
@@ -3598,6 +4017,10 @@ namespace NDB.Covid19.ViewModels
 
 		public async Task<bool> StartENService()
 		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
 			try
 			{
 				await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
@@ -3614,6 +4037,10 @@ namespace NDB.Covid19.ViewModels
 
 		public async Task<bool> StopENService()
 		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
 			try
 			{
 				await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
@@ -3626,6 +4053,31 @@ namespace NDB.Covid19.ViewModels
 				}
 			}
 			return await IsRunning();
+		}
+
+		public async void CheckIfAppIsRestricted(Action action = null)
+		{
+			_ = 3;
+			try
+			{
+				if (await IsEnabled())
+				{
+					if (!(await IsRunning()))
+					{
+						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+					}
+					else
+					{
+						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
+					}
+				}
+				IsAppRestricted = false;
+			}
+			catch (Exception)
+			{
+				IsAppRestricted = true;
+			}
+			action?.Invoke();
 		}
 
 		private async Task NewMessagesFetched()
@@ -4989,6 +5441,12 @@ namespace NDB.Covid19.Models.SQLite
 			set;
 		}
 
+		public string CorrelationId
+		{
+			get;
+			set;
+		}
+
 		public string Api
 		{
 			get;
@@ -5017,7 +5475,7 @@ namespace NDB.Covid19.Models.SQLite
 		{
 		}
 
-		public LogSQLiteModel(LogDeviceDetails info, LogApiDetails apiDetails = null, LogExceptionDetails e = null)
+		public LogSQLiteModel(LogDeviceDetails info, LogApiDetails apiDetails = null, LogExceptionDetails e = null, string correlationId = null)
 		{
 			ReportedTime = info.ReportedTime;
 			Severity = info.Severity.ToString();
@@ -5041,6 +5499,10 @@ namespace NDB.Covid19.Models.SQLite
 				InnerExceptionType = e.InnerExceptionType;
 				InnerExceptionMessage = e.InnerExceptionMessage;
 				InnerExceptionStackTrace = e.InnerExceptionStackTrace;
+			}
+			if (correlationId != null)
+			{
+				CorrelationId = correlationId;
 			}
 		}
 
@@ -5265,6 +5727,32 @@ namespace NDB.Covid19.Models.Logging
 }
 namespace NDB.Covid19.Models.DTOsForServer
 {
+	public class AppStatisticsDTO
+	{
+		public DateTime EntryDate
+		{
+			get;
+			set;
+		}
+
+		public int NumberOfPositiveTestsResultsLast7Days
+		{
+			get;
+			set;
+		}
+
+		public int NumberOfPositiveTestsResultsTotal
+		{
+			get;
+			set;
+		}
+
+		public int SmittestopDownloadsTotal
+		{
+			get;
+			set;
+		}
+	}
 	public class CountryDetailsDTO
 	{
 		public string Name_DA
@@ -5298,6 +5786,20 @@ namespace NDB.Covid19.Models.DTOsForServer
 	public class CountryListDTO
 	{
 		public List<CountryDetailsDTO> CountryCollection
+		{
+			get;
+			set;
+		}
+	}
+	public class DiseaseRateOfTheDayDTO
+	{
+		public SSIStatisticsDTO SSIStatistics
+		{
+			get;
+			set;
+		}
+
+		public AppStatisticsDTO AppStatistics
 		{
 			get;
 			set;
@@ -5425,6 +5927,12 @@ namespace NDB.Covid19.Models.DTOsForServer
 			private set;
 		}
 
+		public string CorrelationId
+		{
+			get;
+			private set;
+		}
+
 		public LogDTO(LogSQLiteModel log)
 		{
 			DeviceType = DeviceUtils.DeviceType;
@@ -5447,11 +5955,62 @@ namespace NDB.Covid19.Models.DTOsForServer
 			ApiErrorCode = log.ApiErrorCode;
 			ApiErrorMessage = log.ApiErrorMessage;
 			AdditionalInfo = log.AdditionalInfo;
+			CorrelationId = log.CorrelationId;
 		}
 
 		public override string ToString()
 		{
 			return Severity + " Log: " + Description;
+		}
+	}
+	public class SSIStatisticsDTO
+	{
+		public DateTime EntryDate
+		{
+			get;
+			set;
+		}
+
+		public int ConfirmedCasesToday
+		{
+			get;
+			set;
+		}
+
+		public int ConfirmedCasesTotal
+		{
+			get;
+			set;
+		}
+
+		public int DeathsToday
+		{
+			get;
+			set;
+		}
+
+		public int DeathsTotal
+		{
+			get;
+			set;
+		}
+
+		public int TestsConductedToday
+		{
+			get;
+			set;
+		}
+
+		public int TestsConductedTotal
+		{
+			get;
+			set;
+		}
+
+		public int patientsAdmittedToday
+		{
+			get;
+			set;
 		}
 	}
 }
@@ -6488,6 +7047,8 @@ namespace NDB.Covid19.Interfaces
 		void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds);
 
 		void GenerateLocalNotificationOnlyIfInBackground(NotificationViewModel viewModel);
+
+		void GenerateLocalPermissionsNotification(NotificationViewModel viewModel);
 	}
 	public interface IMessagingCenter
 	{
@@ -6502,6 +7063,14 @@ namespace NDB.Covid19.Interfaces
 		void Unsubscribe<TSender, TArgs>(object subscriber, string message) where TSender : class;
 
 		void Unsubscribe<TSender>(object subscriber, string message) where TSender : class;
+	}
+	public interface IPermissionsHelper
+	{
+		bool IsBluetoothEnabled();
+
+		bool IsLocationEnabled();
+
+		bool AreAllPermissionsGranted();
 	}
 	public interface ISecureStorageService
 	{
@@ -9128,6 +9697,7 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 			_developerTools.StartPullHistoryRecord();
 			SendReApproveConsentsNotificationIfNeeded();
 			ResendMessageIfNeeded();
+			CreatePermissionsNotificationIfNeeded();
 			if (!_pullRules.ShouldAbortPull())
 			{
 				IEnumerable<string> zipsLocation = await new ZipDownloader().DownloadZips(cancellationToken);
@@ -9138,6 +9708,11 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 				}
 				DeleteZips(zipsLocation);
 			}
+		}
+
+		private void CreatePermissionsNotificationIfNeeded()
+		{
+			NotificationsHelper.CreatePermissionsNotification();
 		}
 
 		private async void ResendMessageIfNeeded()
@@ -9398,6 +9973,15 @@ namespace NDB.Covid19.ExposureNotification.Helpers.ExposureDetected
 		}
 	}
 }
+namespace NDB.Covid19.Droid.Utils
+{
+	public enum NotificationType
+	{
+		Local,
+		InBackground,
+		Permissions
+	}
+}
 namespace NDB.Covid19.Enums
 {
 	public enum AppState
@@ -9428,7 +10012,11 @@ namespace NDB.Covid19.Enums
 		ApiDeprecated,
 		ConsentNeeded,
 		ReApproveConsents,
-		BackgroundFetch
+		BackgroundFetch,
+		BluetoothAndLocationOff,
+		BluetoothOff,
+		LocationOff,
+		NoNotification
 	}
 	public static class NotificationsEnumExtensions
 	{
@@ -9465,6 +10053,24 @@ namespace NDB.Covid19.Enums
 					Type = NotificationsEnum.BackgroundFetch,
 					Title = "NOTIFICATION_BACKGROUND_FETCH_HEADER".Translate(),
 					Body = "NOTIFICATION_BACKGROUND_FETCH_DESCRIPTION".Translate()
+				}, 
+				NotificationsEnum.LocationOff => new NotificationViewModel
+				{
+					Type = NotificationsEnum.LocationOff,
+					Title = "NOTIFICATION_LOCATION_OFF_TITLE".Translate(),
+					Body = "NOTIFICATION_LOCATION_OFF_DESCRIPTION".Translate()
+				}, 
+				NotificationsEnum.BluetoothOff => new NotificationViewModel
+				{
+					Type = NotificationsEnum.BluetoothOff,
+					Title = "NOTIFICATION_BLUETOOTH_OFF_TITLE".Translate(),
+					Body = "NOTIFICATION_BLUETOOTH_OFF_DESCRIPTION".Translate()
+				}, 
+				NotificationsEnum.BluetoothAndLocationOff => new NotificationViewModel
+				{
+					Type = NotificationsEnum.BluetoothAndLocationOff,
+					Title = "NOTIFICATION_BLUETOOTH_AND_LOCATION_OFF_TITLE".Translate(),
+					Body = "NOTIFICATION_BLUETOOTH_AND_LOCATION_OFF_DESCRIPTION".Translate()
 				}, 
 				_ => throw new InvalidEnumArgumentException("Notification type does not exist"), 
 			};
@@ -9526,6 +10132,8 @@ namespace NDB.Covid19.Config
 
 		public static int HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END = 22;
 
+		public static int MAX_CONTENT_BUFFER_SIZE = 10000000;
+
 		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(4.0);
 
 		public static readonly int FETCH_MAX_ATTEMPTS = 1;
@@ -9583,6 +10191,8 @@ namespace NDB.Covid19.Config
 
 		public static string URL_GET_COUNTRY_LIST => URL_PREFIX + "countries";
 
+		public static string URL_GET_SSI_DATA => URL_PREFIX + "covidstatistics";
+
 		public static string URL_GATEWAY_STUB_UPLOAD => URL_PREFIX + "diagnosiskeys/upload";
 
 		public static string DB_NAME => "Smittestop1.db3";
@@ -9606,6 +10216,34 @@ namespace NDB.Covid19.Config
 		public static readonly string MIGRATION_COUNT = "MIGRATION_COUNT";
 
 		public static readonly string MESSAGES_LAST_UPDATED_PREF = "MESSAGES_LAST_UPDATED_PREF";
+
+		public static readonly string SSI_DATA_HAS_NEVER_BEEN_CALLED = "SSI_DATA_HAS_NEVER_BEEN_CALLED";
+
+		public static readonly string SSI_DATA_LAST_UPDATED_PREF = "SSI_DATA_LAST_UPDATED_PREF";
+
+		public static readonly string SSI_DATA_CONFIRMED_CASES_TODAY_PREF = "SSI_DATA_CONFIRMED_CASES_TODAY_PREF";
+
+		public static readonly string SSI_DATA_CONFIRMED_CASES_TOTAL_PREF = "SSI_DATA_CONFIRMED_CASES_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_DEATHS_TODAY_PREF = "SSI_DATA_DEATHS_TODAY_PREF";
+
+		public static readonly string SSI_DATA_DEATHS_TOTAL_PREF = "SSI_DATA_DEATHS_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_TESTS_CONDUCTED_TODAY_PREF = "SSI_DATA_TESTS_CONDUCTED_TODAY_PREF";
+
+		public static readonly string SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF = "SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF = "SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF";
+
+		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF";
+
+		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF";
+
+		public static readonly string APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF = "APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF";
+
+		public static readonly string APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF = "APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF";
+
+		public static readonly string DISEASE_RATE_OF_THE_DAY_DTO_PREF = "DISEASE_RATE_OF_THE_DAY_DTO_PREF";
 
 		public static readonly string IS_ONBOARDING_COMPLETED_PREF = "isOnboardingCompleted";
 
@@ -9631,6 +10269,10 @@ namespace NDB.Covid19.Config
 
 		public static readonly string LAST_MESSAGE_DATE_TIME = "LAST_MESSAGE_DATE_TIME";
 
+		public static readonly string LAST_DISEASE_RATE_DATE_TIME = "LAST_DISEASE_RATE_DATE_TIME";
+
+		public static readonly string LAST_PERMISSIONS_NOTIFICATION_DATE_TIME = "LAST_PERMISSIONS_NOTIFICATION_DATE_TIME";
+
 		public static readonly string EXPOSURE_TIME_THRESHOLD = "EXPOSURE_TIME_THRESHOLD";
 
 		public static readonly string LOW_ATTENUATION_DURATION_MULTIPLIER = "LOW_ATTENUATION_DURATION_MULTIPLIER";
@@ -9638,6 +10280,8 @@ namespace NDB.Covid19.Config
 		public static readonly string MIDDLE_ATTENUATION_DURATION_MULTIPLIER = "MIDDLE_ATTENUATION_DURATION_MULTIPLIER";
 
 		public static readonly string HIGH_ATTENUATION_DURATION_MULTIPLIER = "HIGH_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string CORRELATION_ID = "CORRELATION_ID";
 
 		[Obsolete]
 		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
