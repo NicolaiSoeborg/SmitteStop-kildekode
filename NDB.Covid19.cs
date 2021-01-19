@@ -1928,6 +1928,11 @@ namespace NDB.Covid19.Utils
 			_manager.MarkAsRead(new MessageSQLiteModel(message), isRead);
 		}
 
+		public static void MarkAllAsRead()
+		{
+			_manager.MarkAllAsRead();
+		}
+
 		public static List<MessageItemViewModel> ToMessageItemViewModelList(List<MessageSQLiteModel> list)
 		{
 			return list.Select((MessageSQLiteModel model) => new MessageItemViewModel(model)).ToList();
@@ -2273,6 +2278,8 @@ namespace NDB.Covid19.Utils
 		public static string KEY_APP_WILL_ENTER_BACKGROUND => "KEY_APP_WILL_ENTER_BACKGROUND";
 
 		public static string KEY_MESSAGE_RECEIVED => "KEY_MESSAGE_RECEIVED";
+
+		public static string KEY_MESSAGE_STATUS_UPDATED => "KEY_MESSAGE_STATUS_UPDATED";
 
 		public static string KEY_APP_BECAME_ACTIVE => "KEY_APP_BECAME_ACTIVE";
 
@@ -2640,6 +2647,18 @@ namespace NDB.Covid19.PersistedData
 			}
 		}
 
+		public static bool IsScrollDownShown
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.IS_SCROLL_DOWN_SHOWN_PREF, defaultValue: false);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.IS_SCROLL_DOWN_SHOWN_PREF, value);
+			}
+		}
+
 		public static int LastPullKeysBatchNumberNotSubmitted
 		{
 			get
@@ -2815,6 +2834,8 @@ namespace NDB.Covid19.PersistedData.SQLite
 		Task DeleteAll();
 
 		Task MarkAsRead(MessageSQLiteModel message, bool isRead);
+
+		Task MarkAllAsRead();
 	}
 	public interface ILoggingManager
 	{
@@ -2957,7 +2978,7 @@ namespace NDB.Covid19.PersistedData.SQLite
 			try
 			{
 				return await (from message in _database.Table<MessageSQLiteModel>()
-					where message.IsRead == false
+					where !message.IsRead
 					select message).ToListAsync();
 			}
 			catch
@@ -3012,6 +3033,26 @@ namespace NDB.Covid19.PersistedData.SQLite
 				_syncLock.Release();
 			}
 		}
+
+		public async Task MarkAllAsRead()
+		{
+			await _syncLock.WaitAsync();
+			try
+			{
+				List<MessageSQLiteModel> list = await (from message in _database.Table<MessageSQLiteModel>()
+					where !message.IsRead
+					select message).ToListAsync();
+				foreach (MessageSQLiteModel item in list)
+				{
+					item.IsRead = true;
+				}
+				await _database.UpdateAllAsync(list);
+			}
+			finally
+			{
+				_syncLock.Release();
+			}
+		}
 	}
 }
 namespace NDB.Covid19.PersistedData.SecureStorage
@@ -3048,7 +3089,7 @@ namespace NDB.Covid19.OAuth2
 
 		public void Setup(EventHandler<AuthenticatorCompletedEventArgs> completedHandler, EventHandler<AuthenticatorErrorEventArgs> errorHandler)
 		{
-			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(OAuthConf.OAUTH2_CLIENT_ID, null, OAuthConf.OAUTH2_SCOPE, new Uri(OAuthConf.OAUTH2_AUTHORISE_URL), new Uri(OAuthConf.OAUTH2_REDIRECT_URL), new Uri(OAuthConf.OAUTH2_ACCESSTOKEN_URL), null, isUsingNativeUI: true);
+			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(OAuthConf.OAUTH2_CLIENT_ID, null, OAuthConf.OAUTH2_SCOPE, new Uri(OAuthConf.OAUTH2_AUTHORISE_URL), new Uri(OAuthConf.OAUTH2_REDIRECT_URL), new Uri(OAuthConf.OAUTH2_ACCESSTOKEN_URL), null, ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform.ToString().Equals("iOS"));
 			AuthenticationState.Authenticator.ClearCookiesBeforeLogin = true;
 			AuthenticationState.Authenticator.ShowErrors = true;
 			AuthenticationState.Authenticator.AllowCancel = true;
@@ -3482,11 +3523,20 @@ namespace NDB.Covid19.ViewModels
 			WebService = new DiseaseRateOfTheDayWebService();
 		}
 
-		public async Task<DiseaseRateOfTheDayDTO> GetSSIDataAsync()
+		public static async void UpdateSSIDataAsync()
 		{
-			DiseaseRateOfTheDayDTO obj = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
-			LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(obj);
-			return obj;
+			try
+			{
+				LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData());
+			}
+			catch (NullReferenceException e)
+			{
+				LogUtils.LogException(LogSeverity.WARNING, e, "DiseaseRateViewModel.UpdateSSIDataAsync: Failed to fetch the data.");
+			}
+			catch (Exception e2)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e2, "DiseaseRateViewModel.UpdateSSIDataAsync: Unidentified exception.");
+			}
 		}
 	}
 	public class ENDeveloperToolsViewModel
@@ -3831,6 +3881,8 @@ namespace NDB.Covid19.ViewModels
 	}
 	public class InfectionStatusViewModel
 	{
+		public static bool IsScrollDownShown = LocalPreferencesHelper.IsScrollDownShown;
+
 		private DateTime _latestMessageDateTime = DateTime.Today;
 
 		public static string INFECTION_STATUS_PAGE_TITLE => "SMITTESPORING_PAGE_TITLE".Translate();
@@ -3855,6 +3907,8 @@ namespace NDB.Covid19.ViewModels
 
 		public static string INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT => "SMITTESPORING_REGISTER_DESCRIPTION".Translate();
 
+		public static string SCROLL_DOWN_HEADER_TEXT => "SMITTESPORING_SCROLL".Translate();
+
 		public static string INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT => "MENU_TEXT".Translate();
 
 		public static string INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT => "SMITTESPORING_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY".Translate();
@@ -3867,7 +3921,14 @@ namespace NDB.Covid19.ViewModels
 
 		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
 
-		public static DateTime DiseaseRateUpdatedDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+		public static DateTime DiseaseRateUpdatedDateTime
+		{
+			get
+			{
+				DiseaseRateViewModel.UpdateSSIDataAsync();
+				return LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+			}
+		}
 
 		public static string LastUpdateString
 		{
@@ -4315,6 +4376,8 @@ namespace NDB.Covid19.ViewModels
 	}
 	public class MessagesViewModel
 	{
+		private static readonly object Subscriber = new object();
+
 		public static string MESSAGES_HEADER => "MESSAGES_HEADER".Translate();
 
 		public static string MESSAGES_NO_ITEMS_TITLE => "MESSAGES_NOMESSAGES_HEADER".Translate();
@@ -4346,6 +4409,7 @@ namespace NDB.Covid19.ViewModels
 			MessagingCenter.Subscribe<object>(subscriber, MessagingCenterKeys.KEY_MESSAGE_RECEIVED, async delegate
 			{
 				action?.Invoke(await GetMessages());
+				MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
 			});
 		}
 
@@ -4359,15 +4423,10 @@ namespace NDB.Covid19.ViewModels
 			return MessageUtils.ToMessageItemViewModelList(await MessageUtils.GetMessages());
 		}
 
-		public static async Task MarkAllMessagesAsRead()
+		public static void MarkAllMessagesAsRead()
 		{
-			foreach (MessageItemViewModel item in await GetMessages())
-			{
-				if (!item.IsRead)
-				{
-					item.IsRead = true;
-				}
-			}
+			MessageUtils.MarkAllAsRead();
+			MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
 		}
 	}
 	public class NotificationViewModel
@@ -4733,19 +4792,11 @@ namespace NDB.Covid19.ViewModels
 
 		public static string PHONE_NUM => "SETTINGS_PAGE_4_PHONE_NUM".Translate();
 
-		public static string PHONE_OPEN_TEXT => "SETTINGS_PAGE_4_PHONE_OPEN_TEXT".Translate();
-
-		public static string PHONE_OPEN_MON_THU => "SETTINGS_PAGE_4_PHONE_OPEN_MON_THU".Translate();
-
-		public static string PHONE_OPEN_FRE => "SETTINGS_PAGE_4_PHONE_OPEN_FRE".Translate();
-
-		public static string PHONE_OPEN_SAT_SUN_HOLY => "SETTINGS_PAGE_4_PHONE_OPEN_SAT_SUN_HOLY".Translate();
+		public static string SUPPORT_TEXT => "SETTINGS_PAGE_4_SUPPORT_TEXT".Translate();
 
 		public static string PHONE_NUM_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_NUM".Translate();
 
-		public static string PHONE_OPEN_MON_THU_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_MON_THU".Translate();
-
-		public static string PHONE_OPEN_FRE_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_OPEN_FRE".Translate();
+		public static string ACCESSIBILITY_SUPPORT_TEXT => "SETTINGS_PAGE_4_ACCESSIBILITY_SUPPORT_TEXT".Translate();
 	}
 	public class SettingsPage5ViewModel
 	{
@@ -5775,12 +5826,16 @@ namespace NDB.Covid19.Models.DTOsForServer
 
 		public string GetName()
 		{
-			return LocalesService.GetLanguage() switch
+			string language = LocalesService.GetLanguage();
+			if (!(language == "da"))
 			{
-				"da" => Name_DA, 
-				"en" => Name_EN, 
-				_ => Name_DA, 
-			};
+				if (language == "en")
+				{
+					return Name_EN;
+				}
+				return Name_DA;
+			}
+			return Name_DA;
 		}
 	}
 	public class CountryListDTO
@@ -10244,6 +10299,8 @@ namespace NDB.Covid19.Config
 		public static readonly string APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF = "APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF";
 
 		public static readonly string DISEASE_RATE_OF_THE_DAY_DTO_PREF = "DISEASE_RATE_OF_THE_DAY_DTO_PREF";
+
+		public static readonly string IS_SCROLL_DOWN_SHOWN_PREF = "SCROLL_DOWN_SHOWN_PREF";
 
 		public static readonly string IS_ONBOARDING_COMPLETED_PREF = "isOnboardingCompleted";
 
