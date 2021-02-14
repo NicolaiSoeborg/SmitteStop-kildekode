@@ -68,6 +68,7 @@ using Unity.Injection;
 using Xamarin.Auth;
 using Xamarin.Essentials;
 using Xamarin.ExposureNotifications;
+using Yort.Ntp;
 
 [assembly: CompilationRelaxations(8)]
 [assembly: RuntimeCompatibility(WrapNonExceptionThrows = true)]
@@ -2286,6 +2287,8 @@ namespace NDB.Covid19.Utils
 		public static string KEY_APP_RESIGN_ACTIVE => "KEY_APP_RESIGN_ACTIVE";
 
 		public static string KEY_PERMISSIONS_CHANGED => "PermissionsChangedKey";
+
+		public static string KEY_UPDATE_DISEASE_RATE => "KEY_UPDATE_DISEASE_RATE";
 	}
 	public class NotificationsHelper
 	{
@@ -2333,8 +2336,30 @@ namespace NDB.Covid19.Utils
 				}
 				notificationViewModel = NotificationsEnum.LocationOff.Data();
 			}
-			LocalNotificationsManager.GenerateLocalNotification(notificationViewModel, 0);
+			LocalNotificationsManager.GenerateLocalNotification(notificationViewModel, 0L);
 			LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc = dateTime.Date;
+		}
+	}
+	public class NTPUtcDateTime
+	{
+		private readonly NtpClient _client;
+
+		public NTPUtcDateTime()
+		{
+			_client = new NtpClient();
+		}
+
+		public virtual async Task<DateTime> GetNTPUtcDateTime()
+		{
+			try
+			{
+				return (await _client.RequestTimeAsync()).NtpTime;
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.WARNING, e, "NTPUtcDateTime-GetNTPUtcDateTime threw an exception");
+				return LocalPreferencesHelper.LastNTPUtcDateTime;
+			}
 		}
 	}
 	public static class OnboardingStatusHelper
@@ -2767,6 +2792,18 @@ namespace NDB.Covid19.PersistedData
 			}
 		}
 
+		public static DateTime LastNTPUtcDateTime
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.LAST_NTP_UTC_DATE_TIME, Conf.DATE_TIME_REPLACEMENT);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.LAST_NTP_UTC_DATE_TIME, value);
+			}
+		}
+
 		public static bool GetIsDownloadWithMobileDataEnabled()
 		{
 			return _preferences.Get(PreferencesKeys.USE_MOBILE_DATA_PREF, defaultValue: true);
@@ -3091,7 +3128,7 @@ namespace NDB.Covid19.OAuth2
 		{
 			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(OAuthConf.OAUTH2_CLIENT_ID, null, OAuthConf.OAUTH2_SCOPE, new Uri(OAuthConf.OAUTH2_AUTHORISE_URL), new Uri(OAuthConf.OAUTH2_REDIRECT_URL), new Uri(OAuthConf.OAUTH2_ACCESSTOKEN_URL), null, ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform.ToString().Equals("iOS"));
 			AuthenticationState.Authenticator.ClearCookiesBeforeLogin = true;
-			AuthenticationState.Authenticator.ShowErrors = true;
+			AuthenticationState.Authenticator.ShowErrors = false;
 			AuthenticationState.Authenticator.AllowCancel = true;
 			_completedHandler = completedHandler;
 			AuthenticationState.Authenticator.Completed += _completedHandler;
@@ -3523,11 +3560,18 @@ namespace NDB.Covid19.ViewModels
 			WebService = new DiseaseRateOfTheDayWebService();
 		}
 
-		public static async void UpdateSSIDataAsync()
+		public static async Task<bool> UpdateSSIDataAsync()
 		{
 			try
 			{
-				LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData());
+				DiseaseRateOfTheDayDTO diseaseRateOfTheDayDTO = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
+				if (diseaseRateOfTheDayDTO?.SSIStatistics == null || diseaseRateOfTheDayDTO.AppStatistics == null)
+				{
+					return false;
+				}
+				LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(diseaseRateOfTheDayDTO);
+				MessagingCenter.Send(new object(), MessagingCenterKeys.KEY_UPDATE_DISEASE_RATE);
+				return true;
 			}
 			catch (NullReferenceException e)
 			{
@@ -3537,6 +3581,7 @@ namespace NDB.Covid19.ViewModels
 			{
 				LogUtils.LogException(LogSeverity.ERROR, e2, "DiseaseRateViewModel.UpdateSSIDataAsync: Unidentified exception.");
 			}
+			return false;
 		}
 	}
 	public class ENDeveloperToolsViewModel
@@ -3921,14 +3966,27 @@ namespace NDB.Covid19.ViewModels
 
 		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
 
-		public static DateTime DiseaseRateUpdatedDateTime
-		{
-			get
-			{
-				DiseaseRateViewModel.UpdateSSIDataAsync();
-				return LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
-			}
-		}
+		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_TITLE => "INFECTION_STATUS_SPINNER_DIALOG_TITLE".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_MESSAGE => "INFECTION_STATUS_SPINNER_DIALOG_MESSAGE".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON => "INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON".Translate();
+
+		public static DateTime DiseaseRateUpdatedDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
 
 		public static string LastUpdateString
 		{
@@ -3941,6 +3999,20 @@ namespace NDB.Covid19.ViewModels
 					return "";
 				}
 				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
+			}
+		}
+
+		public static string LastUpdateAccessibilityString
+		{
+			get
+			{
+				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
 			}
 		}
 
@@ -3978,7 +4050,7 @@ namespace NDB.Covid19.ViewModels
 
 		public string NewRegistrationAccessibilityText => INFECTION_STATUS_REGISTRATION_HEADER_TEXT + ". " + INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
 
-		public string NewDiseaseRateAccessibilityText => INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT + ". " + LastUpdateString;
+		public string NewDiseaseRateAccessibilityText => INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT + ". " + LastUpdateAccessibilityString;
 
 		public DialogViewModel OffDialogViewModel => new DialogViewModel
 		{
@@ -4010,6 +4082,14 @@ namespace NDB.Covid19.ViewModels
 			OkBtnTxt = "SMITTESPORING_REPORTING_ILL_DIALOG_OK_BTN".Translate()
 		};
 
+		public static void RequestSSIUpdate()
+		{
+			if (DiseaseRateUpdatedDateTime.Date != SystemTime.Now().ToLocalTime().Date)
+			{
+				DiseaseRateViewModel.UpdateSSIDataAsync();
+			}
+		}
+
 		public async Task<string> StatusTxt()
 		{
 			return (await IsRunning()) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
@@ -4033,6 +4113,13 @@ namespace NDB.Covid19.ViewModels
 		public InfectionStatusViewModel()
 		{
 			SubscribeMessages();
+			Connectivity.ConnectivityChanged += delegate(object sender, ConnectivityChangedEventArgs args)
+			{
+				if (args.NetworkAccess == NetworkAccess.Internet)
+				{
+					RequestSSIUpdate();
+				}
+			};
 		}
 
 		public async Task<bool> IsRunning()
@@ -4118,19 +4205,12 @@ namespace NDB.Covid19.ViewModels
 
 		public async void CheckIfAppIsRestricted(Action action = null)
 		{
-			_ = 3;
+			_ = 2;
 			try
 			{
-				if (await IsEnabled())
+				if (await IsEnabled() && await IsRunning())
 				{
-					if (!(await IsRunning()))
-					{
-						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
-					}
-					else
-					{
-						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-					}
+					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
 				}
 				IsAppRestricted = false;
 			}
@@ -4428,6 +4508,28 @@ namespace NDB.Covid19.ViewModels
 			MessageUtils.MarkAllAsRead();
 			MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
 		}
+	}
+	public static class NotificationChannelsViewModel
+	{
+		public static string NOTIFICATION_CHANNEL_EXPOSURE_NAME => "NOTIFICATION_CHANNEL_EXPOSURE_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION => "NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_PERMISSIONS_NAME => "NOTIFICATION_CHANNEL_PERMISSIONS_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION => "NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_REMINDER_NAME => "NOTIFICATION_CHANNEL_REMINDER_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION => "NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_COUNTDOWN_NAME => "NOTIFICATION_CHANNEL_COUNTDOWN_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION => "NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION".Translate();
 	}
 	public class NotificationViewModel
 	{
@@ -4893,6 +4995,8 @@ namespace NDB.Covid19.ViewModels
 		public static string WELCOME_PAGE_THREE_TITLE => "WELCOME_PAGE_THREE_TITLE".Translate();
 
 		public static string WELCOME_PAGE_THREE_BODY_ONE => "WELCOME_PAGE_THREE_BODY_ONE".Translate();
+
+		public static string WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY => "WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY".Translate();
 
 		public static string WELCOME_PAGE_THREE_BODY_TWO => "WELCOME_PAGE_THREE_BODY_TWO".Translate();
 
@@ -5697,7 +5801,9 @@ namespace NDB.Covid19.Models.Logging
 		{
 			Severity = severity;
 			Description = Anonymizer.RedactText(logMessage);
-			ReportedTime = DateTime.Now;
+			DateTime dateTime = SystemTime.Now().ToUniversalTime();
+			DateTime lastNTPUtcDateTime = LocalPreferencesHelper.LastNTPUtcDateTime;
+			ReportedTime = (((lastNTPUtcDateTime - dateTime).Duration().Days >= 730) ? LocalPreferencesHelper.LastNTPUtcDateTime : dateTime);
 			ApiVersion = Conf.APIVersion;
 			string backGroundServicVersionLogString = ServiceLocator.Current.GetInstance<IApiDataHelper>().GetBackGroundServicVersionLogString();
 			AdditionalInfo = Anonymizer.RedactText(additionalInfo) + backGroundServicVersionLogString;
@@ -7099,11 +7205,13 @@ namespace NDB.Covid19.Interfaces
 	}
 	public interface ILocalNotificationsManager
 	{
-		void GenerateLocalNotification(NotificationViewModel notificationViewModel, int triggerInSeconds);
+		void GenerateLocalNotification(NotificationViewModel notificationViewModel, long triggerInSeconds);
 
 		void GenerateLocalNotificationOnlyIfInBackground(NotificationViewModel viewModel);
 
 		void GenerateLocalPermissionsNotification(NotificationViewModel viewModel);
+
+		void GenerateDelayedNotification(NotificationViewModel viewModel, long ticks);
 	}
 	public interface IMessagingCenter
 	{
@@ -9750,6 +9858,7 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 		public async Task FetchExposureKeyBatchFilesFromServerAsync(Func<IEnumerable<string>, Task> submitBatches, CancellationToken cancellationToken)
 		{
 			_developerTools.StartPullHistoryRecord();
+			UpdateLastNTPDateTime();
 			SendReApproveConsentsNotificationIfNeeded();
 			ResendMessageIfNeeded();
 			CreatePermissionsNotificationIfNeeded();
@@ -9785,6 +9894,15 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 					NotificationsHelper.CreateNotification(NotificationsEnum.NewMessageReceived, 0);
 					MessageUtils.SaveDateTimeToSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, SystemTime.Now(), "ResendMessageIfNeeded");
 				}
+			}
+		}
+
+		public async void UpdateLastNTPDateTime(NTPUtcDateTime mock = null)
+		{
+			DateTime dateTime = await (mock ?? new NTPUtcDateTime()).GetNTPUtcDateTime();
+			if (dateTime > LocalPreferencesHelper.LastNTPUtcDateTime)
+			{
+				LocalPreferencesHelper.LastNTPUtcDateTime = dateTime;
 			}
 		}
 
@@ -10034,7 +10152,8 @@ namespace NDB.Covid19.Droid.Utils
 	{
 		Local,
 		InBackground,
-		Permissions
+		Permissions,
+		ForegroundWithUpdates
 	}
 }
 namespace NDB.Covid19.Enums
@@ -10071,7 +10190,9 @@ namespace NDB.Covid19.Enums
 		BluetoothAndLocationOff,
 		BluetoothOff,
 		LocationOff,
-		NoNotification
+		NoNotification,
+		TimedReminder,
+		TimedReminderFinished
 	}
 	public static class NotificationsEnumExtensions
 	{
@@ -10126,6 +10247,18 @@ namespace NDB.Covid19.Enums
 					Type = NotificationsEnum.BluetoothAndLocationOff,
 					Title = "NOTIFICATION_BLUETOOTH_AND_LOCATION_OFF_TITLE".Translate(),
 					Body = "NOTIFICATION_BLUETOOTH_AND_LOCATION_OFF_DESCRIPTION".Translate()
+				}, 
+				NotificationsEnum.TimedReminder => new NotificationViewModel
+				{
+					Type = NotificationsEnum.TimedReminder,
+					Title = "NOTIFICATION_TIMED_REMINDER_TITLE".Translate(),
+					Body = "NOTIFICATION_TIMED_REMINDER_DESCRIPTION".Translate()
+				}, 
+				NotificationsEnum.TimedReminderFinished => new NotificationViewModel
+				{
+					Type = NotificationsEnum.TimedReminderFinished,
+					Title = "NOTIFICATION_TIMED_REMINDER_FINISHED_TITLE".Translate(),
+					Body = "NOTIFICATION_TIMED_REMINDER_FINISHED_DESCRIPTION".Translate()
 				}, 
 				_ => throw new InvalidEnumArgumentException("Notification type does not exist"), 
 			};
@@ -10188,6 +10321,8 @@ namespace NDB.Covid19.Config
 		public static int HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END = 22;
 
 		public static int MAX_CONTENT_BUFFER_SIZE = 10000000;
+
+		public static DateTime DATE_TIME_REPLACEMENT = new DateTime(2021, 1, 1);
 
 		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(4.0);
 
@@ -10339,6 +10474,8 @@ namespace NDB.Covid19.Config
 		public static readonly string HIGH_ATTENUATION_DURATION_MULTIPLIER = "HIGH_ATTENUATION_DURATION_MULTIPLIER";
 
 		public static readonly string CORRELATION_ID = "CORRELATION_ID";
+
+		public static readonly string LAST_NTP_UTC_DATE_TIME = "LAST_NTP_DATE_TIME";
 
 		[Obsolete]
 		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
