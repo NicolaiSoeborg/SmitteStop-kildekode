@@ -18,6 +18,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 using CommonServiceLocator;
 using Google.Protobuf;
 using Google.Protobuf.Collections;
@@ -1842,14 +1843,16 @@ namespace NDB.Covid19.Utils
 
 		public static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
 		{
-			if (e != null && e.ExceptionObject != null)
+			Exception ex = e?.ExceptionObject as Exception;
+			if (ex != null)
 			{
-				Exception ex = e?.ExceptionObject as Exception;
-				if (ex != null)
+				string correlationId = LocalPreferencesHelper.GetCorrelationId();
+				if (!string.IsNullOrEmpty(correlationId))
 				{
-					string contextDescription = "LogUtils.OnUnhandledException: " + (e.IsTerminating ? "Native unhandled crash" : "Native unhandled exception - not crashing");
-					LogException((!e.IsTerminating) ? LogSeverity.WARNING : LogSeverity.ERROR, ex, contextDescription);
+					LogMessage(LogSeverity.INFO, "The user has experienced unhandled exception crash", null, correlationId);
 				}
+				string contextDescription = "LogUtils.OnUnhandledException: " + (e.IsTerminating ? "Native unhandled crash" : "Native unhandled exception - not crashing");
+				LogException((!e.IsTerminating) ? LogSeverity.WARNING : LogSeverity.ERROR, ex, contextDescription);
 			}
 		}
 
@@ -2801,6 +2804,18 @@ namespace NDB.Covid19.PersistedData
 			set
 			{
 				_preferences.Set(PreferencesKeys.LAST_NTP_UTC_DATE_TIME, value);
+			}
+		}
+
+		public static bool DidFirstFileOfTheDayEndedWith204
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.FETCHING_ACROSS_DATES_204_FIRST_BATCH, defaultValue: false);
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.FETCHING_ACROSS_DATES_204_FIRST_BATCH, value);
 			}
 		}
 
@@ -4398,6 +4413,41 @@ namespace NDB.Covid19.ViewModels
 
 		public static string LAUNCHER_PAGE_CONTINUE_IN_ENG => "LAUNCHER_PAGE_CONTINUE_IN_ENG".Translate();
 	}
+	public static class LoadingPageViewModel
+	{
+		private static System.Timers.Timer _timer;
+
+		private static int _textChangeSeconds = 4;
+
+		private static Action _onFinished;
+
+		public static string LOADING_PAGE_TEXT_NORMAL => "LOADING_PAGE_TEXT_NORMAL".Translate();
+
+		public static string LOADING_PAGE_TEXT_TIME_EXTENDED => "LOADING_PAGE_TEXT_TIME_EXTENDED".Translate();
+
+		public static void StartTimer(Action onFinished)
+		{
+			_timer = new System.Timers.Timer
+			{
+				Interval = 1000.0,
+				Enabled = true
+			};
+			_timer.Elapsed += TimerOnElapsed;
+			_onFinished = onFinished;
+			_textChangeSeconds = 4;
+			_timer.Start();
+		}
+
+		private static void TimerOnElapsed(object sender, ElapsedEventArgs e)
+		{
+			if (--_textChangeSeconds == 0)
+			{
+				_onFinished?.Invoke();
+				_timer?.Stop();
+				_timer = null;
+			}
+		}
+	}
 	public class MessageItemViewModel
 	{
 		public static readonly string MESSAGES_RECOMMENDATIONS = "MESSAGES_RECOMMENDATIONS_".Translate();
@@ -4551,8 +4601,28 @@ namespace NDB.Covid19.ViewModels
 			set;
 		}
 	}
+	public static class QuestionnaireConfirmLeaveViewModel
+	{
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_TITLE => "QUESTIONNAIRE_CONFIRM_LEAVE_TITLE".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION => "QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL".Translate();
+
+		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
+	}
 	public class QuestionnaireCountriesViewModel
 	{
+		public static QuestionnaireCountriesVisitedEnum Selection = QuestionnaireCountriesVisitedEnum.No;
+
 		public static string COUNTRY_QUESTIONAIRE_HEADER_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_HEADER_TEXT".Translate();
 
 		public static string COUNTRY_QUESTIONAIRE_INFORMATION_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_INFORMATION_TEXT".Translate();
@@ -4560,6 +4630,10 @@ namespace NDB.Covid19.ViewModels
 		public static string COUNTRY_QUESTIONAIRE_BUTTON_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_BUTTON_TEXT".Translate();
 
 		public static string COUNTRY_QUESTIONAIRE_FOOTER => "REGISTER_COUNTRY_QUESTIONAIRE_FOOTER".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON".Translate();
 
 		public DialogViewModel CloseDialogViewModel => new DialogViewModel
 		{
@@ -4594,6 +4668,22 @@ namespace NDB.Covid19.ViewModels
 				onFail?.Invoke();
 			}
 		}
+	}
+	public static class QuestionnairePreShareViewModel
+	{
+		public static string QUESTIONNAIRE_PRE_SHARE_TITLE => "QUESTIONNAIRE_PRE_SHARE_TITLE".Translate();
+
+		public static string QUESTIONNAIRE_PRE_SHARE_DESCRIPTION => "QUESTIONNAIRE_PRE_SHARE_DESCRIPTION".Translate();
+
+		public static string QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON => "QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON".Translate();
+
+		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
 	}
 	public class QuestionnaireViewModel
 	{
@@ -9862,16 +9952,22 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 			SendReApproveConsentsNotificationIfNeeded();
 			ResendMessageIfNeeded();
 			CreatePermissionsNotificationIfNeeded();
-			if (!_pullRules.ShouldAbortPull())
+			if (_pullRules.ShouldAbortPull())
 			{
-				IEnumerable<string> zipsLocation = await new ZipDownloader().DownloadZips(cancellationToken);
-				if (await SubmitZips(zipsLocation, submitBatches))
-				{
-					LocalPreferencesHelper.UpdateLastPullKeysSucceededDateTime();
-					_developerTools.AddToPullHistoryRecord("Zips were successfully submitted to EN API.");
-				}
-				DeleteZips(zipsLocation);
+				return;
 			}
+			IEnumerable<string> zipsLocation = await new ZipDownloader().DownloadZips(cancellationToken);
+			if (await SubmitZips(zipsLocation, submitBatches))
+			{
+				if (LocalPreferencesHelper.DidFirstFileOfTheDayEndedWith204)
+				{
+					LocalPreferencesHelper.LastPullKeysBatchNumberNotSubmitted = 0;
+				}
+				LocalPreferencesHelper.UpdateLastPullKeysSucceededDateTime();
+				_developerTools.AddToPullHistoryRecord("Zips were successfully submitted to EN API.");
+			}
+			LocalPreferencesHelper.DidFirstFileOfTheDayEndedWith204 = false;
+			DeleteZips(zipsLocation);
 		}
 
 		private void CreatePermissionsNotificationIfNeeded()
@@ -9979,14 +10075,17 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 		public async Task<IEnumerable<string>> PullNewKeys(ExposureNotificationWebService service, CancellationToken cancellationToken)
 		{
 			PullKeysParams requestParams = PullKeysParams.GenerateParams();
+			LocalPreferencesHelper.DidFirstFileOfTheDayEndedWith204 = false;
 			List<string> zipLocations = new List<string>();
 			bool lastPull = false;
 			int? lastBatchReceived = null;
+			int? lastReceivedStatusCodeFromRequest = null;
 			while (!lastPull)
 			{
 				string requestUrl = requestParams.ToBatchFileRequest();
 				ApiResponse<Stream> apiResponse = await service.GetDiagnosisKeys(requestUrl, cancellationToken);
 				HttpHeaders headers = apiResponse.Headers;
+				lastReceivedStatusCodeFromRequest = apiResponse.StatusCode;
 				bool flag = true;
 				if (apiResponse == null || !apiResponse.IsSuccessfull)
 				{
@@ -10070,6 +10169,10 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 			{
 				LocalPreferencesHelper.LastPullKeysBatchNumberNotSubmitted = lastBatchReceived.Value;
 				LocalPreferencesHelper.LastPulledBatchType = requestParams.BatchType;
+				if (requestParams.Date.Date == SystemTime.Now().Date && requestParams.BatchNumber == 1 && lastReceivedStatusCodeFromRequest == 204)
+				{
+					LocalPreferencesHelper.DidFirstFileOfTheDayEndedWith204 = true;
+				}
 			}
 			return zipLocations;
 		}
@@ -10277,6 +10380,11 @@ namespace NDB.Covid19.Enums
 		No,
 		Skip
 	}
+	public enum QuestionnaireCountriesVisitedEnum
+	{
+		Yes,
+		No
+	}
 	public enum SettingItemType
 	{
 		Intro,
@@ -10476,6 +10584,8 @@ namespace NDB.Covid19.Config
 		public static readonly string CORRELATION_ID = "CORRELATION_ID";
 
 		public static readonly string LAST_NTP_UTC_DATE_TIME = "LAST_NTP_DATE_TIME";
+
+		public static readonly string FETCHING_ACROSS_DATES_204_FIRST_BATCH = "FETCHING_ACROSS_DATES_204_FIRST_BATCH";
 
 		[Obsolete]
 		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
