@@ -2309,38 +2309,18 @@ namespace NDB.Covid19.Utils
 			LocalNotificationsManager.GenerateLocalNotificationOnlyIfInBackground(notificationType.Data());
 		}
 
-		public static void CreatePermissionsNotification()
+		public static async void CreatePermissionsNotification()
 		{
-			if (PermissionsHelper.AreAllPermissionsGranted())
+			if (!(await PermissionsHelper.AreAllPermissionsGranted()))
 			{
-				return;
-			}
-			DateTime dateTime = SystemTime.Now();
-			if (!(LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc.Date < dateTime.Date))
-			{
-				return;
-			}
-			bool flag = PermissionsHelper.IsBluetoothEnabled();
-			bool flag2 = PermissionsHelper.IsLocationEnabled();
-			NotificationViewModel notificationViewModel;
-			if (!flag && !flag2)
-			{
-				notificationViewModel = NotificationsEnum.BluetoothAndLocationOff.Data();
-			}
-			else if (!flag)
-			{
-				notificationViewModel = NotificationsEnum.BluetoothOff.Data();
-			}
-			else
-			{
-				if (flag2)
+				DateTime dateTime = SystemTime.Now();
+				if (LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc.Date < dateTime.Date)
 				{
-					return;
+					NotificationViewModel notificationViewModel = NotificationsEnum.BluetoothAndLocationOff.Data();
+					LocalNotificationsManager.GenerateLocalNotification(notificationViewModel, 0L);
+					LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc = dateTime.Date;
 				}
-				notificationViewModel = NotificationsEnum.LocationOff.Data();
 			}
-			LocalNotificationsManager.GenerateLocalNotification(notificationViewModel, 0L);
-			LocalPreferencesHelper.LastPermissionsNotificationDateTimeUtc = dateTime.Date;
 		}
 	}
 	public class NTPUtcDateTime
@@ -2349,7 +2329,7 @@ namespace NDB.Covid19.Utils
 
 		public NTPUtcDateTime()
 		{
-			_client = new NtpClient();
+			_client = new NtpClient("pool.ntp.org");
 		}
 
 		public virtual async Task<DateTime> GetNTPUtcDateTime()
@@ -2535,6 +2515,7 @@ namespace NDB.Covid19.PersistedData
 				}
 			}
 
+			[Obsolete]
 			public static int SSIPatientsAdmittedToday
 			{
 				get
@@ -2544,6 +2525,42 @@ namespace NDB.Covid19.PersistedData
 				set
 				{
 					_preferences.Set(PreferencesKeys.SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF, value);
+				}
+			}
+
+			public static DateTime SSIVaccinatedEntryDate
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_VACCINATED_ENTRY_DATE_PREF, DateTime.MinValue);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_VACCINATED_ENTRY_DATE_PREF, value);
+				}
+			}
+
+			public static double SSIVaccinatedFirst
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_VACCINATED_FIRST_PREF, 0.0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_VACCINATED_FIRST_PREF, value);
+				}
+			}
+
+			public static double SSIVaccinatedSecond
+			{
+				get
+				{
+					return _preferences.Get(PreferencesKeys.SSI_DATA_VACCINATED_SECOND_PREF, 0.0);
+				}
+				set
+				{
+					_preferences.Set(PreferencesKeys.SSI_DATA_VACCINATED_SECOND_PREF, value);
 				}
 			}
 
@@ -2593,6 +2610,9 @@ namespace NDB.Covid19.PersistedData
 				SSITestsConductedToday = dto.SSIStatistics.TestsConductedToday;
 				SSITestsConductedTotal = dto.SSIStatistics.TestsConductedTotal;
 				SSIPatientsAdmittedToday = dto.SSIStatistics.patientsAdmittedToday;
+				SSIVaccinatedEntryDate = dto.SSIStatisticsVaccination.EntryDate;
+				SSIVaccinatedFirst = decimal.ToDouble(dto.SSIStatisticsVaccination.VaccinationFirst);
+				SSIVaccinatedSecond = decimal.ToDouble(dto.SSIStatisticsVaccination.VaccinationSecond);
 				APPNumberOfPositiveTestsResultsLast7Days = dto.AppStatistics.NumberOfPositiveTestsResultsLast7Days;
 				APPNumberOfPositiveTestsResultsTotal = dto.AppStatistics.NumberOfPositiveTestsResultsTotal;
 				APPSmittestopDownloadsTotal = dto.AppStatistics.SmittestopDownloadsTotal;
@@ -3502,6 +3522,14 @@ namespace NDB.Covid19.ViewModels
 
 		public static string KEY_FEATURE_FOUR_LABEL => "KEY_FEATURE_FOUR_LABEL".Translate();
 
+		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL => "KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL => "KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER".Translate();
+
+		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER".Translate();
+
 		public static string KEY_FEATURE_FIVE_UPDATE_NEW => "KEY_FEATURE_FIVE_UPDATE_NEW".Translate();
 
 		public static string KEY_FEATURE_FIVE_UPDATE_ALL => "KEY_FEATURE_FIVE_UPDATE_ALL".Translate();
@@ -3562,13 +3590,18 @@ namespace NDB.Covid19.ViewModels
 
 		public static string TestsConductedTotal => string.Format(KEY_FEATURE_THREE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedTotal:N0}");
 
-		public static string PatientsAdmittedToday => string.Format(KEY_FEATURE_FOUR_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIPatientsAdmittedToday:N0}");
+		public static string VaccinatedFirst => string.Format(KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedFirst:N1}");
+
+		public static string VaccinatedSecond => string.Format(KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedSecond:N1}");
 
 		public static string NumberOfPositiveTestsResultsLast7Days => string.Format(KEY_FEATURE_FIVE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsLast7Days:N0}");
 
 		public static string NumberOfPositiveTestsResultsTotal => string.Format(KEY_FEATURE_FIVE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsTotal:N0}");
 
 		public static string SmittestopDownloadsTotal => string.Format(KEY_FEATURE_SIX_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPSmittestopDownloadsTotal:N0}");
+
+		[Obsolete]
+		public static string PatientsAdmittedToday => string.Format(KEY_FEATURE_FOUR_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIPatientsAdmittedToday:N0}");
 
 		static DiseaseRateViewModel()
 		{
@@ -3580,7 +3613,7 @@ namespace NDB.Covid19.ViewModels
 			try
 			{
 				DiseaseRateOfTheDayDTO diseaseRateOfTheDayDTO = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
-				if (diseaseRateOfTheDayDTO?.SSIStatistics == null || diseaseRateOfTheDayDTO.AppStatistics == null)
+				if (diseaseRateOfTheDayDTO?.SSIStatistics == null || diseaseRateOfTheDayDTO.AppStatistics == null || diseaseRateOfTheDayDTO.SSIStatisticsVaccination == null)
 				{
 					return false;
 				}
@@ -3651,7 +3684,7 @@ namespace NDB.Covid19.ViewModels
 			PushKeysInfo += $"regions: {arg2}\n";
 			jArray?.ForEach(delegate(JToken key)
 			{
-				string text = "Key: " + EncodingUtils.ConvertByteArrayToString((byte[]?)key["key"]) + " ,\n" + string.Format("rollingStart: {0},\n", key["rollingStart"]) + string.Format("rollingDuration: {0},\n", key["rollingDuration"]) + string.Format("transmissionRiskLevel: {0}\n\n", key["transmissionRiskLevel"]);
+				string text = "Key: " + EncodingUtils.ConvertByteArrayToString((byte[]?)key["key"]) + " ,\n" + string.Format("rollingStart: {0},\n", key["rollingStart"]) + string.Format("rollingDuration: {0},\n", key["rollingDuration"]) + string.Format("transmissionRiskLevel: {0},\n", key["transmissionRiskLevel"]) + string.Format("daysSinceOnsetOfSymptoms: {0}\n\n", key["daysSinceOnsetOfSymptoms"]);
 				PushKeysInfo += text;
 			});
 		}
@@ -4223,14 +4256,20 @@ namespace NDB.Covid19.ViewModels
 			_ = 2;
 			try
 			{
-				if (await IsEnabled() && await IsRunning())
+				bool flag = await IsEnabled();
+				if (flag)
+				{
+					flag = await IsRunning();
+				}
+				if (flag)
 				{
 					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
 				}
 				IsAppRestricted = false;
 			}
-			catch (Exception)
+			catch (Exception e)
 			{
+				LogUtils.LogException(LogSeverity.WARNING, e, "InfectionStatusViewModel:CheckIfAppIsRestricted - Could not start EN Api. Assuming EN api is restricted");
 				IsAppRestricted = true;
 			}
 			action?.Invoke();
@@ -4447,6 +4486,17 @@ namespace NDB.Covid19.ViewModels
 				_timer = null;
 			}
 		}
+
+		public static void ValidateData(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Loading Page - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
 	}
 	public class MessageItemViewModel
 	{
@@ -4618,6 +4668,17 @@ namespace NDB.Covid19.ViewModels
 			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
 			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
 		};
+
+		public static void ValidateData(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Confirm Leave - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
 	}
 	public class QuestionnaireCountriesViewModel
 	{
@@ -4656,7 +4717,7 @@ namespace NDB.Covid19.ViewModels
 
 		public void InvokeNextButtonClick(Action onSuccess, Action onFail, List<CountryDetailsViewModel> selectedCountriesList)
 		{
-			if (AuthenticationState.PersonalData != null)
+			if (AuthenticationState.PersonalData != null && AuthenticationState.PersonalData.Validate())
 			{
 				AuthenticationState.PersonalData.VisitedCountries = (from x in selectedCountriesList
 					where x.Checked
@@ -4665,6 +4726,7 @@ namespace NDB.Covid19.ViewModels
 			}
 			else
 			{
+				LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Countries - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
 				onFail?.Invoke();
 			}
 		}
@@ -4684,6 +4746,17 @@ namespace NDB.Covid19.ViewModels
 			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
 			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
 		};
+
+		public static void InvokeNextButtonClick(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Pre Share - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
 	}
 	public class QuestionnaireViewModel
 	{
@@ -4835,6 +4908,7 @@ namespace NDB.Covid19.ViewModels
 				if (_selectedDateUTC == DateTime.MinValue)
 				{
 					ServiceLocator.Current.GetInstance<IDialogService>().ShowMessageDialog(null, "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate(), "ERROR_OK_BTN".Translate(), platformDialogServiceArguments);
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - data validation failed", null, LocalPreferencesHelper.GetCorrelationId());
 					onValidationFail?.Invoke();
 					return;
 				}
@@ -4844,6 +4918,7 @@ namespace NDB.Covid19.ViewModels
 			{
 				if (!AuthenticationState.PersonalData.Validate())
 				{
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
 					onFail?.Invoke();
 					LogUtils.LogMessage(LogSeverity.ERROR, "Validation of personaldata failed because of miba data was null or accesstoken expired");
 					return;
@@ -4854,6 +4929,7 @@ namespace NDB.Covid19.ViewModels
 				}
 				catch
 				{
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
 					onFail?.Invoke();
 					LogUtils.LogMessage(LogSeverity.ERROR, "Miba data can't be parsed into datetime");
 					return;
@@ -6055,6 +6131,12 @@ namespace NDB.Covid19.Models.DTOsForServer
 			get;
 			set;
 		}
+
+		public SSIStatisticsVaccinationDTO SSIStatisticsVaccination
+		{
+			get;
+			set;
+		}
 	}
 	public class LogDTO
 	{
@@ -6258,7 +6340,28 @@ namespace NDB.Covid19.Models.DTOsForServer
 			set;
 		}
 
+		[Obsolete]
 		public int patientsAdmittedToday
+		{
+			get;
+			set;
+		}
+	}
+	public class SSIStatisticsVaccinationDTO
+	{
+		public DateTime EntryDate
+		{
+			get;
+			set;
+		}
+
+		public decimal VaccinationFirst
+		{
+			get;
+			set;
+		}
+
+		public decimal VaccinationSecond
 		{
 			get;
 			set;
@@ -7319,11 +7422,11 @@ namespace NDB.Covid19.Interfaces
 	}
 	public interface IPermissionsHelper
 	{
-		bool IsBluetoothEnabled();
+		Task<bool> IsBluetoothEnabled();
 
-		bool IsLocationEnabled();
+		Task<bool> IsLocationEnabled();
 
-		bool AreAllPermissionsGranted();
+		Task<bool> AreAllPermissionsGranted();
 	}
 	public interface ISecureStorageService
 	{
@@ -9730,33 +9833,10 @@ namespace NDB.Covid19.ExposureNotification
 
 		public async Task UploadSelfExposureKeysToServerAsync(IEnumerable<Xamarin.ExposureNotifications.TemporaryExposureKey> tempKeys)
 		{
-			IEnumerable<ExposureKeyModel> temporaryExposureKeys = tempKeys?.Select((Xamarin.ExposureNotifications.TemporaryExposureKey key) => new ExposureKeyModel(key)) ?? new List<ExposureKeyModel>();
-			try
-			{
-				if (ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform == DevicePlatform.iOS)
-				{
-					if (!(await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync()))
-					{
-						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
-					}
-					else
-					{
-						await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
-						await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				if (!ex.HandleExposureNotificationException("ExposureNotificationHandler", "UploadSelfExposureKeysToServerAsync"))
-				{
-					throw ex;
-				}
-			}
+			IEnumerable<ExposureKeyModel> enumerable = tempKeys?.Select((Xamarin.ExposureNotifications.TemporaryExposureKey key) => new ExposureKeyModel(key)) ?? new List<ExposureKeyModel>();
 			if (FakeGatewayUtils.IsFakeGatewayTest)
 			{
-				FakeGatewayUtils.LastPulledExposureKeys = temporaryExposureKeys;
+				FakeGatewayUtils.LastPulledExposureKeys = enumerable;
 				return;
 			}
 			if (AuthenticationState.PersonalData?.Access_token == null)
@@ -9772,7 +9852,7 @@ namespace NDB.Covid19.ExposureNotification
 				throw new MiBaDateMissingException("The symptom onset date is not set from the calling view model");
 			}
 			DateTime symptomsDate = MiBaDate.Value.ToUniversalTime();
-			List<ExposureKeyModel> keys = UploadDiagnosisKeysHelper.CreateAValidListOfTemporaryExposureKeys(temporaryExposureKeys);
+			List<ExposureKeyModel> keys = UploadDiagnosisKeysHelper.CreateAValidListOfTemporaryExposureKeys(enumerable);
 			keys = UploadDiagnosisKeysHelper.SetTransmissionRiskLevel(keys, symptomsDate);
 			if (await exposureNotificationWebService.PostSelvExposureKeys(keys))
 			{
@@ -10532,6 +10612,12 @@ namespace NDB.Covid19.Config
 		public static readonly string SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF = "SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF";
 
 		public static readonly string SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF = "SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_ENTRY_DATE_PREF = "SSI_DATA_VACCINATED_ENTRY_DATE_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_FIRST_PREF = "SSI_DATA_VACCINATED_FIRST_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_SECOND_PREF = "SSI_DATA_VACCINATED_SECOND_PREF";
 
 		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF";
 

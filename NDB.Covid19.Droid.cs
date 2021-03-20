@@ -16,11 +16,12 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Content.Res;
 using Android.Gms.Common;
+using Android.Gms.Nearby;
+using Android.Gms.Nearby.ExposureNotification;
+using Android.Gms.Tasks;
 using Android.Graphics;
-using Android.Locations;
 using Android.Net;
 using Android.OS;
-using Android.Provider;
 using Android.Runtime;
 using Android.Text;
 using Android.Text.Method;
@@ -48,6 +49,7 @@ using I18NPortable;
 using Java.Interop;
 using Java.Lang;
 using Java.Nio.FileNio;
+using Java.Util;
 using Java.Util.Regex;
 using MoreLinq.Extensions;
 using NDB.Covid19.Config;
@@ -128,6 +130,7 @@ namespace NDB.Covid19.Droid
 
 		private void Init()
 		{
+			StartService(new Intent(this, typeof(RemovedFromRecentDetectorService)));
 			_filter = new IntentFilter();
 			_filter.AddAction("android.bluetooth.adapter.action.STATE_CHANGED");
 			_filter.AddAction("android.location.PROVIDERS_CHANGED");
@@ -175,15 +178,9 @@ namespace NDB.Covid19.Droid
 
 		public override void OnTerminate()
 		{
-			string correlationId = LocalPreferencesHelper.GetCorrelationId();
-			if (!string.IsNullOrEmpty(correlationId))
-			{
-				LogUtils.LogMessage(LogSeverity.INFO, "The user has closed the app", null, correlationId);
-			}
 			UnregisterReceiver(_permissionsBroadcastReceiver);
 			UnregisterReceiver(_flightModeBroadcastReceiver);
 			LocalBroadcastManager.GetInstance(ApplicationContext).UnregisterReceiver(_backgroundNotificationBroadcastReceiver);
-			LogUtils.SendAllLogs();
 			base.OnTerminate();
 		}
 
@@ -3998,985 +3995,993 @@ namespace NDB.Covid19.Droid
 
 			public const int disease_rate_header_textView = 2131296456;
 
-			public const int disease_rate_hospitalized_header_text = 2131296457;
+			public const int disease_rate_infected_header_text = 2131296457;
 
-			public const int disease_rate_hospitalized_number_text = 2131296458;
+			public const int disease_rate_infected_number_text = 2131296458;
 
-			public const int disease_rate_infected_header_text = 2131296459;
+			public const int disease_rate_infected_total_text = 2131296459;
 
-			public const int disease_rate_infected_number_text = 2131296460;
+			public const int disease_rate_linear_layout = 2131296460;
 
-			public const int disease_rate_infected_total_text = 2131296461;
+			public const int disease_rate_positive_header_text = 2131296461;
 
-			public const int disease_rate_linear_layout = 2131296462;
+			public const int disease_rate_positive_icon = 2131296462;
 
-			public const int disease_rate_positive_header_text = 2131296463;
+			public const int disease_rate_positive_number_text = 2131296463;
 
-			public const int disease_rate_positive_icon = 2131296464;
+			public const int disease_rate_positive_total_text = 2131296464;
 
-			public const int disease_rate_positive_number_text = 2131296465;
+			public const int disease_rate_relativeLayout = 2131296465;
 
-			public const int disease_rate_positive_total_text = 2131296466;
+			public const int disease_rate_sub_header_textView = 2131296466;
 
-			public const int disease_rate_relativeLayout = 2131296467;
+			public const int disease_rate_sub_text = 2131296467;
 
-			public const int disease_rate_sub_header_textView = 2131296468;
+			public const int disease_rate_tested_header_text = 2131296468;
 
-			public const int disease_rate_sub_text = 2131296469;
+			public const int disease_rate_tested_number_empty_two_text = 2131296469;
 
-			public const int disease_rate_tested_header_text = 2131296470;
+			public const int disease_rate_tested_number_text = 2131296470;
 
-			public const int disease_rate_tested_number_text = 2131296471;
+			public const int disease_rate_tested_total_text = 2131296471;
 
-			public const int disease_rate_tested_total_text = 2131296472;
+			public const int disease_rate_vaccinated_header_text = 2131296472;
 
-			public const int divider = 2131296473;
+			public const int disease_rate_vaccinated_number = 2131296473;
 
-			public const int dropdown_menu = 2131296474;
+			public const int disease_rate_vaccinated_number_label = 2131296474;
 
-			public const int edit_query = 2131296475;
+			public const int disease_rate_vaccinated_second_number = 2131296475;
 
-			public const int ellipsis = 2131296476;
+			public const int disease_rate_vaccinated_second_number_label = 2131296476;
 
-			public const int end = 2131296499;
+			public const int divider = 2131296477;
 
-			public const int enDeveloperTools_button_back = 2131296477;
+			public const int dropdown_menu = 2131296478;
 
-			public const int enDeveloperTools_button_fetchExposureConfiguration = 2131296478;
+			public const int edit_query = 2131296479;
 
-			public const int enDeveloperTools_button_lastUsedExposureConfiguration = 2131296479;
+			public const int ellipsis = 2131296480;
 
-			public const int enDeveloperTools_button_printLastKeysPulledAndTimestamp = 2131296480;
+			public const int end = 2131296503;
 
-			public const int enDeveloperTools_button_printLastSymptomOnsetDate = 2131296481;
+			public const int enDeveloperTools_button_back = 2131296481;
 
-			public const int enDeveloperTools_button_pullKeys = 2131296482;
+			public const int enDeveloperTools_button_fetchExposureConfiguration = 2131296482;
 
-			public const int enDeveloperTools_button_pullKeysAndGetExposureInfo = 2131296483;
+			public const int enDeveloperTools_button_lastUsedExposureConfiguration = 2131296483;
 
-			public const int enDeveloperTools_button_pushKeys = 2131296484;
+			public const int enDeveloperTools_button_printLastKeysPulledAndTimestamp = 2131296484;
 
-			public const int enDeveloperTools_button_resetLocalData = 2131296485;
+			public const int enDeveloperTools_button_printLastSymptomOnsetDate = 2131296485;
 
-			public const int enDeveloperTools_button_sendExposureMessage = 2131296486;
+			public const int enDeveloperTools_button_pullKeys = 2131296486;
 
-			public const int enDeveloperTools_button_sendExposureMessage_after_10_sec = 2131296487;
+			public const int enDeveloperTools_button_pullKeysAndGetExposureInfo = 2131296487;
 
-			public const int enDeveloperTools_button_sendExposureMessage_decrement = 2131296488;
+			public const int enDeveloperTools_button_pushKeys = 2131296488;
 
-			public const int enDeveloperTools_button_sendExposureMessage_increment = 2131296489;
+			public const int enDeveloperTools_button_resetLocalData = 2131296489;
 
-			public const int enDeveloperTools_button_showLastExposureInfo = 2131296490;
+			public const int enDeveloperTools_button_sendExposureMessage = 2131296490;
 
-			public const int enDeveloperTools_button_showLastSummary = 2131296491;
+			public const int enDeveloperTools_button_sendExposureMessage_after_10_sec = 2131296491;
 
-			public const int enDeveloperTools_button_showLatestPullKeysTimesAndStatuses = 2131296492;
+			public const int enDeveloperTools_button_sendExposureMessage_decrement = 2131296492;
 
-			public const int enDeveloperTools_button_toggleMessageRetentionLength = 2131296493;
+			public const int enDeveloperTools_button_sendExposureMessage_increment = 2131296493;
 
-			public const int enDeveloperTools_constraintLayout_betweenGuidelines = 2131296494;
+			public const int enDeveloperTools_button_showLastExposureInfo = 2131296494;
 
-			public const int enDeveloperTools_guideline_left = 2131296495;
+			public const int enDeveloperTools_button_showLastSummary = 2131296495;
 
-			public const int enDeveloperTools_guideline_right = 2131296496;
+			public const int enDeveloperTools_button_showLatestPullKeysTimesAndStatuses = 2131296496;
 
-			public const int enDeveloperTools_textView_devOutput = 2131296497;
+			public const int enDeveloperTools_button_toggleMessageRetentionLength = 2131296497;
 
-			public const int enDeveloperTools_textView_hello = 2131296498;
+			public const int enDeveloperTools_constraintLayout_betweenGuidelines = 2131296498;
 
-			public const int end_padder = 2131296500;
+			public const int enDeveloperTools_guideline_left = 2131296499;
 
-			public const int enterAlways = 2131296501;
+			public const int enDeveloperTools_guideline_right = 2131296500;
 
-			public const int enterAlwaysCollapsed = 2131296502;
+			public const int enDeveloperTools_textView_devOutput = 2131296501;
 
-			public const int error_button = 2131296503;
+			public const int enDeveloperTools_textView_hello = 2131296502;
 
-			public const int error_description = 2131296504;
+			public const int end_padder = 2131296504;
 
-			public const int error_page_scrollview = 2131296505;
+			public const int enterAlways = 2131296505;
 
-			public const int error_subtitle = 2131296506;
+			public const int enterAlwaysCollapsed = 2131296506;
 
-			public const int error_title = 2131296507;
+			public const int error_button = 2131296507;
 
-			public const int exitUntilCollapsed = 2131296508;
+			public const int error_description = 2131296508;
 
-			public const int expanded_menu = 2131296510;
+			public const int error_page_scrollview = 2131296509;
 
-			public const int expand_activities_button = 2131296509;
+			public const int error_subtitle = 2131296510;
 
-			public const int fab = 2131296511;
+			public const int error_title = 2131296511;
 
-			public const int fade = 2131296512;
+			public const int exitUntilCollapsed = 2131296512;
 
-			public const int fake_gateway = 2131296513;
+			public const int expanded_menu = 2131296514;
 
-			public const int fill = 2131296514;
+			public const int expand_activities_button = 2131296513;
 
-			public const int filled = 2131296517;
+			public const int fab = 2131296515;
 
-			public const int fill_horizontal = 2131296515;
+			public const int fade = 2131296516;
 
-			public const int fill_vertical = 2131296516;
+			public const int fake_gateway = 2131296517;
 
-			public const int filter_chip = 2131296518;
+			public const int fill = 2131296518;
 
-			public const int firstRadioButton = 2131296519;
+			public const int filled = 2131296521;
 
-			public const int fitToContents = 2131296520;
+			public const int fill_horizontal = 2131296519;
 
-			public const int @fixed = 2131296521;
+			public const int fill_vertical = 2131296520;
 
-			public const int flex_end = 2131296522;
+			public const int filter_chip = 2131296522;
 
-			public const int flex_start = 2131296523;
+			public const int firstRadioButton = 2131296523;
 
-			public const int footer = 2131296524;
+			public const int fitToContents = 2131296524;
 
-			public const int force_update_button = 2131296525;
+			public const int @fixed = 2131296525;
 
-			public const int force_update_label = 2131296526;
+			public const int flex_end = 2131296526;
 
-			public const int forever = 2131296527;
+			public const int flex_start = 2131296527;
 
-			public const int fourthRadioButton = 2131296528;
+			public const int footer = 2131296528;
 
-			public const int fragment = 2131296529;
+			public const int force_update_button = 2131296529;
 
-			public const int fragment_container_view_tag = 2131296530;
+			public const int force_update_label = 2131296530;
+
+			public const int forever = 2131296531;
+
+			public const int fourthRadioButton = 2131296532;
+
+			public const int fragment = 2131296533;
+
+			public const int fragment_container_view_tag = 2131296534;
 
 			public const int FUNCTION = 2131296260;
 
-			public const int general_settings = 2131296531;
+			public const int general_settings = 2131296535;
 
-			public const int ghost_view = 2131296532;
+			public const int ghost_view = 2131296536;
 
-			public const int ghost_view_holder = 2131296533;
+			public const int ghost_view_holder = 2131296537;
 
-			public const int gone = 2131296534;
+			public const int gone = 2131296538;
 
-			public const int groups = 2131296536;
+			public const int groups = 2131296540;
 
-			public const int group_divider = 2131296535;
+			public const int group_divider = 2131296539;
 
-			public const int guideline = 2131296537;
+			public const int guideline = 2131296541;
 
-			public const int guideline_left = 2131296538;
+			public const int guideline_left = 2131296542;
 
-			public const int guideline_right = 2131296539;
+			public const int guideline_right = 2131296543;
 
-			public const int guideline_testmode_left = 2131296540;
+			public const int guideline_testmode_left = 2131296544;
 
-			public const int guideline_testmode_right = 2131296541;
+			public const int guideline_testmode_right = 2131296545;
 
-			public const int hideable = 2131296542;
+			public const int hideable = 2131296546;
 
-			public const int home = 2131296543;
+			public const int home = 2131296547;
 
-			public const int homeAsUp = 2131296544;
+			public const int homeAsUp = 2131296548;
 
-			public const int horizontal_devider = 2131296545;
+			public const int horizontal_devider = 2131296549;
 
-			public const int icon = 2131296548;
+			public const int icon = 2131296552;
 
-			public const int icon_group = 2131296549;
+			public const int icon_group = 2131296553;
 
-			public const int icon_only = 2131296550;
+			public const int icon_only = 2131296554;
 
-			public const int icon_settin = 2131296551;
+			public const int icon_settin = 2131296555;
 
-			public const int ic_close_white = 2131296546;
+			public const int ic_close_white = 2131296550;
 
-			public const int ic_start_logo = 2131296547;
+			public const int ic_start_logo = 2131296551;
 
-			public const int ifRoom = 2131296552;
+			public const int ifRoom = 2131296556;
 
-			public const int image = 2131296553;
+			public const int image = 2131296557;
 
-			public const int infection_status_activity_status_textView = 2131296554;
+			public const int infection_status_activity_status_textView = 2131296558;
 
-			public const int infection_status_activivity_status_description_textView = 2131296555;
+			public const int infection_status_activivity_status_description_textView = 2131296559;
 
-			public const int infection_status_app_icon_imageView = 2131296556;
+			public const int infection_status_app_icon_imageView = 2131296560;
 
-			public const int infection_status_background = 2131296557;
+			public const int infection_status_background = 2131296561;
 
-			public const int infection_status_circle_background = 2131296558;
+			public const int infection_status_circle_background = 2131296562;
 
-			public const int infection_status_disease_rate_arrow_imageView = 2131296559;
+			public const int infection_status_disease_rate_arrow_imageView = 2131296563;
 
-			public const int infection_status_disease_rate_button_relativeLayout = 2131296560;
+			public const int infection_status_disease_rate_button_relativeLayout = 2131296564;
 
-			public const int infection_status_disease_rate_button_relativeLayout_button = 2131296561;
+			public const int infection_status_disease_rate_button_relativeLayout_button = 2131296565;
 
-			public const int infection_status_disease_rate_button_relativeLayout_inner = 2131296562;
+			public const int infection_status_disease_rate_button_relativeLayout_inner = 2131296566;
 
-			public const int infection_status_disease_rate_imageView = 2131296563;
+			public const int infection_status_disease_rate_imageView = 2131296567;
 
-			public const int infection_status_disease_rate_text_textView = 2131296564;
+			public const int infection_status_disease_rate_text_textView = 2131296568;
 
-			public const int infection_status_down_arrow = 2131296565;
+			public const int infection_status_down_arrow = 2131296569;
 
-			public const int infection_status_down_text = 2131296566;
+			public const int infection_status_down_text = 2131296570;
 
-			public const int infection_status_main_layout = 2131296567;
+			public const int infection_status_main_layout = 2131296571;
 
-			public const int infection_status_menu_icon_relativeLayout = 2131296568;
+			public const int infection_status_menu_icon_relativeLayout = 2131296572;
 
-			public const int infection_status_messages_button_relativeLayout = 2131296573;
+			public const int infection_status_messages_button_relativeLayout = 2131296577;
 
-			public const int infection_status_messages_button_relativeLayout_button = 2131296574;
+			public const int infection_status_messages_button_relativeLayout_button = 2131296578;
 
-			public const int infection_status_messages_button_relativeLayout_inner = 2131296575;
+			public const int infection_status_messages_button_relativeLayout_inner = 2131296579;
 
-			public const int infection_status_message_arrow_imageView = 2131296569;
+			public const int infection_status_message_arrow_imageView = 2131296573;
 
-			public const int infection_status_message_bell_imageView = 2131296570;
+			public const int infection_status_message_bell_imageView = 2131296574;
 
-			public const int infection_status_message_new_message_imageView = 2131296571;
+			public const int infection_status_message_new_message_imageView = 2131296575;
 
-			public const int infection_status_message_text_textView = 2131296572;
+			public const int infection_status_message_text_textView = 2131296576;
 
-			public const int infection_status_new_disease_rate_text_textView = 2131296576;
+			public const int infection_status_new_disease_rate_text_textView = 2131296580;
 
-			public const int infection_status_new_message_text_textView = 2131296577;
+			public const int infection_status_new_message_text_textView = 2131296581;
 
-			public const int infection_status_on_off_button = 2131296578;
+			public const int infection_status_on_off_button = 2131296582;
 
-			public const int infection_status_registration_arrow_imageView = 2131296579;
+			public const int infection_status_registration_arrow_imageView = 2131296583;
 
-			public const int infection_status_registration_button_relativeLayout = 2131296580;
+			public const int infection_status_registration_button_relativeLayout = 2131296584;
 
-			public const int infection_status_registration_button_relativeLayout_button = 2131296581;
+			public const int infection_status_registration_button_relativeLayout_button = 2131296585;
 
-			public const int infection_status_registration_button_relativeLayout_inner = 2131296582;
+			public const int infection_status_registration_button_relativeLayout_inner = 2131296586;
 
-			public const int infection_status_registration_login_text_textView = 2131296583;
+			public const int infection_status_registration_login_text_textView = 2131296587;
 
-			public const int infection_status_registration_text_textView = 2131296584;
+			public const int infection_status_registration_text_textView = 2131296588;
 
-			public const int infection_status_registration_virus_imageView = 2131296585;
+			public const int infection_status_registration_virus_imageView = 2131296589;
 
-			public const int infection_status_relativeLayout = 2131296586;
+			public const int infection_status_relativeLayout = 2131296590;
 
-			public const int infection_status_scrollView = 2131296587;
+			public const int infection_status_scrollView = 2131296591;
 
-			public const int infection_status_scroll_down_layout = 2131296588;
+			public const int infection_status_scroll_down_layout = 2131296592;
 
-			public const int info = 2131296589;
+			public const int info = 2131296593;
 
-			public const int information_consent_body_one_bullet_linearLayout = 2131296590;
+			public const int information_consent_body_one_bullet_linearLayout = 2131296594;
 
-			public const int information_consent_body_one_textView = 2131296591;
+			public const int information_consent_body_one_textView = 2131296595;
 
-			public const int information_consent_body_two_bullet_linearLayout = 2131296592;
+			public const int information_consent_body_two_bullet_linearLayout = 2131296596;
 
-			public const int information_consent_body_two_textView = 2131296593;
+			public const int information_consent_body_two_textView = 2131296597;
 
-			public const int information_consent_content_textView = 2131296594;
+			public const int information_consent_content_textView = 2131296598;
 
-			public const int information_consent_content_two_textView = 2131296595;
+			public const int information_consent_content_two_textView = 2131296599;
 
-			public const int information_consent_header_textView = 2131296596;
+			public const int information_consent_header_textView = 2131296600;
 
-			public const int information_consent_nemid_button = 2131296597;
+			public const int information_consent_nemid_button = 2131296601;
 
-			public const int information_consent_progress_bar = 2131296598;
+			public const int information_consent_progress_bar = 2131296602;
 
-			public const int information_consent_relativeLayout = 2131296599;
+			public const int information_consent_relativeLayout = 2131296603;
 
-			public const int information_consent_scrollView = 2131296600;
+			public const int information_consent_scrollView = 2131296604;
 
-			public const int information_consent_subtitle_textView = 2131296601;
+			public const int information_consent_subtitle_textView = 2131296605;
 
-			public const int invisible = 2131296602;
+			public const int invisible = 2131296606;
 
-			public const int italic = 2131296603;
+			public const int italic = 2131296607;
 
-			public const int item_touch_helper_previous_elevation = 2131296604;
+			public const int item_touch_helper_previous_elevation = 2131296608;
 
-			public const int labeled = 2131296605;
+			public const int labeled = 2131296609;
 
-			public const int largeLabel = 2131296606;
+			public const int largeLabel = 2131296610;
 
-			public const int last_updated_textView = 2131296607;
+			public const int last_updated_textView = 2131296611;
 
-			public const int launcer_icon_imageview = 2131296608;
+			public const int launcer_icon_imageview = 2131296612;
 
-			public const int launcher_button = 2131296609;
+			public const int launcher_button = 2131296613;
 
-			public const int left = 2131296610;
+			public const int left = 2131296614;
 
-			public const int light = 2131296611;
+			public const int light = 2131296615;
 
-			public const int line1 = 2131296612;
+			public const int line1 = 2131296616;
 
-			public const int line3 = 2131296613;
+			public const int line3 = 2131296617;
 
-			public const int linearLayout = 2131296614;
+			public const int linearLayout = 2131296618;
 
-			public const int linearLayout4 = 2131296615;
+			public const int linearLayout4 = 2131296619;
 
-			public const int listMode = 2131296616;
+			public const int listMode = 2131296620;
 
-			public const int listViewActivityFeed = 2131296617;
+			public const int listViewActivityFeed = 2131296621;
 
-			public const int listViewActivityFeedProximity = 2131296618;
+			public const int listViewActivityFeedProximity = 2131296622;
 
-			public const int listViewActivityFeedRssi = 2131296619;
+			public const int listViewActivityFeedRssi = 2131296623;
 
-			public const int listViewActivityFeedTimestamp = 2131296620;
+			public const int listViewActivityFeedTimestamp = 2131296624;
 
-			public const int listViewActivityFeedUUID = 2131296621;
+			public const int listViewActivityFeedUUID = 2131296625;
 
-			public const int list_item = 2131296622;
+			public const int list_item = 2131296626;
 
-			public const int loading_text = 2131296623;
+			public const int loading_text = 2131296627;
 
-			public const int masked = 2131296624;
+			public const int masked = 2131296628;
 
-			public const int media_actions = 2131296625;
+			public const int media_actions = 2131296629;
 
-			public const int message = 2131296626;
+			public const int message = 2131296630;
 
-			public const int messages_devider = 2131296633;
+			public const int messages_devider = 2131296637;
 
-			public const int messages_item_date = 2131296634;
+			public const int messages_item_date = 2131296638;
 
-			public const int messages_item_description = 2131296635;
+			public const int messages_item_description = 2131296639;
 
-			public const int messages_item_tile = 2131296636;
+			public const int messages_item_tile = 2131296640;
 
-			public const int messages_list = 2131296637;
+			public const int messages_list = 2131296641;
 
-			public const int messages_page_title = 2131296638;
+			public const int messages_page_title = 2131296642;
 
-			public const int message_article_image = 2131296627;
+			public const int message_article_image = 2131296631;
 
-			public const int message_article_tile = 2131296628;
+			public const int message_article_tile = 2131296632;
 
-			public const int message_last_update = 2131296629;
+			public const int message_last_update = 2131296633;
 
-			public const int message_layout = 2131296630;
+			public const int message_layout = 2131296634;
 
-			public const int message_logo = 2131296631;
+			public const int message_logo = 2131296635;
 
-			public const int message_tile_title = 2131296632;
+			public const int message_tile_title = 2131296636;
 
 			public const int META = 2131296261;
 
-			public const int middle = 2131296639;
+			public const int middle = 2131296643;
 
-			public const int mini = 2131296640;
+			public const int mini = 2131296644;
 
-			public const int month_grid = 2131296641;
+			public const int month_grid = 2131296645;
 
-			public const int month_navigation_bar = 2131296642;
+			public const int month_navigation_bar = 2131296646;
 
-			public const int month_navigation_fragment_toggle = 2131296643;
+			public const int month_navigation_fragment_toggle = 2131296647;
 
-			public const int month_navigation_next = 2131296644;
+			public const int month_navigation_next = 2131296648;
 
-			public const int month_navigation_previous = 2131296645;
+			public const int month_navigation_previous = 2131296649;
 
-			public const int month_title = 2131296646;
+			public const int month_title = 2131296650;
 
-			public const int mtrl_calendar_days_of_week = 2131296648;
+			public const int mtrl_calendar_days_of_week = 2131296652;
 
-			public const int mtrl_calendar_day_selector_frame = 2131296647;
+			public const int mtrl_calendar_day_selector_frame = 2131296651;
 
-			public const int mtrl_calendar_frame = 2131296649;
+			public const int mtrl_calendar_frame = 2131296653;
 
-			public const int mtrl_calendar_main_pane = 2131296650;
+			public const int mtrl_calendar_main_pane = 2131296654;
 
-			public const int mtrl_calendar_months = 2131296651;
+			public const int mtrl_calendar_months = 2131296655;
 
-			public const int mtrl_calendar_selection_frame = 2131296652;
+			public const int mtrl_calendar_selection_frame = 2131296656;
 
-			public const int mtrl_calendar_text_input_frame = 2131296653;
+			public const int mtrl_calendar_text_input_frame = 2131296657;
 
-			public const int mtrl_calendar_year_selector_frame = 2131296654;
+			public const int mtrl_calendar_year_selector_frame = 2131296658;
 
-			public const int mtrl_card_checked_layer_id = 2131296655;
+			public const int mtrl_card_checked_layer_id = 2131296659;
 
-			public const int mtrl_child_content_container = 2131296656;
+			public const int mtrl_child_content_container = 2131296660;
 
-			public const int mtrl_internal_children_alpha_tag = 2131296657;
+			public const int mtrl_internal_children_alpha_tag = 2131296661;
 
-			public const int mtrl_picker_fullscreen = 2131296658;
+			public const int mtrl_picker_fullscreen = 2131296662;
 
-			public const int mtrl_picker_header = 2131296659;
+			public const int mtrl_picker_header = 2131296663;
 
-			public const int mtrl_picker_header_selection_text = 2131296660;
+			public const int mtrl_picker_header_selection_text = 2131296664;
 
-			public const int mtrl_picker_header_title_and_selection = 2131296661;
+			public const int mtrl_picker_header_title_and_selection = 2131296665;
 
-			public const int mtrl_picker_header_toggle = 2131296662;
+			public const int mtrl_picker_header_toggle = 2131296666;
 
-			public const int mtrl_picker_text_input_date = 2131296663;
+			public const int mtrl_picker_text_input_date = 2131296667;
 
-			public const int mtrl_picker_text_input_range_end = 2131296664;
+			public const int mtrl_picker_text_input_range_end = 2131296668;
 
-			public const int mtrl_picker_text_input_range_start = 2131296665;
+			public const int mtrl_picker_text_input_range_start = 2131296669;
 
-			public const int mtrl_picker_title_text = 2131296666;
+			public const int mtrl_picker_title_text = 2131296670;
 
-			public const int multiply = 2131296667;
+			public const int multiply = 2131296671;
 
-			public const int navigation_header_container = 2131296668;
+			public const int navigation_header_container = 2131296672;
 
-			public const int nested_scroll = 2131296669;
+			public const int nested_scroll = 2131296673;
 
-			public const int never = 2131296670;
+			public const int never = 2131296674;
 
-			public const int next_button = 2131296671;
+			public const int next_button = 2131296675;
 
-			public const int none = 2131296678;
+			public const int none = 2131296682;
 
-			public const int normal = 2131296679;
+			public const int normal = 2131296683;
 
-			public const int noScroll = 2131296672;
+			public const int noScroll = 2131296676;
 
-			public const int notification_background = 2131296680;
+			public const int notification_background = 2131296684;
 
-			public const int notification_main_column = 2131296681;
+			public const int notification_main_column = 2131296685;
 
-			public const int notification_main_column_container = 2131296682;
+			public const int notification_main_column_container = 2131296686;
 
-			public const int nowrap = 2131296683;
+			public const int nowrap = 2131296687;
 
-			public const int no_consents = 2131296673;
+			public const int no_consents = 2131296677;
 
-			public const int no_consents_no_restart = 2131296674;
+			public const int no_consents_no_restart = 2131296678;
 
-			public const int no_items_description = 2131296675;
+			public const int no_items_description = 2131296679;
 
-			public const int no_items_message = 2131296676;
+			public const int no_items_message = 2131296680;
 
-			public const int no_items_title = 2131296677;
+			public const int no_items_title = 2131296681;
 
-			public const int number_counter_imageView = 2131296684;
+			public const int number_counter_imageView = 2131296688;
 
-			public const int number_counter_textView = 2131296685;
+			public const int number_counter_textView = 2131296689;
 
-			public const int number_counter_text_help_imageButton = 2131296686;
+			public const int number_counter_text_help_imageButton = 2131296690;
 
-			public const int number_counter_text_textView = 2131296687;
+			public const int number_counter_text_textView = 2131296691;
 
-			public const int off = 2131296688;
+			public const int off = 2131296692;
 
-			public const int ok_button = 2131296689;
+			public const int ok_button = 2131296693;
 
-			public const int om_frame = 2131296690;
+			public const int om_frame = 2131296694;
 
-			public const int on = 2131296691;
+			public const int on = 2131296695;
 
-			public const int only_v1 = 2131296693;
+			public const int only_v1 = 2131296697;
 
-			public const int only_v1_no_restart = 2131296694;
+			public const int only_v1_no_restart = 2131296698;
 
-			public const int on_off_button = 2131296692;
+			public const int on_off_button = 2131296696;
 
-			public const int outline = 2131296695;
+			public const int outline = 2131296699;
 
-			public const int packed = 2131296696;
+			public const int packed = 2131296700;
 
-			public const int parallax = 2131296697;
+			public const int parallax = 2131296701;
 
-			public const int parent = 2131296698;
+			public const int parent = 2131296702;
 
-			public const int parentPanel = 2131296699;
+			public const int parentPanel = 2131296703;
 
-			public const int parent_matrix = 2131296700;
+			public const int parent_matrix = 2131296704;
 
-			public const int password_toggle = 2131296701;
+			public const int password_toggle = 2131296705;
 
-			public const int peekHeight = 2131296702;
+			public const int peekHeight = 2131296706;
 
-			public const int percent = 2131296703;
+			public const int percent = 2131296707;
 
-			public const int picker = 2131296704;
+			public const int picker = 2131296708;
 
-			public const int pin = 2131296705;
+			public const int pin = 2131296709;
 
-			public const int print_actual_preferences = 2131296706;
+			public const int print_actual_preferences = 2131296710;
 
-			public const int progress_bar = 2131296707;
+			public const int progress_bar = 2131296711;
 
-			public const int progress_circular = 2131296708;
+			public const int progress_circular = 2131296712;
 
-			public const int progress_horizontal = 2131296709;
+			public const int progress_horizontal = 2131296713;
 
-			public const int proximity_status_page_counters_relativeLayout = 2131296713;
+			public const int proximity_status_page_counters_relativeLayout = 2131296717;
 
-			public const int proximity_status_page_counter_off_relativeLayout = 2131296710;
+			public const int proximity_status_page_counter_off_relativeLayout = 2131296714;
 
-			public const int proximity_status_page_counter_on_relativeLayout = 2131296711;
+			public const int proximity_status_page_counter_on_relativeLayout = 2131296715;
 
-			public const int proximity_status_page_counter_on_scrollView = 2131296712;
+			public const int proximity_status_page_counter_on_scrollView = 2131296716;
 
-			public const int proximity_status_page_scrollView_relativeLayout = 2131296714;
+			public const int proximity_status_page_scrollView_relativeLayout = 2131296718;
 
-			public const int proximity_sublayout = 2131296715;
+			public const int proximity_sublayout = 2131296719;
 
-			public const int pull_with_delay = 2131296716;
+			public const int pull_with_delay = 2131296720;
 
-			public const int questionnaire_button = 2131296717;
+			public const int questionnaire_button = 2131296721;
 
-			public const int questionnaire_countries_footer = 2131296718;
+			public const int questionnaire_countries_footer = 2131296722;
 
-			public const int questionnaire_info_button = 2131296719;
+			public const int questionnaire_info_button = 2131296723;
 
-			public const int questionnaire_subtitle = 2131296720;
+			public const int questionnaire_subtitle = 2131296724;
 
-			public const int questionnaire_title = 2131296721;
+			public const int questionnaire_title = 2131296725;
 
-			public const int radio = 2131296722;
+			public const int radio = 2131296726;
 
-			public const int radio_group = 2131296723;
+			public const int radio_group = 2131296727;
 
-			public const int radio_layout = 2131296724;
+			public const int radio_layout = 2131296728;
 
-			public const int radio_no = 2131296725;
+			public const int radio_no = 2131296729;
 
-			public const int radio_scroll = 2131296726;
+			public const int radio_scroll = 2131296730;
 
-			public const int radio_yes = 2131296727;
+			public const int radio_yes = 2131296731;
 
-			public const int recipe_divider = 2131296728;
+			public const int recipe_divider = 2131296732;
 
-			public const int recipe_header = 2131296729;
+			public const int recipe_header = 2131296733;
 
-			public const int recipe_logo = 2131296730;
+			public const int recipe_logo = 2131296734;
 
-			public const int recipe_small_text = 2131296731;
+			public const int recipe_small_text = 2131296735;
 
-			public const int recipe_small_text_layout = 2131296732;
+			public const int recipe_small_text_layout = 2131296736;
 
-			public const int registered_button = 2131296733;
+			public const int registered_button = 2131296737;
 
-			public const int registered_content = 2131296734;
+			public const int registered_content = 2131296738;
 
-			public const int registered_description = 2131296735;
+			public const int registered_description = 2131296739;
 
-			public const int registered_tick_text = 2131296736;
+			public const int registered_tick_text = 2131296740;
 
-			public const int registered_title = 2131296737;
+			public const int registered_title = 2131296741;
 
-			public const int relativeLayout1 = 2131296738;
+			public const int relativeLayout1 = 2131296742;
 
-			public const int right = 2131296739;
+			public const int right = 2131296743;
 
-			public const int right_icon = 2131296740;
+			public const int right_icon = 2131296744;
 
-			public const int right_side = 2131296741;
+			public const int right_side = 2131296745;
 
-			public const int rounded = 2131296742;
+			public const int rounded = 2131296746;
 
-			public const int row = 2131296743;
+			public const int row = 2131296747;
 
-			public const int row_reverse = 2131296744;
+			public const int row_reverse = 2131296748;
 
-			public const int save_non_transition_alpha = 2131296745;
+			public const int save_non_transition_alpha = 2131296749;
 
-			public const int save_overlay_view = 2131296746;
+			public const int save_overlay_view = 2131296750;
 
-			public const int scale = 2131296747;
+			public const int scale = 2131296751;
 
-			public const int screen = 2131296748;
+			public const int screen = 2131296752;
 
-			public const int scroll = 2131296749;
+			public const int scroll = 2131296753;
 
-			public const int scrollable = 2131296754;
+			public const int scrollable = 2131296758;
 
-			public const int scrollIndicatorDown = 2131296750;
+			public const int scrollIndicatorDown = 2131296754;
 
-			public const int scrollIndicatorUp = 2131296751;
+			public const int scrollIndicatorUp = 2131296755;
 
-			public const int scrollView = 2131296752;
+			public const int scrollView = 2131296756;
 
-			public const int scroll_view = 2131296753;
+			public const int scroll_view = 2131296757;
 
-			public const int search_badge = 2131296755;
+			public const int search_badge = 2131296759;
 
-			public const int search_bar = 2131296756;
+			public const int search_bar = 2131296760;
 
-			public const int search_button = 2131296757;
+			public const int search_button = 2131296761;
 
-			public const int search_close_btn = 2131296758;
+			public const int search_close_btn = 2131296762;
 
-			public const int search_edit_frame = 2131296759;
+			public const int search_edit_frame = 2131296763;
 
-			public const int search_go_btn = 2131296760;
+			public const int search_go_btn = 2131296764;
 
-			public const int search_mag_icon = 2131296761;
+			public const int search_mag_icon = 2131296765;
 
-			public const int search_plate = 2131296762;
+			public const int search_plate = 2131296766;
 
-			public const int search_src_text = 2131296763;
+			public const int search_src_text = 2131296767;
 
-			public const int search_voice_btn = 2131296764;
+			public const int search_voice_btn = 2131296768;
 
-			public const int secondRadioButton = 2131296765;
+			public const int secondRadioButton = 2131296769;
 
-			public const int selected = 2131296767;
+			public const int selected = 2131296771;
 
-			public const int select_dialog_listview = 2131296766;
+			public const int select_dialog_listview = 2131296770;
 
-			public const int settings_about_link = 2131296768;
+			public const int settings_about_link = 2131296772;
 
-			public const int settings_about_scroll_layout = 2131296769;
+			public const int settings_about_scroll_layout = 2131296773;
 
-			public const int settings_about_text = 2131296770;
+			public const int settings_about_text = 2131296774;
 
-			public const int settings_about_text_layout = 2131296771;
+			public const int settings_about_text_layout = 2131296775;
 
-			public const int settings_about_title = 2131296772;
+			public const int settings_about_title = 2131296776;
 
-			public const int settings_about_version_info_textview = 2131296773;
+			public const int settings_about_version_info_textview = 2131296777;
 
-			public const int settings_behandling_frame = 2131296774;
+			public const int settings_behandling_frame = 2131296778;
 
-			public const int settings_consents_layout = 2131296775;
+			public const int settings_consents_layout = 2131296779;
 
-			public const int settings_general_danish = 2131296776;
+			public const int settings_general_danish = 2131296780;
 
-			public const int settings_general_divider_bottom = 2131296777;
+			public const int settings_general_divider_bottom = 2131296781;
 
-			public const int settings_general_divider_top = 2131296778;
+			public const int settings_general_divider_top = 2131296782;
 
-			public const int settings_general_english = 2131296779;
+			public const int settings_general_english = 2131296783;
 
-			public const int settings_general_explanation = 2131296780;
+			public const int settings_general_explanation = 2131296784;
 
-			public const int settings_general_explanation_two = 2131296781;
+			public const int settings_general_explanation_two = 2131296785;
 
-			public const int settings_general_link = 2131296782;
+			public const int settings_general_link = 2131296786;
 
-			public const int settings_general_main_content_layout = 2131296783;
+			public const int settings_general_main_content_layout = 2131296787;
 
-			public const int settings_general_mobile_data_desc = 2131296784;
+			public const int settings_general_mobile_data_desc = 2131296788;
 
-			public const int settings_general_mobile_data_header = 2131296785;
+			public const int settings_general_mobile_data_header = 2131296789;
 
-			public const int settings_general_mobile_data_layout = 2131296786;
+			public const int settings_general_mobile_data_layout = 2131296790;
 
-			public const int settings_general_scroll_view = 2131296787;
+			public const int settings_general_scroll_view = 2131296791;
 
-			public const int settings_general_select_lang_desc_one = 2131296788;
+			public const int settings_general_select_lang_desc_one = 2131296792;
 
-			public const int settings_general_select_lang_divider_bottom = 2131296789;
+			public const int settings_general_select_lang_divider_bottom = 2131296793;
 
-			public const int settings_general_select_lang_divider_top = 2131296790;
+			public const int settings_general_select_lang_divider_top = 2131296794;
 
-			public const int settings_general_select_lang_header = 2131296791;
+			public const int settings_general_select_lang_header = 2131296795;
 
-			public const int settings_general_select_lang_radio_group = 2131296792;
+			public const int settings_general_select_lang_radio_group = 2131296796;
 
-			public const int settings_general_switch = 2131296793;
+			public const int settings_general_switch = 2131296797;
 
-			public const int settings_general_text_layout = 2131296794;
+			public const int settings_general_text_layout = 2131296798;
 
-			public const int settings_general_title = 2131296795;
+			public const int settings_general_title = 2131296799;
 
-			public const int settings_help_link = 2131296796;
+			public const int settings_help_link = 2131296800;
 
-			public const int settings_help_scroll_layout = 2131296797;
+			public const int settings_help_scroll_layout = 2131296801;
 
-			public const int settings_help_text = 2131296798;
+			public const int settings_help_text = 2131296802;
 
-			public const int settings_help_text_layout = 2131296799;
+			public const int settings_help_text_layout = 2131296803;
 
-			public const int settings_help_title = 2131296800;
+			public const int settings_help_title = 2131296804;
 
-			public const int settings_hjaelp_frame = 2131296801;
+			public const int settings_hjaelp_frame = 2131296805;
 
-			public const int settings_how_it_works_link = 2131296802;
+			public const int settings_how_it_works_link = 2131296806;
 
-			public const int settings_how_it_works_text = 2131296803;
+			public const int settings_how_it_works_text = 2131296807;
 
-			public const int settings_how_it_works_text_layout = 2131296804;
+			public const int settings_how_it_works_text_layout = 2131296808;
 
-			public const int settings_how_it_works_title = 2131296805;
+			public const int settings_how_it_works_title = 2131296809;
 
-			public const int settings_intro_frame = 2131296806;
+			public const int settings_intro_frame = 2131296810;
 
-			public const int settings_links_layout = 2131296808;
+			public const int settings_links_layout = 2131296812;
 
-			public const int settings_link_text = 2131296807;
+			public const int settings_link_text = 2131296811;
 
-			public const int settings_saddan_frame = 2131296809;
+			public const int settings_saddan_frame = 2131296813;
 
-			public const int settings_scroll_frame = 2131296810;
+			public const int settings_scroll_frame = 2131296814;
 
-			public const int settings_scroll_help_frame = 2131296811;
+			public const int settings_scroll_help_frame = 2131296815;
 
-			public const int settings_testmode_text_layout = 2131296812;
+			public const int settings_testmode_text_layout = 2131296816;
 
-			public const int settings_version_info_textview = 2131296813;
+			public const int settings_version_info_textview = 2131296817;
 
 			public const int SHIFT = 2131296262;
 
-			public const int shortcut = 2131296814;
+			public const int shortcut = 2131296818;
 
-			public const int showCustom = 2131296815;
+			public const int showCustom = 2131296819;
 
-			public const int showHome = 2131296816;
+			public const int showHome = 2131296820;
 
-			public const int showTitle = 2131296817;
+			public const int showTitle = 2131296821;
 
-			public const int skipCollapsed = 2131296818;
+			public const int skipCollapsed = 2131296822;
 
-			public const int slide = 2131296819;
+			public const int slide = 2131296823;
 
-			public const int smallLabel = 2131296820;
+			public const int smallLabel = 2131296824;
 
-			public const int snackbar_action = 2131296821;
+			public const int snackbar_action = 2131296825;
 
-			public const int snackbar_text = 2131296822;
+			public const int snackbar_text = 2131296826;
 
-			public const int snap = 2131296823;
+			public const int snap = 2131296827;
 
-			public const int snapMargins = 2131296824;
+			public const int snapMargins = 2131296828;
 
-			public const int spacer = 2131296828;
+			public const int spacer = 2131296832;
 
-			public const int space_around = 2131296825;
+			public const int space_around = 2131296829;
 
-			public const int space_between = 2131296826;
+			public const int space_between = 2131296830;
 
-			public const int space_evenly = 2131296827;
+			public const int space_evenly = 2131296831;
 
-			public const int split_action_bar = 2131296829;
+			public const int split_action_bar = 2131296833;
 
-			public const int spread = 2131296830;
+			public const int spread = 2131296834;
 
-			public const int spread_inside = 2131296831;
+			public const int spread_inside = 2131296835;
 
-			public const int src_atop = 2131296832;
+			public const int src_atop = 2131296836;
 
-			public const int src_in = 2131296833;
+			public const int src_in = 2131296837;
 
-			public const int src_over = 2131296834;
+			public const int src_over = 2131296838;
 
-			public const int standard = 2131296835;
+			public const int standard = 2131296839;
 
-			public const int start = 2131296836;
+			public const int start = 2131296840;
 
-			public const int status_bar_latest_event_content = 2131296837;
+			public const int status_bar_latest_event_content = 2131296841;
 
-			public const int stretch = 2131296838;
+			public const int stretch = 2131296842;
 
-			public const int submenuarrow = 2131296839;
+			public const int submenuarrow = 2131296843;
 
-			public const int submit_area = 2131296840;
+			public const int submit_area = 2131296844;
 
-			public const int switchbar = 2131296841;
+			public const int switchbar = 2131296845;
 
 			public const int SYM = 2131296263;
 
-			public const int tabDots = 2131296842;
+			public const int tabDots = 2131296846;
 
-			public const int table1 = 2131296844;
+			public const int table1 = 2131296848;
 
-			public const int table2 = 2131296845;
+			public const int table2 = 2131296849;
 
-			public const int table3 = 2131296846;
+			public const int table3 = 2131296850;
 
-			public const int tabMode = 2131296843;
+			public const int tabMode = 2131296847;
 
-			public const int tag_accessibility_actions = 2131296847;
+			public const int tag_accessibility_actions = 2131296851;
 
-			public const int tag_accessibility_clickable_spans = 2131296848;
+			public const int tag_accessibility_clickable_spans = 2131296852;
 
-			public const int tag_accessibility_heading = 2131296849;
+			public const int tag_accessibility_heading = 2131296853;
 
-			public const int tag_accessibility_pane_title = 2131296850;
+			public const int tag_accessibility_pane_title = 2131296854;
 
-			public const int tag_screen_reader_focusable = 2131296851;
+			public const int tag_screen_reader_focusable = 2131296855;
 
-			public const int tag_transition_group = 2131296852;
+			public const int tag_transition_group = 2131296856;
 
-			public const int tag_unhandled_key_event_manager = 2131296853;
+			public const int tag_unhandled_key_event_manager = 2131296857;
 
-			public const int tag_unhandled_key_listeners = 2131296854;
+			public const int tag_unhandled_key_listeners = 2131296858;
 
-			public const int technology_background = 2131296855;
+			public const int technology_background = 2131296859;
 
-			public const int test_checkbox_android_button_tint = 2131296856;
+			public const int test_checkbox_android_button_tint = 2131296860;
 
-			public const int test_checkbox_app_button_tint = 2131296857;
+			public const int test_checkbox_app_button_tint = 2131296861;
 
-			public const int test_frame = 2131296858;
+			public const int test_frame = 2131296862;
 
-			public const int text = 2131296859;
+			public const int text = 2131296863;
 
-			public const int text2 = 2131296860;
+			public const int text2 = 2131296864;
 
-			public const int textEnd = 2131296861;
+			public const int textEnd = 2131296865;
 
-			public const int textinput_counter = 2131296867;
+			public const int textinput_counter = 2131296871;
 
-			public const int textinput_error = 2131296868;
+			public const int textinput_error = 2131296872;
 
-			public const int textinput_helper_text = 2131296869;
+			public const int textinput_helper_text = 2131296873;
 
-			public const int textSpacerNoButtons = 2131296862;
+			public const int textSpacerNoButtons = 2131296866;
 
-			public const int textSpacerNoTitle = 2131296863;
+			public const int textSpacerNoTitle = 2131296867;
 
-			public const int textStart = 2131296864;
+			public const int textStart = 2131296868;
 
-			public const int text_input_end_icon = 2131296865;
+			public const int text_input_end_icon = 2131296869;
 
-			public const int text_input_start_icon = 2131296866;
+			public const int text_input_start_icon = 2131296870;
 
-			public const int thirdRadioButton = 2131296870;
+			public const int thirdRadioButton = 2131296874;
 
-			public const int time = 2131296871;
+			public const int time = 2131296875;
 
-			public const int title = 2131296872;
+			public const int title = 2131296876;
 
-			public const int titleDividerNoCustom = 2131296873;
+			public const int titleDividerNoCustom = 2131296877;
 
-			public const int title_and_updated_date = 2131296874;
+			public const int title_and_updated_date = 2131296878;
 
-			public const int title_layout = 2131296875;
+			public const int title_layout = 2131296879;
 
-			public const int title_template = 2131296876;
+			public const int title_template = 2131296880;
 
-			public const int top = 2131296877;
+			public const int top = 2131296881;
 
-			public const int topPanel = 2131296878;
+			public const int topPanel = 2131296882;
 
 			public const int TOP_END = 2131296264;
 
-			public const int top_layout = 2131296879;
+			public const int top_layout = 2131296883;
 
 			public const int TOP_START = 2131296265;
 
-			public const int touch_outside = 2131296880;
+			public const int touch_outside = 2131296884;
 
-			public const int transition_current_scene = 2131296881;
+			public const int transition_current_scene = 2131296885;
 
-			public const int transition_layout_save = 2131296882;
+			public const int transition_layout_save = 2131296886;
 
-			public const int transition_position = 2131296883;
+			public const int transition_position = 2131296887;
 
-			public const int transition_scene_layoutid_cache = 2131296884;
+			public const int transition_scene_layoutid_cache = 2131296888;
 
-			public const int transition_transform = 2131296885;
+			public const int transition_transform = 2131296889;
 
-			public const int @unchecked = 2131296886;
+			public const int @unchecked = 2131296890;
 
-			public const int uniform = 2131296887;
+			public const int uniform = 2131296891;
 
-			public const int unlabeled = 2131296888;
+			public const int unlabeled = 2131296892;
 
-			public const int unsupported_Transmit_text_textView = 2131296889;
+			public const int unsupported_Transmit_text_textView = 2131296893;
 
-			public const int up = 2131296890;
+			public const int up = 2131296894;
 
-			public const int useLogo = 2131296891;
+			public const int useLogo = 2131296895;
 
-			public const int userData = 2131296892;
+			public const int userData = 2131296896;
 
-			public const int vertical_devider = 2131296893;
+			public const int vertical_devider = 2131296897;
 
-			public const int view_offset_helper = 2131296894;
+			public const int view_offset_helper = 2131296898;
 
-			public const int visible = 2131296895;
+			public const int visible = 2131296899;
 
-			public const int visible_removing_fragment_view_tag = 2131296896;
+			public const int visible_removing_fragment_view_tag = 2131296900;
 
-			public const int warningBar = 2131296897;
+			public const int warningBar = 2131296901;
 
-			public const int warning_layout = 2131296898;
+			public const int warning_layout = 2131296902;
 
-			public const int warning_textView = 2131296899;
+			public const int warning_textView = 2131296903;
 
-			public const int webview = 2131296900;
+			public const int webview = 2131296904;
 
-			public const int welcome_bullet = 2131296901;
+			public const int welcome_bullet = 2131296905;
 
-			public const int welcome_page_five_button_next = 2131296902;
+			public const int welcome_page_five_button_next = 2131296906;
 
-			public const int welcome_page_five_consent_warning = 2131296903;
+			public const int welcome_page_five_consent_warning = 2131296907;
 
-			public const int welcome_page_five_consent_warning_text = 2131296904;
+			public const int welcome_page_five_consent_warning_text = 2131296908;
 
-			public const int welcome_page_five_prev_button = 2131296905;
+			public const int welcome_page_five_prev_button = 2131296909;
 
-			public const int welcome_page_five_switch = 2131296906;
+			public const int welcome_page_five_switch = 2131296910;
 
-			public const int welcome_page_five_switch_text = 2131296907;
+			public const int welcome_page_five_switch_text = 2131296911;
 
-			public const int welcome_page_five_title = 2131296908;
+			public const int welcome_page_five_title = 2131296912;
 
-			public const int welcome_page_five_title_layout = 2131296909;
+			public const int welcome_page_five_title_layout = 2131296913;
 
-			public const int welcome_page_four_body_one = 2131296910;
+			public const int welcome_page_four_body_one = 2131296914;
 
-			public const int welcome_page_four_body_three = 2131296911;
+			public const int welcome_page_four_body_three = 2131296915;
 
-			public const int welcome_page_four_body_two = 2131296912;
+			public const int welcome_page_four_body_two = 2131296916;
 
-			public const int welcome_page_four_bullet_one_layout = 2131296913;
+			public const int welcome_page_four_bullet_one_layout = 2131296917;
 
-			public const int welcome_page_four_bullet_three_layout = 2131296914;
+			public const int welcome_page_four_bullet_three_layout = 2131296918;
 
-			public const int welcome_page_four_bullet_two_layout = 2131296915;
+			public const int welcome_page_four_bullet_two_layout = 2131296919;
 
-			public const int welcome_page_four_title = 2131296916;
+			public const int welcome_page_four_title = 2131296920;
 
-			public const int welcome_page_four_title_layout = 2131296917;
+			public const int welcome_page_four_title_layout = 2131296921;
 
-			public const int welcome_page_one_body_one = 2131296918;
+			public const int welcome_page_one_body_one = 2131296922;
 
-			public const int welcome_page_one_body_two = 2131296919;
+			public const int welcome_page_one_body_two = 2131296923;
 
-			public const int welcome_page_one_bullet_one_layout = 2131296920;
+			public const int welcome_page_one_bullet_one_layout = 2131296924;
 
-			public const int welcome_page_one_bullet_two_layout = 2131296921;
+			public const int welcome_page_one_bullet_two_layout = 2131296925;
 
-			public const int welcome_page_one_title = 2131296922;
+			public const int welcome_page_one_title = 2131296926;
 
-			public const int welcome_page_one_title_layout = 2131296923;
+			public const int welcome_page_one_title_layout = 2131296927;
 
-			public const int welcome_page_three_body_one = 2131296924;
+			public const int welcome_page_three_body_one = 2131296928;
 
-			public const int welcome_page_three_body_two = 2131296925;
+			public const int welcome_page_three_body_two = 2131296929;
 
-			public const int welcome_page_three_infobox_body = 2131296926;
+			public const int welcome_page_three_infobox_body = 2131296930;
 
-			public const int welcome_page_three_title = 2131296927;
+			public const int welcome_page_three_title = 2131296931;
 
-			public const int welcome_page_two_body_one = 2131296928;
+			public const int welcome_page_two_body_one = 2131296932;
 
-			public const int welcome_page_two_body_two = 2131296929;
+			public const int welcome_page_two_body_two = 2131296933;
 
-			public const int welcome_page_two_bullet_one_layout = 2131296930;
+			public const int welcome_page_two_bullet_one_layout = 2131296934;
 
-			public const int welcome_page_two_bullet_two_layout = 2131296931;
+			public const int welcome_page_two_bullet_two_layout = 2131296935;
 
-			public const int welcome_page_two_title = 2131296932;
+			public const int welcome_page_two_title = 2131296936;
 
-			public const int welcome_page_two_title_layout = 2131296933;
+			public const int welcome_page_two_title_layout = 2131296937;
 
-			public const int welcome_what_is_new_title = 2131296934;
+			public const int welcome_what_is_new_title = 2131296938;
 
-			public const int wide = 2131296935;
+			public const int wide = 2131296939;
 
-			public const int withText = 2131296936;
+			public const int withText = 2131296940;
 
-			public const int working_schema = 2131296937;
+			public const int working_schema = 2131296941;
 
-			public const int wrap = 2131296938;
+			public const int wrap = 2131296942;
 
-			public const int wrap_content = 2131296939;
+			public const int wrap_content = 2131296943;
 
-			public const int wrap_reverse = 2131296940;
+			public const int wrap_reverse = 2131296944;
 
 			static Id()
 			{
@@ -6158,15 +6163,15 @@ namespace NDB.Covid19.Droid
 
 			public const int ConsentButtonNoBorder = 2131755238;
 
-			public const int contactsTodayText = 2131755743;
+			public const int contactsTodayText = 2131755744;
 
 			public const int CounterBackground = 2131755239;
 
-			public const int counterCircle = 2131755744;
+			public const int counterCircle = 2131755745;
 
 			public const int CounterExplainText = 2131755240;
 
-			public const int counterNumber = 2131755745;
+			public const int counterNumber = 2131755746;
 
 			public const int DefaultButton = 2131755241;
 
@@ -6182,999 +6187,1001 @@ namespace NDB.Covid19.Droid
 
 			public const int DiseaseRateSubText = 2131755247;
 
-			public const int Divider = 2131755248;
+			public const int DiseaseRateVaccinationLabel = 2131755248;
 
-			public const int Divider_Horizontal = 2131755249;
+			public const int Divider = 2131755249;
 
-			public const int EmptyTheme = 2131755250;
+			public const int Divider_Horizontal = 2131755250;
 
-			public const int ErrorText = 2131755251;
+			public const int EmptyTheme = 2131755251;
 
-			public const int ExplanationTextHeader = 2131755252;
+			public const int ErrorText = 2131755252;
 
-			public const int Footer = 2131755253;
+			public const int ExplanationTextHeader = 2131755253;
 
-			public const int HeaderSmallText = 2131755254;
+			public const int Footer = 2131755254;
 
-			public const int HeaderText = 2131755255;
+			public const int HeaderSmallText = 2131755255;
 
-			public const int HelpText = 2131755256;
+			public const int HeaderText = 2131755256;
 
-			public const int InfectionStatusLayoutButton = 2131755257;
+			public const int HelpText = 2131755257;
 
-			public const int InfectionStatusOnOffButtonGreen = 2131755258;
+			public const int InfectionStatusLayoutButton = 2131755258;
 
-			public const int InfectionStatusOnOffButtonRed = 2131755259;
+			public const int InfectionStatusOnOffButtonGreen = 2131755259;
 
-			public const int LastUpdatedText = 2131755260;
+			public const int InfectionStatusOnOffButtonRed = 2131755260;
 
-			public const int LauncherAppName = 2131755261;
+			public const int LastUpdatedText = 2131755261;
 
-			public const int LauncherHealthAuth = 2131755262;
+			public const int LauncherAppName = 2131755262;
 
-			public const int LauncherSubtitle = 2131755263;
+			public const int LauncherHealthAuth = 2131755263;
 
-			public const int MaterialAlertDialog_MaterialComponents = 2131755264;
+			public const int LauncherSubtitle = 2131755264;
 
-			public const int MaterialAlertDialog_MaterialComponents_Body_Text = 2131755265;
+			public const int MaterialAlertDialog_MaterialComponents = 2131755265;
 
-			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755266;
+			public const int MaterialAlertDialog_MaterialComponents_Body_Text = 2131755266;
 
-			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755267;
+			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Calendar = 2131755267;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755268;
+			public const int MaterialAlertDialog_MaterialComponents_Picker_Date_Spinner = 2131755268;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755269;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Icon = 2131755269;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755270;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Icon_CenterStacked = 2131755270;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755271;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Panel = 2131755271;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Text = 2131755272;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Panel_CenterStacked = 2131755272;
 
-			public const int MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755273;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Text = 2131755273;
 
-			public const int MessageListItemDateText = 2131755274;
+			public const int MaterialAlertDialog_MaterialComponents_Title_Text_CenterStacked = 2131755274;
 
-			public const int MessageListItemDescriptionText = 2131755275;
+			public const int MessageListItemDateText = 2131755275;
 
-			public const int MessageListItemTitleText = 2131755276;
+			public const int MessageListItemDescriptionText = 2131755276;
 
-			public const int MessageListLastUpdateText = 2131755277;
+			public const int MessageListItemTitleText = 2131755277;
 
-			public const int NemIDButton = 2131755278;
+			public const int MessageListLastUpdateText = 2131755278;
 
-			public const int OnOffButton = 2131755279;
+			public const int NemIDButton = 2131755279;
 
-			public const int OnOffButtonGreen = 2131755280;
+			public const int OnOffButton = 2131755280;
 
-			public const int Platform_AppCompat = 2131755281;
+			public const int OnOffButtonGreen = 2131755281;
 
-			public const int Platform_AppCompat_Light = 2131755282;
+			public const int Platform_AppCompat = 2131755282;
 
-			public const int Platform_MaterialComponents = 2131755283;
+			public const int Platform_AppCompat_Light = 2131755283;
 
-			public const int Platform_MaterialComponents_Dialog = 2131755284;
+			public const int Platform_MaterialComponents = 2131755284;
 
-			public const int Platform_MaterialComponents_Light = 2131755285;
+			public const int Platform_MaterialComponents_Dialog = 2131755285;
 
-			public const int Platform_MaterialComponents_Light_Dialog = 2131755286;
+			public const int Platform_MaterialComponents_Light = 2131755286;
 
-			public const int Platform_ThemeOverlay_AppCompat = 2131755287;
+			public const int Platform_MaterialComponents_Light_Dialog = 2131755287;
 
-			public const int Platform_ThemeOverlay_AppCompat_Dark = 2131755288;
+			public const int Platform_ThemeOverlay_AppCompat = 2131755288;
 
-			public const int Platform_ThemeOverlay_AppCompat_Light = 2131755289;
+			public const int Platform_ThemeOverlay_AppCompat_Dark = 2131755289;
 
-			public const int Platform_V21_AppCompat = 2131755290;
+			public const int Platform_ThemeOverlay_AppCompat_Light = 2131755290;
 
-			public const int Platform_V21_AppCompat_Light = 2131755291;
+			public const int Platform_V21_AppCompat = 2131755291;
 
-			public const int Platform_V25_AppCompat = 2131755292;
+			public const int Platform_V21_AppCompat_Light = 2131755292;
 
-			public const int Platform_V25_AppCompat_Light = 2131755293;
+			public const int Platform_V25_AppCompat = 2131755293;
 
-			public const int Platform_Widget_AppCompat_Spinner = 2131755294;
+			public const int Platform_V25_AppCompat_Light = 2131755294;
 
-			public const int PrimaryText = 2131755295;
+			public const int Platform_Widget_AppCompat_Spinner = 2131755295;
 
-			public const int PrimaryTextBold = 2131755296;
+			public const int PrimaryText = 2131755296;
 
-			public const int PrimaryTextItalic = 2131755297;
+			public const int PrimaryTextBold = 2131755297;
 
-			public const int PrimaryTextLight = 2131755298;
+			public const int PrimaryTextItalic = 2131755298;
 
-			public const int PrimaryTextRegular = 2131755299;
+			public const int PrimaryTextLight = 2131755299;
 
-			public const int PrimaryTextSemiBold = 2131755300;
+			public const int PrimaryTextRegular = 2131755300;
 
-			public const int QuestionnaireDateText = 2131755301;
+			public const int PrimaryTextSemiBold = 2131755301;
 
-			public const int RectangleBox = 2131755302;
+			public const int QuestionnaireDateText = 2131755302;
 
-			public const int RtlOverlay_DialogWindowTitle_AppCompat = 2131755303;
+			public const int RectangleBox = 2131755303;
 
-			public const int RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755304;
+			public const int RtlOverlay_DialogWindowTitle_AppCompat = 2131755304;
 
-			public const int RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755305;
+			public const int RtlOverlay_Widget_AppCompat_ActionBar_TitleItem = 2131755305;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755306;
+			public const int RtlOverlay_Widget_AppCompat_DialogTitle_Icon = 2131755306;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755307;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem = 2131755307;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755308;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_InternalGroup = 2131755308;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755309;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Shortcut = 2131755309;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755310;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_SubmenuArrow = 2131755310;
 
-			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755311;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Text = 2131755311;
 
-			public const int RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755317;
+			public const int RtlOverlay_Widget_AppCompat_PopupMenuItem_Title = 2131755312;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755312;
+			public const int RtlOverlay_Widget_AppCompat_SearchView_MagIcon = 2131755318;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755313;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown = 2131755313;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755314;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon1 = 2131755314;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755315;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Icon2 = 2131755315;
 
-			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755316;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Query = 2131755316;
 
-			public const int RtlUnderlay_Widget_AppCompat_ActionButton = 2131755318;
+			public const int RtlOverlay_Widget_AppCompat_Search_DropDown_Text = 2131755317;
 
-			public const int RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755319;
+			public const int RtlUnderlay_Widget_AppCompat_ActionButton = 2131755319;
 
-			public const int ScrollbarConsent = 2131755321;
+			public const int RtlUnderlay_Widget_AppCompat_ActionButton_Overflow = 2131755320;
 
-			public const int ScrollScreen = 2131755320;
+			public const int ScrollbarConsent = 2131755322;
 
-			public const int SecondaryText = 2131755322;
+			public const int ScrollScreen = 2131755321;
 
-			public const int settings = 2131755746;
+			public const int SecondaryText = 2131755323;
 
-			public const int settings_general = 2131755747;
+			public const int settings = 2131755747;
 
-			public const int ShapeAppearanceOverlay = 2131755328;
+			public const int settings_general = 2131755748;
 
-			public const int ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755329;
+			public const int ShapeAppearanceOverlay = 2131755329;
 
-			public const int ShapeAppearanceOverlay_BottomRightCut = 2131755330;
+			public const int ShapeAppearanceOverlay_BottomLeftDifferentCornerSize = 2131755330;
 
-			public const int ShapeAppearanceOverlay_Cut = 2131755331;
+			public const int ShapeAppearanceOverlay_BottomRightCut = 2131755331;
 
-			public const int ShapeAppearanceOverlay_DifferentCornerSize = 2131755332;
+			public const int ShapeAppearanceOverlay_Cut = 2131755332;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755333;
+			public const int ShapeAppearanceOverlay_DifferentCornerSize = 2131755333;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755334;
+			public const int ShapeAppearanceOverlay_MaterialComponents_BottomSheet = 2131755334;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755335;
+			public const int ShapeAppearanceOverlay_MaterialComponents_Chip = 2131755335;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755336;
+			public const int ShapeAppearanceOverlay_MaterialComponents_ExtendedFloatingActionButton = 2131755336;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755337;
+			public const int ShapeAppearanceOverlay_MaterialComponents_FloatingActionButton = 2131755337;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755338;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755338;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755339;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Window_Fullscreen = 2131755339;
 
-			public const int ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755340;
+			public const int ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Year = 2131755340;
 
-			public const int ShapeAppearanceOverlay_TopLeftCut = 2131755341;
+			public const int ShapeAppearanceOverlay_MaterialComponents_TextInputLayout_FilledBox = 2131755341;
 
-			public const int ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755342;
+			public const int ShapeAppearanceOverlay_TopLeftCut = 2131755342;
 
-			public const int ShapeAppearance_MaterialComponents = 2131755323;
+			public const int ShapeAppearanceOverlay_TopRightDifferentCornerSize = 2131755343;
 
-			public const int ShapeAppearance_MaterialComponents_LargeComponent = 2131755324;
+			public const int ShapeAppearance_MaterialComponents = 2131755324;
 
-			public const int ShapeAppearance_MaterialComponents_MediumComponent = 2131755325;
+			public const int ShapeAppearance_MaterialComponents_LargeComponent = 2131755325;
 
-			public const int ShapeAppearance_MaterialComponents_SmallComponent = 2131755326;
+			public const int ShapeAppearance_MaterialComponents_MediumComponent = 2131755326;
 
-			public const int ShapeAppearance_MaterialComponents_Test = 2131755327;
+			public const int ShapeAppearance_MaterialComponents_SmallComponent = 2131755327;
 
-			public const int SwitchPlaneStyle = 2131755343;
+			public const int ShapeAppearance_MaterialComponents_Test = 2131755328;
 
-			public const int SwitchTextStyle = 2131755344;
+			public const int SwitchPlaneStyle = 2131755344;
 
-			public const int TestStyleWithLineHeight = 2131755350;
+			public const int SwitchTextStyle = 2131755345;
 
-			public const int TestStyleWithLineHeightAppearance = 2131755351;
+			public const int TestStyleWithLineHeight = 2131755351;
 
-			public const int TestStyleWithoutLineHeight = 2131755353;
+			public const int TestStyleWithLineHeightAppearance = 2131755352;
 
-			public const int TestStyleWithThemeLineHeightAttribute = 2131755352;
+			public const int TestStyleWithoutLineHeight = 2131755354;
 
-			public const int TestThemeWithLineHeight = 2131755354;
+			public const int TestStyleWithThemeLineHeightAttribute = 2131755353;
 
-			public const int TestThemeWithLineHeightDisabled = 2131755355;
+			public const int TestThemeWithLineHeight = 2131755355;
 
-			public const int Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755345;
+			public const int TestThemeWithLineHeightDisabled = 2131755356;
 
-			public const int Test_Theme_MaterialComponents_MaterialCalendar = 2131755346;
+			public const int Test_ShapeAppearanceOverlay_MaterialComponents_MaterialCalendar_Day = 2131755346;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar = 2131755347;
+			public const int Test_Theme_MaterialComponents_MaterialCalendar = 2131755347;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755348;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar = 2131755348;
 
-			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755349;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day = 2131755349;
 
-			public const int TextAppearance_AppCompat = 2131755356;
+			public const int Test_Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755350;
 
-			public const int TextAppearance_AppCompat_Body1 = 2131755357;
+			public const int TextAppearance_AppCompat = 2131755357;
 
-			public const int TextAppearance_AppCompat_Body2 = 2131755358;
+			public const int TextAppearance_AppCompat_Body1 = 2131755358;
 
-			public const int TextAppearance_AppCompat_Button = 2131755359;
+			public const int TextAppearance_AppCompat_Body2 = 2131755359;
 
-			public const int TextAppearance_AppCompat_Caption = 2131755360;
+			public const int TextAppearance_AppCompat_Button = 2131755360;
 
-			public const int TextAppearance_AppCompat_Display1 = 2131755361;
+			public const int TextAppearance_AppCompat_Caption = 2131755361;
 
-			public const int TextAppearance_AppCompat_Display2 = 2131755362;
+			public const int TextAppearance_AppCompat_Display1 = 2131755362;
 
-			public const int TextAppearance_AppCompat_Display3 = 2131755363;
+			public const int TextAppearance_AppCompat_Display2 = 2131755363;
 
-			public const int TextAppearance_AppCompat_Display4 = 2131755364;
+			public const int TextAppearance_AppCompat_Display3 = 2131755364;
 
-			public const int TextAppearance_AppCompat_Headline = 2131755365;
+			public const int TextAppearance_AppCompat_Display4 = 2131755365;
 
-			public const int TextAppearance_AppCompat_Inverse = 2131755366;
+			public const int TextAppearance_AppCompat_Headline = 2131755366;
 
-			public const int TextAppearance_AppCompat_Large = 2131755367;
+			public const int TextAppearance_AppCompat_Inverse = 2131755367;
 
-			public const int TextAppearance_AppCompat_Large_Inverse = 2131755368;
+			public const int TextAppearance_AppCompat_Large = 2131755368;
 
-			public const int TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755369;
+			public const int TextAppearance_AppCompat_Large_Inverse = 2131755369;
 
-			public const int TextAppearance_AppCompat_Light_SearchResult_Title = 2131755370;
+			public const int TextAppearance_AppCompat_Light_SearchResult_Subtitle = 2131755370;
 
-			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755371;
+			public const int TextAppearance_AppCompat_Light_SearchResult_Title = 2131755371;
 
-			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755372;
+			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Large = 2131755372;
 
-			public const int TextAppearance_AppCompat_Medium = 2131755373;
+			public const int TextAppearance_AppCompat_Light_Widget_PopupMenu_Small = 2131755373;
 
-			public const int TextAppearance_AppCompat_Medium_Inverse = 2131755374;
+			public const int TextAppearance_AppCompat_Medium = 2131755374;
 
-			public const int TextAppearance_AppCompat_Menu = 2131755375;
+			public const int TextAppearance_AppCompat_Medium_Inverse = 2131755375;
 
-			public const int TextAppearance_AppCompat_SearchResult_Subtitle = 2131755376;
+			public const int TextAppearance_AppCompat_Menu = 2131755376;
 
-			public const int TextAppearance_AppCompat_SearchResult_Title = 2131755377;
+			public const int TextAppearance_AppCompat_SearchResult_Subtitle = 2131755377;
 
-			public const int TextAppearance_AppCompat_Small = 2131755378;
+			public const int TextAppearance_AppCompat_SearchResult_Title = 2131755378;
 
-			public const int TextAppearance_AppCompat_Small_Inverse = 2131755379;
+			public const int TextAppearance_AppCompat_Small = 2131755379;
 
-			public const int TextAppearance_AppCompat_Subhead = 2131755380;
+			public const int TextAppearance_AppCompat_Small_Inverse = 2131755380;
 
-			public const int TextAppearance_AppCompat_Subhead_Inverse = 2131755381;
+			public const int TextAppearance_AppCompat_Subhead = 2131755381;
 
-			public const int TextAppearance_AppCompat_Title = 2131755382;
+			public const int TextAppearance_AppCompat_Subhead_Inverse = 2131755382;
 
-			public const int TextAppearance_AppCompat_Title_Inverse = 2131755383;
+			public const int TextAppearance_AppCompat_Title = 2131755383;
 
-			public const int TextAppearance_AppCompat_Tooltip = 2131755384;
+			public const int TextAppearance_AppCompat_Title_Inverse = 2131755384;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755385;
+			public const int TextAppearance_AppCompat_Tooltip = 2131755385;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755386;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Menu = 2131755386;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755387;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle = 2131755387;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755388;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Subtitle_Inverse = 2131755388;
 
-			public const int TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755389;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Title = 2131755389;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755390;
+			public const int TextAppearance_AppCompat_Widget_ActionBar_Title_Inverse = 2131755390;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755391;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle = 2131755391;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755392;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Subtitle_Inverse = 2131755392;
 
-			public const int TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755393;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Title = 2131755393;
 
-			public const int TextAppearance_AppCompat_Widget_Button = 2131755394;
+			public const int TextAppearance_AppCompat_Widget_ActionMode_Title_Inverse = 2131755394;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755395;
+			public const int TextAppearance_AppCompat_Widget_Button = 2131755395;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Colored = 2131755396;
+			public const int TextAppearance_AppCompat_Widget_Button_Borderless_Colored = 2131755396;
 
-			public const int TextAppearance_AppCompat_Widget_Button_Inverse = 2131755397;
+			public const int TextAppearance_AppCompat_Widget_Button_Colored = 2131755397;
 
-			public const int TextAppearance_AppCompat_Widget_DropDownItem = 2131755398;
+			public const int TextAppearance_AppCompat_Widget_Button_Inverse = 2131755398;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755399;
+			public const int TextAppearance_AppCompat_Widget_DropDownItem = 2131755399;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755400;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Header = 2131755400;
 
-			public const int TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755401;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Large = 2131755401;
 
-			public const int TextAppearance_AppCompat_Widget_Switch = 2131755402;
+			public const int TextAppearance_AppCompat_Widget_PopupMenu_Small = 2131755402;
 
-			public const int TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755403;
+			public const int TextAppearance_AppCompat_Widget_Switch = 2131755403;
 
-			public const int TextAppearance_Compat_Notification = 2131755404;
+			public const int TextAppearance_AppCompat_Widget_TextView_SpinnerItem = 2131755404;
 
-			public const int TextAppearance_Compat_Notification_Info = 2131755405;
+			public const int TextAppearance_Compat_Notification = 2131755405;
 
-			public const int TextAppearance_Compat_Notification_Info_Media = 2131755406;
+			public const int TextAppearance_Compat_Notification_Info = 2131755406;
 
-			public const int TextAppearance_Compat_Notification_Line2 = 2131755407;
+			public const int TextAppearance_Compat_Notification_Info_Media = 2131755407;
 
-			public const int TextAppearance_Compat_Notification_Line2_Media = 2131755408;
+			public const int TextAppearance_Compat_Notification_Line2 = 2131755408;
 
-			public const int TextAppearance_Compat_Notification_Media = 2131755409;
+			public const int TextAppearance_Compat_Notification_Line2_Media = 2131755409;
 
-			public const int TextAppearance_Compat_Notification_Time = 2131755410;
+			public const int TextAppearance_Compat_Notification_Media = 2131755410;
 
-			public const int TextAppearance_Compat_Notification_Time_Media = 2131755411;
+			public const int TextAppearance_Compat_Notification_Time = 2131755411;
 
-			public const int TextAppearance_Compat_Notification_Title = 2131755412;
+			public const int TextAppearance_Compat_Notification_Time_Media = 2131755412;
 
-			public const int TextAppearance_Compat_Notification_Title_Media = 2131755413;
+			public const int TextAppearance_Compat_Notification_Title = 2131755413;
 
-			public const int TextAppearance_Design_CollapsingToolbar_Expanded = 2131755414;
+			public const int TextAppearance_Compat_Notification_Title_Media = 2131755414;
 
-			public const int TextAppearance_Design_Counter = 2131755415;
+			public const int TextAppearance_Design_CollapsingToolbar_Expanded = 2131755415;
 
-			public const int TextAppearance_Design_Counter_Overflow = 2131755416;
+			public const int TextAppearance_Design_Counter = 2131755416;
 
-			public const int TextAppearance_Design_Error = 2131755417;
+			public const int TextAppearance_Design_Counter_Overflow = 2131755417;
 
-			public const int TextAppearance_Design_HelperText = 2131755418;
+			public const int TextAppearance_Design_Error = 2131755418;
 
-			public const int TextAppearance_Design_Hint = 2131755419;
+			public const int TextAppearance_Design_HelperText = 2131755419;
 
-			public const int TextAppearance_Design_Snackbar_Message = 2131755420;
+			public const int TextAppearance_Design_Hint = 2131755420;
 
-			public const int TextAppearance_Design_Tab = 2131755421;
+			public const int TextAppearance_Design_Snackbar_Message = 2131755421;
 
-			public const int TextAppearance_MaterialComponents_Badge = 2131755422;
+			public const int TextAppearance_Design_Tab = 2131755422;
 
-			public const int TextAppearance_MaterialComponents_Body1 = 2131755423;
+			public const int TextAppearance_MaterialComponents_Badge = 2131755423;
 
-			public const int TextAppearance_MaterialComponents_Body2 = 2131755424;
+			public const int TextAppearance_MaterialComponents_Body1 = 2131755424;
 
-			public const int TextAppearance_MaterialComponents_Button = 2131755425;
+			public const int TextAppearance_MaterialComponents_Body2 = 2131755425;
 
-			public const int TextAppearance_MaterialComponents_Caption = 2131755426;
+			public const int TextAppearance_MaterialComponents_Button = 2131755426;
 
-			public const int TextAppearance_MaterialComponents_Chip = 2131755427;
+			public const int TextAppearance_MaterialComponents_Caption = 2131755427;
 
-			public const int TextAppearance_MaterialComponents_Headline1 = 2131755428;
+			public const int TextAppearance_MaterialComponents_Chip = 2131755428;
 
-			public const int TextAppearance_MaterialComponents_Headline2 = 2131755429;
+			public const int TextAppearance_MaterialComponents_Headline1 = 2131755429;
 
-			public const int TextAppearance_MaterialComponents_Headline3 = 2131755430;
+			public const int TextAppearance_MaterialComponents_Headline2 = 2131755430;
 
-			public const int TextAppearance_MaterialComponents_Headline4 = 2131755431;
+			public const int TextAppearance_MaterialComponents_Headline3 = 2131755431;
 
-			public const int TextAppearance_MaterialComponents_Headline5 = 2131755432;
+			public const int TextAppearance_MaterialComponents_Headline4 = 2131755432;
 
-			public const int TextAppearance_MaterialComponents_Headline6 = 2131755433;
+			public const int TextAppearance_MaterialComponents_Headline5 = 2131755433;
 
-			public const int TextAppearance_MaterialComponents_Overline = 2131755434;
+			public const int TextAppearance_MaterialComponents_Headline6 = 2131755434;
 
-			public const int TextAppearance_MaterialComponents_Subtitle1 = 2131755435;
+			public const int TextAppearance_MaterialComponents_Overline = 2131755435;
 
-			public const int TextAppearance_MaterialComponents_Subtitle2 = 2131755436;
+			public const int TextAppearance_MaterialComponents_Subtitle1 = 2131755436;
 
-			public const int TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755437;
+			public const int TextAppearance_MaterialComponents_Subtitle2 = 2131755437;
 
-			public const int TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755438;
+			public const int TextAppearance_Widget_AppCompat_ExpandedMenu_Item = 2131755438;
 
-			public const int TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755439;
+			public const int TextAppearance_Widget_AppCompat_Toolbar_Subtitle = 2131755439;
 
-			public const int ThemeOverlay_AppCompat = 2131755516;
+			public const int TextAppearance_Widget_AppCompat_Toolbar_Title = 2131755440;
 
-			public const int ThemeOverlay_AppCompat_ActionBar = 2131755517;
+			public const int ThemeOverlay_AppCompat = 2131755517;
 
-			public const int ThemeOverlay_AppCompat_Dark = 2131755518;
+			public const int ThemeOverlay_AppCompat_ActionBar = 2131755518;
 
-			public const int ThemeOverlay_AppCompat_Dark_ActionBar = 2131755519;
+			public const int ThemeOverlay_AppCompat_Dark = 2131755519;
 
-			public const int ThemeOverlay_AppCompat_DayNight = 2131755520;
+			public const int ThemeOverlay_AppCompat_Dark_ActionBar = 2131755520;
 
-			public const int ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755521;
+			public const int ThemeOverlay_AppCompat_DayNight = 2131755521;
 
-			public const int ThemeOverlay_AppCompat_Dialog = 2131755522;
+			public const int ThemeOverlay_AppCompat_DayNight_ActionBar = 2131755522;
 
-			public const int ThemeOverlay_AppCompat_Dialog_Alert = 2131755523;
+			public const int ThemeOverlay_AppCompat_Dialog = 2131755523;
 
-			public const int ThemeOverlay_AppCompat_Light = 2131755524;
+			public const int ThemeOverlay_AppCompat_Dialog_Alert = 2131755524;
 
-			public const int ThemeOverlay_Design_TextInputEditText = 2131755525;
+			public const int ThemeOverlay_AppCompat_Light = 2131755525;
 
-			public const int ThemeOverlay_MaterialComponents = 2131755526;
+			public const int ThemeOverlay_Design_TextInputEditText = 2131755526;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar = 2131755527;
+			public const int ThemeOverlay_MaterialComponents = 2131755527;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755528;
+			public const int ThemeOverlay_MaterialComponents_ActionBar = 2131755528;
 
-			public const int ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755529;
+			public const int ThemeOverlay_MaterialComponents_ActionBar_Primary = 2131755529;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755530;
+			public const int ThemeOverlay_MaterialComponents_ActionBar_Surface = 2131755530;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755531;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView = 2131755531;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755532;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755532;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755533;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755533;
 
-			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755534;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755534;
 
-			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755535;
+			public const int ThemeOverlay_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755535;
 
-			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755536;
+			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Primary = 2131755536;
 
-			public const int ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755537;
+			public const int ThemeOverlay_MaterialComponents_BottomAppBar_Surface = 2131755537;
 
-			public const int ThemeOverlay_MaterialComponents_Dark = 2131755538;
+			public const int ThemeOverlay_MaterialComponents_BottomSheetDialog = 2131755538;
 
-			public const int ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755539;
+			public const int ThemeOverlay_MaterialComponents_Dark = 2131755539;
 
-			public const int ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755540;
+			public const int ThemeOverlay_MaterialComponents_Dark_ActionBar = 2131755540;
 
-			public const int ThemeOverlay_MaterialComponents_Dialog = 2131755541;
+			public const int ThemeOverlay_MaterialComponents_DayNight_BottomSheetDialog = 2131755541;
 
-			public const int ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755542;
+			public const int ThemeOverlay_MaterialComponents_Dialog = 2131755542;
 
-			public const int ThemeOverlay_MaterialComponents_Light = 2131755543;
+			public const int ThemeOverlay_MaterialComponents_Dialog_Alert = 2131755543;
 
-			public const int ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755544;
+			public const int ThemeOverlay_MaterialComponents_Light = 2131755544;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755545;
+			public const int ThemeOverlay_MaterialComponents_Light_BottomSheetDialog = 2131755545;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755546;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog = 2131755546;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755547;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Centered = 2131755547;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755548;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date = 2131755548;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755549;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Calendar = 2131755549;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755550;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text = 2131755550;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755551;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Header_Text_Day = 2131755551;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755552;
+			public const int ThemeOverlay_MaterialComponents_MaterialAlertDialog_Picker_Date_Spinner = 2131755552;
 
-			public const int ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755553;
+			public const int ThemeOverlay_MaterialComponents_MaterialCalendar = 2131755553;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText = 2131755554;
+			public const int ThemeOverlay_MaterialComponents_MaterialCalendar_Fullscreen = 2131755554;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755555;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText = 2131755555;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755556;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox = 2131755556;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755557;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755557;
 
-			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755558;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox = 2131755558;
 
-			public const int ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755559;
+			public const int ThemeOverlay_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755559;
 
-			public const int ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755560;
+			public const int ThemeOverlay_MaterialComponents_Toolbar_Primary = 2131755560;
 
-			public const int Theme_AppCompat = 2131755440;
+			public const int ThemeOverlay_MaterialComponents_Toolbar_Surface = 2131755561;
 
-			public const int Theme_AppCompat_CompactMenu = 2131755441;
+			public const int Theme_AppCompat = 2131755441;
 
-			public const int Theme_AppCompat_DayNight = 2131755442;
+			public const int Theme_AppCompat_CompactMenu = 2131755442;
 
-			public const int Theme_AppCompat_DayNight_DarkActionBar = 2131755443;
+			public const int Theme_AppCompat_DayNight = 2131755443;
 
-			public const int Theme_AppCompat_DayNight_Dialog = 2131755444;
+			public const int Theme_AppCompat_DayNight_DarkActionBar = 2131755444;
 
-			public const int Theme_AppCompat_DayNight_DialogWhenLarge = 2131755447;
+			public const int Theme_AppCompat_DayNight_Dialog = 2131755445;
 
-			public const int Theme_AppCompat_DayNight_Dialog_Alert = 2131755445;
+			public const int Theme_AppCompat_DayNight_DialogWhenLarge = 2131755448;
 
-			public const int Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755446;
+			public const int Theme_AppCompat_DayNight_Dialog_Alert = 2131755446;
 
-			public const int Theme_AppCompat_DayNight_NoActionBar = 2131755448;
+			public const int Theme_AppCompat_DayNight_Dialog_MinWidth = 2131755447;
 
-			public const int Theme_AppCompat_Dialog = 2131755449;
+			public const int Theme_AppCompat_DayNight_NoActionBar = 2131755449;
 
-			public const int Theme_AppCompat_DialogWhenLarge = 2131755452;
+			public const int Theme_AppCompat_Dialog = 2131755450;
 
-			public const int Theme_AppCompat_Dialog_Alert = 2131755450;
+			public const int Theme_AppCompat_DialogWhenLarge = 2131755453;
 
-			public const int Theme_AppCompat_Dialog_MinWidth = 2131755451;
+			public const int Theme_AppCompat_Dialog_Alert = 2131755451;
 
-			public const int Theme_AppCompat_Light = 2131755453;
+			public const int Theme_AppCompat_Dialog_MinWidth = 2131755452;
 
-			public const int Theme_AppCompat_Light_DarkActionBar = 2131755454;
+			public const int Theme_AppCompat_Light = 2131755454;
 
-			public const int Theme_AppCompat_Light_Dialog = 2131755455;
+			public const int Theme_AppCompat_Light_DarkActionBar = 2131755455;
 
-			public const int Theme_AppCompat_Light_DialogWhenLarge = 2131755458;
+			public const int Theme_AppCompat_Light_Dialog = 2131755456;
 
-			public const int Theme_AppCompat_Light_Dialog_Alert = 2131755456;
+			public const int Theme_AppCompat_Light_DialogWhenLarge = 2131755459;
 
-			public const int Theme_AppCompat_Light_Dialog_MinWidth = 2131755457;
+			public const int Theme_AppCompat_Light_Dialog_Alert = 2131755457;
 
-			public const int Theme_AppCompat_Light_NoActionBar = 2131755459;
+			public const int Theme_AppCompat_Light_Dialog_MinWidth = 2131755458;
 
-			public const int Theme_AppCompat_NoActionBar = 2131755460;
+			public const int Theme_AppCompat_Light_NoActionBar = 2131755460;
 
-			public const int Theme_Design = 2131755461;
+			public const int Theme_AppCompat_NoActionBar = 2131755461;
 
-			public const int Theme_Design_BottomSheetDialog = 2131755462;
+			public const int Theme_Design = 2131755462;
 
-			public const int Theme_Design_Light = 2131755463;
+			public const int Theme_Design_BottomSheetDialog = 2131755463;
 
-			public const int Theme_Design_Light_BottomSheetDialog = 2131755464;
+			public const int Theme_Design_Light = 2131755464;
 
-			public const int Theme_Design_Light_NoActionBar = 2131755465;
+			public const int Theme_Design_Light_BottomSheetDialog = 2131755465;
 
-			public const int Theme_Design_NoActionBar = 2131755466;
+			public const int Theme_Design_Light_NoActionBar = 2131755466;
 
-			public const int Theme_MaterialComponents = 2131755467;
+			public const int Theme_Design_NoActionBar = 2131755467;
 
-			public const int Theme_MaterialComponents_BottomSheetDialog = 2131755468;
+			public const int Theme_MaterialComponents = 2131755468;
 
-			public const int Theme_MaterialComponents_Bridge = 2131755469;
+			public const int Theme_MaterialComponents_BottomSheetDialog = 2131755469;
 
-			public const int Theme_MaterialComponents_CompactMenu = 2131755470;
+			public const int Theme_MaterialComponents_Bridge = 2131755470;
 
-			public const int Theme_MaterialComponents_DayNight = 2131755471;
+			public const int Theme_MaterialComponents_CompactMenu = 2131755471;
 
-			public const int Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755472;
+			public const int Theme_MaterialComponents_DayNight = 2131755472;
 
-			public const int Theme_MaterialComponents_DayNight_Bridge = 2131755473;
+			public const int Theme_MaterialComponents_DayNight_BottomSheetDialog = 2131755473;
 
-			public const int Theme_MaterialComponents_DayNight_DarkActionBar = 2131755474;
+			public const int Theme_MaterialComponents_DayNight_Bridge = 2131755474;
 
-			public const int Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755475;
+			public const int Theme_MaterialComponents_DayNight_DarkActionBar = 2131755475;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog = 2131755476;
+			public const int Theme_MaterialComponents_DayNight_DarkActionBar_Bridge = 2131755476;
 
-			public const int Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755484;
+			public const int Theme_MaterialComponents_DayNight_Dialog = 2131755477;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755477;
+			public const int Theme_MaterialComponents_DayNight_DialogWhenLarge = 2131755485;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755478;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Alert = 2131755478;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755479;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Alert_Bridge = 2131755479;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755480;
+			public const int Theme_MaterialComponents_DayNight_Dialog_Bridge = 2131755480;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755481;
+			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize = 2131755481;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755482;
+			public const int Theme_MaterialComponents_DayNight_Dialog_FixedSize_Bridge = 2131755482;
 
-			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755483;
+			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth = 2131755483;
 
-			public const int Theme_MaterialComponents_DayNight_NoActionBar = 2131755485;
+			public const int Theme_MaterialComponents_DayNight_Dialog_MinWidth_Bridge = 2131755484;
 
-			public const int Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755486;
+			public const int Theme_MaterialComponents_DayNight_NoActionBar = 2131755486;
 
-			public const int Theme_MaterialComponents_Dialog = 2131755487;
+			public const int Theme_MaterialComponents_DayNight_NoActionBar_Bridge = 2131755487;
 
-			public const int Theme_MaterialComponents_DialogWhenLarge = 2131755495;
+			public const int Theme_MaterialComponents_Dialog = 2131755488;
 
-			public const int Theme_MaterialComponents_Dialog_Alert = 2131755488;
+			public const int Theme_MaterialComponents_DialogWhenLarge = 2131755496;
 
-			public const int Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755489;
+			public const int Theme_MaterialComponents_Dialog_Alert = 2131755489;
 
-			public const int Theme_MaterialComponents_Dialog_Bridge = 2131755490;
+			public const int Theme_MaterialComponents_Dialog_Alert_Bridge = 2131755490;
 
-			public const int Theme_MaterialComponents_Dialog_FixedSize = 2131755491;
+			public const int Theme_MaterialComponents_Dialog_Bridge = 2131755491;
 
-			public const int Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755492;
+			public const int Theme_MaterialComponents_Dialog_FixedSize = 2131755492;
 
-			public const int Theme_MaterialComponents_Dialog_MinWidth = 2131755493;
+			public const int Theme_MaterialComponents_Dialog_FixedSize_Bridge = 2131755493;
 
-			public const int Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755494;
+			public const int Theme_MaterialComponents_Dialog_MinWidth = 2131755494;
 
-			public const int Theme_MaterialComponents_Light = 2131755496;
+			public const int Theme_MaterialComponents_Dialog_MinWidth_Bridge = 2131755495;
 
-			public const int Theme_MaterialComponents_Light_BarSize = 2131755497;
+			public const int Theme_MaterialComponents_Light = 2131755497;
 
-			public const int Theme_MaterialComponents_Light_BottomSheetDialog = 2131755498;
+			public const int Theme_MaterialComponents_Light_BarSize = 2131755498;
 
-			public const int Theme_MaterialComponents_Light_Bridge = 2131755499;
+			public const int Theme_MaterialComponents_Light_BottomSheetDialog = 2131755499;
 
-			public const int Theme_MaterialComponents_Light_DarkActionBar = 2131755500;
+			public const int Theme_MaterialComponents_Light_Bridge = 2131755500;
 
-			public const int Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755501;
+			public const int Theme_MaterialComponents_Light_DarkActionBar = 2131755501;
 
-			public const int Theme_MaterialComponents_Light_Dialog = 2131755502;
+			public const int Theme_MaterialComponents_Light_DarkActionBar_Bridge = 2131755502;
 
-			public const int Theme_MaterialComponents_Light_DialogWhenLarge = 2131755510;
+			public const int Theme_MaterialComponents_Light_Dialog = 2131755503;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Alert = 2131755503;
+			public const int Theme_MaterialComponents_Light_DialogWhenLarge = 2131755511;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755504;
+			public const int Theme_MaterialComponents_Light_Dialog_Alert = 2131755504;
 
-			public const int Theme_MaterialComponents_Light_Dialog_Bridge = 2131755505;
+			public const int Theme_MaterialComponents_Light_Dialog_Alert_Bridge = 2131755505;
 
-			public const int Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755506;
+			public const int Theme_MaterialComponents_Light_Dialog_Bridge = 2131755506;
 
-			public const int Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755507;
+			public const int Theme_MaterialComponents_Light_Dialog_FixedSize = 2131755507;
 
-			public const int Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755508;
+			public const int Theme_MaterialComponents_Light_Dialog_FixedSize_Bridge = 2131755508;
 
-			public const int Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755509;
+			public const int Theme_MaterialComponents_Light_Dialog_MinWidth = 2131755509;
 
-			public const int Theme_MaterialComponents_Light_LargeTouch = 2131755511;
+			public const int Theme_MaterialComponents_Light_Dialog_MinWidth_Bridge = 2131755510;
 
-			public const int Theme_MaterialComponents_Light_NoActionBar = 2131755512;
+			public const int Theme_MaterialComponents_Light_LargeTouch = 2131755512;
 
-			public const int Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755513;
+			public const int Theme_MaterialComponents_Light_NoActionBar = 2131755513;
 
-			public const int Theme_MaterialComponents_NoActionBar = 2131755514;
+			public const int Theme_MaterialComponents_Light_NoActionBar_Bridge = 2131755514;
 
-			public const int Theme_MaterialComponents_NoActionBar_Bridge = 2131755515;
+			public const int Theme_MaterialComponents_NoActionBar = 2131755515;
 
-			public const int TopbarText = 2131755561;
+			public const int Theme_MaterialComponents_NoActionBar_Bridge = 2131755516;
 
-			public const int UnsupportedText = 2131755562;
+			public const int TopbarText = 2131755562;
 
-			public const int WarningText = 2131755563;
+			public const int UnsupportedText = 2131755563;
 
-			public const int WhatIsNewFooter = 2131755564;
+			public const int WarningText = 2131755564;
 
-			public const int Widget_AppCompat_ActionBar = 2131755565;
+			public const int WhatIsNewFooter = 2131755565;
 
-			public const int Widget_AppCompat_ActionBar_Solid = 2131755566;
+			public const int Widget_AppCompat_ActionBar = 2131755566;
 
-			public const int Widget_AppCompat_ActionBar_TabBar = 2131755567;
+			public const int Widget_AppCompat_ActionBar_Solid = 2131755567;
 
-			public const int Widget_AppCompat_ActionBar_TabText = 2131755568;
+			public const int Widget_AppCompat_ActionBar_TabBar = 2131755568;
 
-			public const int Widget_AppCompat_ActionBar_TabView = 2131755569;
+			public const int Widget_AppCompat_ActionBar_TabText = 2131755569;
 
-			public const int Widget_AppCompat_ActionButton = 2131755570;
+			public const int Widget_AppCompat_ActionBar_TabView = 2131755570;
 
-			public const int Widget_AppCompat_ActionButton_CloseMode = 2131755571;
+			public const int Widget_AppCompat_ActionButton = 2131755571;
 
-			public const int Widget_AppCompat_ActionButton_Overflow = 2131755572;
+			public const int Widget_AppCompat_ActionButton_CloseMode = 2131755572;
 
-			public const int Widget_AppCompat_ActionMode = 2131755573;
+			public const int Widget_AppCompat_ActionButton_Overflow = 2131755573;
 
-			public const int Widget_AppCompat_ActivityChooserView = 2131755574;
+			public const int Widget_AppCompat_ActionMode = 2131755574;
 
-			public const int Widget_AppCompat_AutoCompleteTextView = 2131755575;
+			public const int Widget_AppCompat_ActivityChooserView = 2131755575;
 
-			public const int Widget_AppCompat_Button = 2131755576;
+			public const int Widget_AppCompat_AutoCompleteTextView = 2131755576;
 
-			public const int Widget_AppCompat_ButtonBar = 2131755582;
+			public const int Widget_AppCompat_Button = 2131755577;
 
-			public const int Widget_AppCompat_ButtonBar_AlertDialog = 2131755583;
+			public const int Widget_AppCompat_ButtonBar = 2131755583;
 
-			public const int Widget_AppCompat_Button_Borderless = 2131755577;
+			public const int Widget_AppCompat_ButtonBar_AlertDialog = 2131755584;
 
-			public const int Widget_AppCompat_Button_Borderless_Colored = 2131755578;
+			public const int Widget_AppCompat_Button_Borderless = 2131755578;
 
-			public const int Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755579;
+			public const int Widget_AppCompat_Button_Borderless_Colored = 2131755579;
 
-			public const int Widget_AppCompat_Button_Colored = 2131755580;
+			public const int Widget_AppCompat_Button_ButtonBar_AlertDialog = 2131755580;
 
-			public const int Widget_AppCompat_Button_Small = 2131755581;
+			public const int Widget_AppCompat_Button_Colored = 2131755581;
 
-			public const int Widget_AppCompat_CompoundButton_CheckBox = 2131755584;
+			public const int Widget_AppCompat_Button_Small = 2131755582;
 
-			public const int Widget_AppCompat_CompoundButton_RadioButton = 2131755585;
+			public const int Widget_AppCompat_CompoundButton_CheckBox = 2131755585;
 
-			public const int Widget_AppCompat_CompoundButton_Switch = 2131755586;
+			public const int Widget_AppCompat_CompoundButton_RadioButton = 2131755586;
 
-			public const int Widget_AppCompat_DrawerArrowToggle = 2131755587;
+			public const int Widget_AppCompat_CompoundButton_Switch = 2131755587;
 
-			public const int Widget_AppCompat_DropDownItem_Spinner = 2131755588;
+			public const int Widget_AppCompat_DrawerArrowToggle = 2131755588;
 
-			public const int Widget_AppCompat_EditText = 2131755589;
+			public const int Widget_AppCompat_DropDownItem_Spinner = 2131755589;
 
-			public const int Widget_AppCompat_ImageButton = 2131755590;
+			public const int Widget_AppCompat_EditText = 2131755590;
 
-			public const int Widget_AppCompat_Light_ActionBar = 2131755591;
+			public const int Widget_AppCompat_ImageButton = 2131755591;
 
-			public const int Widget_AppCompat_Light_ActionBar_Solid = 2131755592;
+			public const int Widget_AppCompat_Light_ActionBar = 2131755592;
 
-			public const int Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755593;
+			public const int Widget_AppCompat_Light_ActionBar_Solid = 2131755593;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabBar = 2131755594;
+			public const int Widget_AppCompat_Light_ActionBar_Solid_Inverse = 2131755594;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755595;
+			public const int Widget_AppCompat_Light_ActionBar_TabBar = 2131755595;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabText = 2131755596;
+			public const int Widget_AppCompat_Light_ActionBar_TabBar_Inverse = 2131755596;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755597;
+			public const int Widget_AppCompat_Light_ActionBar_TabText = 2131755597;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabView = 2131755598;
+			public const int Widget_AppCompat_Light_ActionBar_TabText_Inverse = 2131755598;
 
-			public const int Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755599;
+			public const int Widget_AppCompat_Light_ActionBar_TabView = 2131755599;
 
-			public const int Widget_AppCompat_Light_ActionButton = 2131755600;
+			public const int Widget_AppCompat_Light_ActionBar_TabView_Inverse = 2131755600;
 
-			public const int Widget_AppCompat_Light_ActionButton_CloseMode = 2131755601;
+			public const int Widget_AppCompat_Light_ActionButton = 2131755601;
 
-			public const int Widget_AppCompat_Light_ActionButton_Overflow = 2131755602;
+			public const int Widget_AppCompat_Light_ActionButton_CloseMode = 2131755602;
 
-			public const int Widget_AppCompat_Light_ActionMode_Inverse = 2131755603;
+			public const int Widget_AppCompat_Light_ActionButton_Overflow = 2131755603;
 
-			public const int Widget_AppCompat_Light_ActivityChooserView = 2131755604;
+			public const int Widget_AppCompat_Light_ActionMode_Inverse = 2131755604;
 
-			public const int Widget_AppCompat_Light_AutoCompleteTextView = 2131755605;
+			public const int Widget_AppCompat_Light_ActivityChooserView = 2131755605;
 
-			public const int Widget_AppCompat_Light_DropDownItem_Spinner = 2131755606;
+			public const int Widget_AppCompat_Light_AutoCompleteTextView = 2131755606;
 
-			public const int Widget_AppCompat_Light_ListPopupWindow = 2131755607;
+			public const int Widget_AppCompat_Light_DropDownItem_Spinner = 2131755607;
 
-			public const int Widget_AppCompat_Light_ListView_DropDown = 2131755608;
+			public const int Widget_AppCompat_Light_ListPopupWindow = 2131755608;
 
-			public const int Widget_AppCompat_Light_PopupMenu = 2131755609;
+			public const int Widget_AppCompat_Light_ListView_DropDown = 2131755609;
 
-			public const int Widget_AppCompat_Light_PopupMenu_Overflow = 2131755610;
+			public const int Widget_AppCompat_Light_PopupMenu = 2131755610;
 
-			public const int Widget_AppCompat_Light_SearchView = 2131755611;
+			public const int Widget_AppCompat_Light_PopupMenu_Overflow = 2131755611;
 
-			public const int Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755612;
+			public const int Widget_AppCompat_Light_SearchView = 2131755612;
 
-			public const int Widget_AppCompat_ListMenuView = 2131755613;
+			public const int Widget_AppCompat_Light_Spinner_DropDown_ActionBar = 2131755613;
 
-			public const int Widget_AppCompat_ListPopupWindow = 2131755614;
+			public const int Widget_AppCompat_ListMenuView = 2131755614;
 
-			public const int Widget_AppCompat_ListView = 2131755615;
+			public const int Widget_AppCompat_ListPopupWindow = 2131755615;
 
-			public const int Widget_AppCompat_ListView_DropDown = 2131755616;
+			public const int Widget_AppCompat_ListView = 2131755616;
 
-			public const int Widget_AppCompat_ListView_Menu = 2131755617;
+			public const int Widget_AppCompat_ListView_DropDown = 2131755617;
 
-			public const int Widget_AppCompat_PopupMenu = 2131755618;
+			public const int Widget_AppCompat_ListView_Menu = 2131755618;
 
-			public const int Widget_AppCompat_PopupMenu_Overflow = 2131755619;
+			public const int Widget_AppCompat_PopupMenu = 2131755619;
 
-			public const int Widget_AppCompat_PopupWindow = 2131755620;
+			public const int Widget_AppCompat_PopupMenu_Overflow = 2131755620;
 
-			public const int Widget_AppCompat_ProgressBar = 2131755621;
+			public const int Widget_AppCompat_PopupWindow = 2131755621;
 
-			public const int Widget_AppCompat_ProgressBar_Horizontal = 2131755622;
+			public const int Widget_AppCompat_ProgressBar = 2131755622;
 
-			public const int Widget_AppCompat_RatingBar = 2131755623;
+			public const int Widget_AppCompat_ProgressBar_Horizontal = 2131755623;
 
-			public const int Widget_AppCompat_RatingBar_Indicator = 2131755624;
+			public const int Widget_AppCompat_RatingBar = 2131755624;
 
-			public const int Widget_AppCompat_RatingBar_Small = 2131755625;
+			public const int Widget_AppCompat_RatingBar_Indicator = 2131755625;
 
-			public const int Widget_AppCompat_SearchView = 2131755626;
+			public const int Widget_AppCompat_RatingBar_Small = 2131755626;
 
-			public const int Widget_AppCompat_SearchView_ActionBar = 2131755627;
+			public const int Widget_AppCompat_SearchView = 2131755627;
 
-			public const int Widget_AppCompat_SeekBar = 2131755628;
+			public const int Widget_AppCompat_SearchView_ActionBar = 2131755628;
 
-			public const int Widget_AppCompat_SeekBar_Discrete = 2131755629;
+			public const int Widget_AppCompat_SeekBar = 2131755629;
 
-			public const int Widget_AppCompat_Spinner = 2131755630;
+			public const int Widget_AppCompat_SeekBar_Discrete = 2131755630;
 
-			public const int Widget_AppCompat_Spinner_DropDown = 2131755631;
+			public const int Widget_AppCompat_Spinner = 2131755631;
 
-			public const int Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755632;
+			public const int Widget_AppCompat_Spinner_DropDown = 2131755632;
 
-			public const int Widget_AppCompat_Spinner_Underlined = 2131755633;
+			public const int Widget_AppCompat_Spinner_DropDown_ActionBar = 2131755633;
 
-			public const int Widget_AppCompat_TextView = 2131755634;
+			public const int Widget_AppCompat_Spinner_Underlined = 2131755634;
 
-			public const int Widget_AppCompat_TextView_SpinnerItem = 2131755635;
+			public const int Widget_AppCompat_TextView = 2131755635;
 
-			public const int Widget_AppCompat_Toolbar = 2131755636;
+			public const int Widget_AppCompat_TextView_SpinnerItem = 2131755636;
 
-			public const int Widget_AppCompat_Toolbar_Button_Navigation = 2131755637;
+			public const int Widget_AppCompat_Toolbar = 2131755637;
 
-			public const int Widget_Compat_NotificationActionContainer = 2131755638;
+			public const int Widget_AppCompat_Toolbar_Button_Navigation = 2131755638;
 
-			public const int Widget_Compat_NotificationActionText = 2131755639;
+			public const int Widget_Compat_NotificationActionContainer = 2131755639;
 
-			public const int Widget_Design_AppBarLayout = 2131755640;
+			public const int Widget_Compat_NotificationActionText = 2131755640;
 
-			public const int Widget_Design_BottomNavigationView = 2131755641;
+			public const int Widget_Design_AppBarLayout = 2131755641;
 
-			public const int Widget_Design_BottomSheet_Modal = 2131755642;
+			public const int Widget_Design_BottomNavigationView = 2131755642;
 
-			public const int Widget_Design_CollapsingToolbar = 2131755643;
+			public const int Widget_Design_BottomSheet_Modal = 2131755643;
 
-			public const int Widget_Design_FloatingActionButton = 2131755644;
+			public const int Widget_Design_CollapsingToolbar = 2131755644;
 
-			public const int Widget_Design_NavigationView = 2131755645;
+			public const int Widget_Design_FloatingActionButton = 2131755645;
 
-			public const int Widget_Design_ScrimInsetsFrameLayout = 2131755646;
+			public const int Widget_Design_NavigationView = 2131755646;
 
-			public const int Widget_Design_Snackbar = 2131755647;
+			public const int Widget_Design_ScrimInsetsFrameLayout = 2131755647;
 
-			public const int Widget_Design_TabLayout = 2131755648;
+			public const int Widget_Design_Snackbar = 2131755648;
 
-			public const int Widget_Design_TextInputLayout = 2131755649;
+			public const int Widget_Design_TabLayout = 2131755649;
 
-			public const int Widget_MaterialComponents_ActionBar_Primary = 2131755650;
+			public const int Widget_Design_TextInputLayout = 2131755650;
 
-			public const int Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755651;
+			public const int Widget_MaterialComponents_ActionBar_Primary = 2131755651;
 
-			public const int Widget_MaterialComponents_ActionBar_Solid = 2131755652;
+			public const int Widget_MaterialComponents_ActionBar_PrimarySurface = 2131755652;
 
-			public const int Widget_MaterialComponents_ActionBar_Surface = 2131755653;
+			public const int Widget_MaterialComponents_ActionBar_Solid = 2131755653;
 
-			public const int Widget_MaterialComponents_AppBarLayout_Primary = 2131755654;
+			public const int Widget_MaterialComponents_ActionBar_Surface = 2131755654;
 
-			public const int Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755655;
+			public const int Widget_MaterialComponents_AppBarLayout_Primary = 2131755655;
 
-			public const int Widget_MaterialComponents_AppBarLayout_Surface = 2131755656;
+			public const int Widget_MaterialComponents_AppBarLayout_PrimarySurface = 2131755656;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755657;
+			public const int Widget_MaterialComponents_AppBarLayout_Surface = 2131755657;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755658;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox = 2131755658;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755659;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_FilledBox_Dense = 2131755659;
 
-			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755660;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox = 2131755660;
 
-			public const int Widget_MaterialComponents_Badge = 2131755661;
+			public const int Widget_MaterialComponents_AutoCompleteTextView_OutlinedBox_Dense = 2131755661;
 
-			public const int Widget_MaterialComponents_BottomAppBar = 2131755662;
+			public const int Widget_MaterialComponents_Badge = 2131755662;
 
-			public const int Widget_MaterialComponents_BottomAppBar_Colored = 2131755663;
+			public const int Widget_MaterialComponents_BottomAppBar = 2131755663;
 
-			public const int Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755664;
+			public const int Widget_MaterialComponents_BottomAppBar_Colored = 2131755664;
 
-			public const int Widget_MaterialComponents_BottomNavigationView = 2131755665;
+			public const int Widget_MaterialComponents_BottomAppBar_PrimarySurface = 2131755665;
 
-			public const int Widget_MaterialComponents_BottomNavigationView_Colored = 2131755666;
+			public const int Widget_MaterialComponents_BottomNavigationView = 2131755666;
 
-			public const int Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755667;
+			public const int Widget_MaterialComponents_BottomNavigationView_Colored = 2131755667;
 
-			public const int Widget_MaterialComponents_BottomSheet = 2131755668;
+			public const int Widget_MaterialComponents_BottomNavigationView_PrimarySurface = 2131755668;
 
-			public const int Widget_MaterialComponents_BottomSheet_Modal = 2131755669;
+			public const int Widget_MaterialComponents_BottomSheet = 2131755669;
 
-			public const int Widget_MaterialComponents_Button = 2131755670;
+			public const int Widget_MaterialComponents_BottomSheet_Modal = 2131755670;
 
-			public const int Widget_MaterialComponents_Button_Icon = 2131755671;
+			public const int Widget_MaterialComponents_Button = 2131755671;
 
-			public const int Widget_MaterialComponents_Button_OutlinedButton = 2131755672;
+			public const int Widget_MaterialComponents_Button_Icon = 2131755672;
 
-			public const int Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755673;
+			public const int Widget_MaterialComponents_Button_OutlinedButton = 2131755673;
 
-			public const int Widget_MaterialComponents_Button_TextButton = 2131755674;
+			public const int Widget_MaterialComponents_Button_OutlinedButton_Icon = 2131755674;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog = 2131755675;
+			public const int Widget_MaterialComponents_Button_TextButton = 2131755675;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755676;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog = 2131755676;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755677;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Flush = 2131755677;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Icon = 2131755678;
+			public const int Widget_MaterialComponents_Button_TextButton_Dialog_Icon = 2131755678;
 
-			public const int Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755679;
+			public const int Widget_MaterialComponents_Button_TextButton_Icon = 2131755679;
 
-			public const int Widget_MaterialComponents_Button_UnelevatedButton = 2131755680;
+			public const int Widget_MaterialComponents_Button_TextButton_Snackbar = 2131755680;
 
-			public const int Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755681;
+			public const int Widget_MaterialComponents_Button_UnelevatedButton = 2131755681;
 
-			public const int Widget_MaterialComponents_CardView = 2131755682;
+			public const int Widget_MaterialComponents_Button_UnelevatedButton_Icon = 2131755682;
 
-			public const int Widget_MaterialComponents_CheckedTextView = 2131755683;
+			public const int Widget_MaterialComponents_CardView = 2131755683;
 
-			public const int Widget_MaterialComponents_ChipGroup = 2131755688;
+			public const int Widget_MaterialComponents_CheckedTextView = 2131755684;
 
-			public const int Widget_MaterialComponents_Chip_Action = 2131755684;
+			public const int Widget_MaterialComponents_ChipGroup = 2131755689;
 
-			public const int Widget_MaterialComponents_Chip_Choice = 2131755685;
+			public const int Widget_MaterialComponents_Chip_Action = 2131755685;
 
-			public const int Widget_MaterialComponents_Chip_Entry = 2131755686;
+			public const int Widget_MaterialComponents_Chip_Choice = 2131755686;
 
-			public const int Widget_MaterialComponents_Chip_Filter = 2131755687;
+			public const int Widget_MaterialComponents_Chip_Entry = 2131755687;
 
-			public const int Widget_MaterialComponents_CompoundButton_CheckBox = 2131755689;
+			public const int Widget_MaterialComponents_Chip_Filter = 2131755688;
 
-			public const int Widget_MaterialComponents_CompoundButton_RadioButton = 2131755690;
+			public const int Widget_MaterialComponents_CompoundButton_CheckBox = 2131755690;
 
-			public const int Widget_MaterialComponents_CompoundButton_Switch = 2131755691;
+			public const int Widget_MaterialComponents_CompoundButton_RadioButton = 2131755691;
 
-			public const int Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755692;
+			public const int Widget_MaterialComponents_CompoundButton_Switch = 2131755692;
 
-			public const int Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755693;
+			public const int Widget_MaterialComponents_ExtendedFloatingActionButton = 2131755693;
 
-			public const int Widget_MaterialComponents_FloatingActionButton = 2131755694;
+			public const int Widget_MaterialComponents_ExtendedFloatingActionButton_Icon = 2131755694;
 
-			public const int Widget_MaterialComponents_Light_ActionBar_Solid = 2131755695;
+			public const int Widget_MaterialComponents_FloatingActionButton = 2131755695;
 
-			public const int Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755696;
+			public const int Widget_MaterialComponents_Light_ActionBar_Solid = 2131755696;
 
-			public const int Widget_MaterialComponents_MaterialCalendar = 2131755697;
+			public const int Widget_MaterialComponents_MaterialButtonToggleGroup = 2131755697;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day = 2131755698;
+			public const int Widget_MaterialComponents_MaterialCalendar = 2131755698;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755702;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day = 2131755699;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755699;
+			public const int Widget_MaterialComponents_MaterialCalendar_DayTextView = 2131755703;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755700;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Invalid = 2131755700;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755701;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Selected = 2131755701;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755703;
+			public const int Widget_MaterialComponents_MaterialCalendar_Day_Today = 2131755702;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755704;
+			public const int Widget_MaterialComponents_MaterialCalendar_Fullscreen = 2131755704;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755705;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderConfirmButton = 2131755705;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755706;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderDivider = 2131755706;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755707;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderLayout = 2131755707;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755708;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection = 2131755708;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755709;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderSelection_Fullscreen = 2131755709;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755710;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderTitle = 2131755710;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Item = 2131755711;
+			public const int Widget_MaterialComponents_MaterialCalendar_HeaderToggleButton = 2131755711;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year = 2131755712;
+			public const int Widget_MaterialComponents_MaterialCalendar_Item = 2131755712;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755713;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year = 2131755713;
 
-			public const int Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755714;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year_Selected = 2131755714;
 
-			public const int Widget_MaterialComponents_NavigationView = 2131755715;
+			public const int Widget_MaterialComponents_MaterialCalendar_Year_Today = 2131755715;
 
-			public const int Widget_MaterialComponents_PopupMenu = 2131755716;
+			public const int Widget_MaterialComponents_NavigationView = 2131755716;
 
-			public const int Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755717;
+			public const int Widget_MaterialComponents_PopupMenu = 2131755717;
 
-			public const int Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755718;
+			public const int Widget_MaterialComponents_PopupMenu_ContextMenu = 2131755718;
 
-			public const int Widget_MaterialComponents_PopupMenu_Overflow = 2131755719;
+			public const int Widget_MaterialComponents_PopupMenu_ListPopupWindow = 2131755719;
 
-			public const int Widget_MaterialComponents_Snackbar = 2131755720;
+			public const int Widget_MaterialComponents_PopupMenu_Overflow = 2131755720;
 
-			public const int Widget_MaterialComponents_Snackbar_FullWidth = 2131755721;
+			public const int Widget_MaterialComponents_Snackbar = 2131755721;
 
-			public const int Widget_MaterialComponents_TabLayout = 2131755722;
+			public const int Widget_MaterialComponents_Snackbar_FullWidth = 2131755722;
 
-			public const int Widget_MaterialComponents_TabLayout_Colored = 2131755723;
+			public const int Widget_MaterialComponents_TabLayout = 2131755723;
 
-			public const int Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755724;
+			public const int Widget_MaterialComponents_TabLayout_Colored = 2131755724;
 
-			public const int Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755725;
+			public const int Widget_MaterialComponents_TabLayout_PrimarySurface = 2131755725;
 
-			public const int Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755726;
+			public const int Widget_MaterialComponents_TextInputEditText_FilledBox = 2131755726;
 
-			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755727;
+			public const int Widget_MaterialComponents_TextInputEditText_FilledBox_Dense = 2131755727;
 
-			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755728;
+			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox = 2131755728;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755729;
+			public const int Widget_MaterialComponents_TextInputEditText_OutlinedBox_Dense = 2131755729;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755730;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox = 2131755730;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755731;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense = 2131755731;
 
-			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755732;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_Dense_ExposedDropdownMenu = 2131755732;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755733;
+			public const int Widget_MaterialComponents_TextInputLayout_FilledBox_ExposedDropdownMenu = 2131755733;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755734;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox = 2131755734;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755735;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense = 2131755735;
 
-			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755736;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_Dense_ExposedDropdownMenu = 2131755736;
 
-			public const int Widget_MaterialComponents_TextView = 2131755737;
+			public const int Widget_MaterialComponents_TextInputLayout_OutlinedBox_ExposedDropdownMenu = 2131755737;
 
-			public const int Widget_MaterialComponents_Toolbar = 2131755738;
+			public const int Widget_MaterialComponents_TextView = 2131755738;
 
-			public const int Widget_MaterialComponents_Toolbar_Primary = 2131755739;
+			public const int Widget_MaterialComponents_Toolbar = 2131755739;
 
-			public const int Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755740;
+			public const int Widget_MaterialComponents_Toolbar_Primary = 2131755740;
 
-			public const int Widget_MaterialComponents_Toolbar_Surface = 2131755741;
+			public const int Widget_MaterialComponents_Toolbar_PrimarySurface = 2131755741;
 
-			public const int Widget_Support_CoordinatorLayout = 2131755742;
+			public const int Widget_MaterialComponents_Toolbar_Surface = 2131755742;
+
+			public const int Widget_Support_CoordinatorLayout = 2131755743;
 
 			static Style()
 			{
@@ -10705,27 +10712,27 @@ namespace NDB.Covid19.Droid
 			Xamarin.Auth.Resource.Id.browser_actions_menu_items = 2131296351;
 			Xamarin.Auth.Resource.Id.browser_actions_menu_view = 2131296352;
 			Xamarin.Auth.Resource.Id.chronometer = 2131296379;
-			Xamarin.Auth.Resource.Id.forever = 2131296527;
-			Xamarin.Auth.Resource.Id.icon = 2131296548;
-			Xamarin.Auth.Resource.Id.icon_group = 2131296549;
-			Xamarin.Auth.Resource.Id.info = 2131296589;
-			Xamarin.Auth.Resource.Id.italic = 2131296603;
-			Xamarin.Auth.Resource.Id.line1 = 2131296612;
-			Xamarin.Auth.Resource.Id.line3 = 2131296613;
-			Xamarin.Auth.Resource.Id.normal = 2131296679;
-			Xamarin.Auth.Resource.Id.notification_background = 2131296680;
-			Xamarin.Auth.Resource.Id.notification_main_column = 2131296681;
-			Xamarin.Auth.Resource.Id.notification_main_column_container = 2131296682;
-			Xamarin.Auth.Resource.Id.right_icon = 2131296740;
-			Xamarin.Auth.Resource.Id.right_side = 2131296741;
-			Xamarin.Auth.Resource.Id.tag_transition_group = 2131296852;
-			Xamarin.Auth.Resource.Id.tag_unhandled_key_event_manager = 2131296853;
-			Xamarin.Auth.Resource.Id.tag_unhandled_key_listeners = 2131296854;
-			Xamarin.Auth.Resource.Id.text = 2131296859;
-			Xamarin.Auth.Resource.Id.text2 = 2131296860;
-			Xamarin.Auth.Resource.Id.time = 2131296871;
-			Xamarin.Auth.Resource.Id.title = 2131296872;
-			Xamarin.Auth.Resource.Id.webview = 2131296900;
+			Xamarin.Auth.Resource.Id.forever = 2131296531;
+			Xamarin.Auth.Resource.Id.icon = 2131296552;
+			Xamarin.Auth.Resource.Id.icon_group = 2131296553;
+			Xamarin.Auth.Resource.Id.info = 2131296593;
+			Xamarin.Auth.Resource.Id.italic = 2131296607;
+			Xamarin.Auth.Resource.Id.line1 = 2131296616;
+			Xamarin.Auth.Resource.Id.line3 = 2131296617;
+			Xamarin.Auth.Resource.Id.normal = 2131296683;
+			Xamarin.Auth.Resource.Id.notification_background = 2131296684;
+			Xamarin.Auth.Resource.Id.notification_main_column = 2131296685;
+			Xamarin.Auth.Resource.Id.notification_main_column_container = 2131296686;
+			Xamarin.Auth.Resource.Id.right_icon = 2131296744;
+			Xamarin.Auth.Resource.Id.right_side = 2131296745;
+			Xamarin.Auth.Resource.Id.tag_transition_group = 2131296856;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_event_manager = 2131296857;
+			Xamarin.Auth.Resource.Id.tag_unhandled_key_listeners = 2131296858;
+			Xamarin.Auth.Resource.Id.text = 2131296863;
+			Xamarin.Auth.Resource.Id.text2 = 2131296864;
+			Xamarin.Auth.Resource.Id.time = 2131296875;
+			Xamarin.Auth.Resource.Id.title = 2131296876;
+			Xamarin.Auth.Resource.Id.webview = 2131296904;
 			Xamarin.Auth.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.Auth.Resource.Layout.activity_webview = 2131492896;
 			Xamarin.Auth.Resource.Layout.browser_actions_context_menu_page = 2131492897;
@@ -10738,13 +10745,13 @@ namespace NDB.Covid19.Droid
 			Xamarin.Auth.Resource.Layout.notification_template_part_time = 2131492975;
 			Xamarin.Auth.Resource.String.status_bar_notification_info_overflow = 2131689581;
 			Xamarin.Auth.Resource.String.title_activity_webview = 2131689582;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification = 2131755404;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755405;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755407;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755410;
-			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755412;
-			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755638;
-			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionText = 2131755639;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification = 2131755405;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755406;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755408;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755411;
+			Xamarin.Auth.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755413;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755639;
+			Xamarin.Auth.Resource.Style.Widget_Compat_NotificationActionText = 2131755640;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.Auth.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -10902,40 +10909,40 @@ namespace NDB.Covid19.Droid
 			Xamarin.Essentials.Resource.Id.clip_horizontal = 2131296381;
 			Xamarin.Essentials.Resource.Id.clip_vertical = 2131296382;
 			Xamarin.Essentials.Resource.Id.dialog_button = 2131296444;
-			Xamarin.Essentials.Resource.Id.end = 2131296499;
-			Xamarin.Essentials.Resource.Id.fill = 2131296514;
-			Xamarin.Essentials.Resource.Id.fill_horizontal = 2131296515;
-			Xamarin.Essentials.Resource.Id.fill_vertical = 2131296516;
-			Xamarin.Essentials.Resource.Id.forever = 2131296527;
-			Xamarin.Essentials.Resource.Id.icon = 2131296548;
-			Xamarin.Essentials.Resource.Id.icon_group = 2131296549;
-			Xamarin.Essentials.Resource.Id.info = 2131296589;
-			Xamarin.Essentials.Resource.Id.italic = 2131296603;
-			Xamarin.Essentials.Resource.Id.left = 2131296610;
-			Xamarin.Essentials.Resource.Id.line1 = 2131296612;
-			Xamarin.Essentials.Resource.Id.line3 = 2131296613;
-			Xamarin.Essentials.Resource.Id.none = 2131296678;
-			Xamarin.Essentials.Resource.Id.normal = 2131296679;
-			Xamarin.Essentials.Resource.Id.notification_background = 2131296680;
-			Xamarin.Essentials.Resource.Id.notification_main_column = 2131296681;
-			Xamarin.Essentials.Resource.Id.notification_main_column_container = 2131296682;
-			Xamarin.Essentials.Resource.Id.right = 2131296739;
-			Xamarin.Essentials.Resource.Id.right_icon = 2131296740;
-			Xamarin.Essentials.Resource.Id.right_side = 2131296741;
-			Xamarin.Essentials.Resource.Id.start = 2131296836;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_actions = 2131296847;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_clickable_spans = 2131296848;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_heading = 2131296849;
-			Xamarin.Essentials.Resource.Id.tag_accessibility_pane_title = 2131296850;
-			Xamarin.Essentials.Resource.Id.tag_screen_reader_focusable = 2131296851;
-			Xamarin.Essentials.Resource.Id.tag_transition_group = 2131296852;
-			Xamarin.Essentials.Resource.Id.tag_unhandled_key_event_manager = 2131296853;
-			Xamarin.Essentials.Resource.Id.tag_unhandled_key_listeners = 2131296854;
-			Xamarin.Essentials.Resource.Id.text = 2131296859;
-			Xamarin.Essentials.Resource.Id.text2 = 2131296860;
-			Xamarin.Essentials.Resource.Id.time = 2131296871;
-			Xamarin.Essentials.Resource.Id.title = 2131296872;
-			Xamarin.Essentials.Resource.Id.top = 2131296877;
+			Xamarin.Essentials.Resource.Id.end = 2131296503;
+			Xamarin.Essentials.Resource.Id.fill = 2131296518;
+			Xamarin.Essentials.Resource.Id.fill_horizontal = 2131296519;
+			Xamarin.Essentials.Resource.Id.fill_vertical = 2131296520;
+			Xamarin.Essentials.Resource.Id.forever = 2131296531;
+			Xamarin.Essentials.Resource.Id.icon = 2131296552;
+			Xamarin.Essentials.Resource.Id.icon_group = 2131296553;
+			Xamarin.Essentials.Resource.Id.info = 2131296593;
+			Xamarin.Essentials.Resource.Id.italic = 2131296607;
+			Xamarin.Essentials.Resource.Id.left = 2131296614;
+			Xamarin.Essentials.Resource.Id.line1 = 2131296616;
+			Xamarin.Essentials.Resource.Id.line3 = 2131296617;
+			Xamarin.Essentials.Resource.Id.none = 2131296682;
+			Xamarin.Essentials.Resource.Id.normal = 2131296683;
+			Xamarin.Essentials.Resource.Id.notification_background = 2131296684;
+			Xamarin.Essentials.Resource.Id.notification_main_column = 2131296685;
+			Xamarin.Essentials.Resource.Id.notification_main_column_container = 2131296686;
+			Xamarin.Essentials.Resource.Id.right = 2131296743;
+			Xamarin.Essentials.Resource.Id.right_icon = 2131296744;
+			Xamarin.Essentials.Resource.Id.right_side = 2131296745;
+			Xamarin.Essentials.Resource.Id.start = 2131296840;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_actions = 2131296851;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_clickable_spans = 2131296852;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_heading = 2131296853;
+			Xamarin.Essentials.Resource.Id.tag_accessibility_pane_title = 2131296854;
+			Xamarin.Essentials.Resource.Id.tag_screen_reader_focusable = 2131296855;
+			Xamarin.Essentials.Resource.Id.tag_transition_group = 2131296856;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_event_manager = 2131296857;
+			Xamarin.Essentials.Resource.Id.tag_unhandled_key_listeners = 2131296858;
+			Xamarin.Essentials.Resource.Id.text = 2131296863;
+			Xamarin.Essentials.Resource.Id.text2 = 2131296864;
+			Xamarin.Essentials.Resource.Id.time = 2131296875;
+			Xamarin.Essentials.Resource.Id.title = 2131296876;
+			Xamarin.Essentials.Resource.Id.top = 2131296881;
 			Xamarin.Essentials.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_page = 2131492897;
 			Xamarin.Essentials.Resource.Layout.browser_actions_context_menu_row = 2131492898;
@@ -10947,14 +10954,14 @@ namespace NDB.Covid19.Droid
 			Xamarin.Essentials.Resource.Layout.notification_template_part_chronometer = 2131492974;
 			Xamarin.Essentials.Resource.Layout.notification_template_part_time = 2131492975;
 			Xamarin.Essentials.Resource.String.status_bar_notification_info_overflow = 2131689581;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification = 2131755404;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755405;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755407;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755410;
-			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755412;
-			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755638;
-			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionText = 2131755639;
-			Xamarin.Essentials.Resource.Style.Widget_Support_CoordinatorLayout = 2131755742;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification = 2131755405;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755406;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755408;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755411;
+			Xamarin.Essentials.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755413;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755639;
+			Xamarin.Essentials.Resource.Style.Widget_Compat_NotificationActionText = 2131755640;
+			Xamarin.Essentials.Resource.Style.Widget_Support_CoordinatorLayout = 2131755743;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.Essentials.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -11170,44 +11177,44 @@ namespace NDB.Covid19.Droid
 			Xamarin.ExposureNotification.Resource.Id.clip_vertical = 2131296382;
 			Xamarin.ExposureNotification.Resource.Id.dark = 2131296432;
 			Xamarin.ExposureNotification.Resource.Id.dialog_button = 2131296444;
-			Xamarin.ExposureNotification.Resource.Id.end = 2131296499;
-			Xamarin.ExposureNotification.Resource.Id.fill = 2131296514;
-			Xamarin.ExposureNotification.Resource.Id.fill_horizontal = 2131296515;
-			Xamarin.ExposureNotification.Resource.Id.fill_vertical = 2131296516;
-			Xamarin.ExposureNotification.Resource.Id.forever = 2131296527;
-			Xamarin.ExposureNotification.Resource.Id.icon = 2131296548;
-			Xamarin.ExposureNotification.Resource.Id.icon_group = 2131296549;
-			Xamarin.ExposureNotification.Resource.Id.icon_only = 2131296550;
-			Xamarin.ExposureNotification.Resource.Id.info = 2131296589;
-			Xamarin.ExposureNotification.Resource.Id.italic = 2131296603;
-			Xamarin.ExposureNotification.Resource.Id.left = 2131296610;
-			Xamarin.ExposureNotification.Resource.Id.light = 2131296611;
-			Xamarin.ExposureNotification.Resource.Id.line1 = 2131296612;
-			Xamarin.ExposureNotification.Resource.Id.line3 = 2131296613;
-			Xamarin.ExposureNotification.Resource.Id.none = 2131296678;
-			Xamarin.ExposureNotification.Resource.Id.normal = 2131296679;
-			Xamarin.ExposureNotification.Resource.Id.notification_background = 2131296680;
-			Xamarin.ExposureNotification.Resource.Id.notification_main_column = 2131296681;
-			Xamarin.ExposureNotification.Resource.Id.notification_main_column_container = 2131296682;
-			Xamarin.ExposureNotification.Resource.Id.right = 2131296739;
-			Xamarin.ExposureNotification.Resource.Id.right_icon = 2131296740;
-			Xamarin.ExposureNotification.Resource.Id.right_side = 2131296741;
-			Xamarin.ExposureNotification.Resource.Id.standard = 2131296835;
-			Xamarin.ExposureNotification.Resource.Id.start = 2131296836;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_actions = 2131296847;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_clickable_spans = 2131296848;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_heading = 2131296849;
-			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_pane_title = 2131296850;
-			Xamarin.ExposureNotification.Resource.Id.tag_screen_reader_focusable = 2131296851;
-			Xamarin.ExposureNotification.Resource.Id.tag_transition_group = 2131296852;
-			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_event_manager = 2131296853;
-			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_listeners = 2131296854;
-			Xamarin.ExposureNotification.Resource.Id.text = 2131296859;
-			Xamarin.ExposureNotification.Resource.Id.text2 = 2131296860;
-			Xamarin.ExposureNotification.Resource.Id.time = 2131296871;
-			Xamarin.ExposureNotification.Resource.Id.title = 2131296872;
-			Xamarin.ExposureNotification.Resource.Id.top = 2131296877;
-			Xamarin.ExposureNotification.Resource.Id.wide = 2131296935;
+			Xamarin.ExposureNotification.Resource.Id.end = 2131296503;
+			Xamarin.ExposureNotification.Resource.Id.fill = 2131296518;
+			Xamarin.ExposureNotification.Resource.Id.fill_horizontal = 2131296519;
+			Xamarin.ExposureNotification.Resource.Id.fill_vertical = 2131296520;
+			Xamarin.ExposureNotification.Resource.Id.forever = 2131296531;
+			Xamarin.ExposureNotification.Resource.Id.icon = 2131296552;
+			Xamarin.ExposureNotification.Resource.Id.icon_group = 2131296553;
+			Xamarin.ExposureNotification.Resource.Id.icon_only = 2131296554;
+			Xamarin.ExposureNotification.Resource.Id.info = 2131296593;
+			Xamarin.ExposureNotification.Resource.Id.italic = 2131296607;
+			Xamarin.ExposureNotification.Resource.Id.left = 2131296614;
+			Xamarin.ExposureNotification.Resource.Id.light = 2131296615;
+			Xamarin.ExposureNotification.Resource.Id.line1 = 2131296616;
+			Xamarin.ExposureNotification.Resource.Id.line3 = 2131296617;
+			Xamarin.ExposureNotification.Resource.Id.none = 2131296682;
+			Xamarin.ExposureNotification.Resource.Id.normal = 2131296683;
+			Xamarin.ExposureNotification.Resource.Id.notification_background = 2131296684;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column = 2131296685;
+			Xamarin.ExposureNotification.Resource.Id.notification_main_column_container = 2131296686;
+			Xamarin.ExposureNotification.Resource.Id.right = 2131296743;
+			Xamarin.ExposureNotification.Resource.Id.right_icon = 2131296744;
+			Xamarin.ExposureNotification.Resource.Id.right_side = 2131296745;
+			Xamarin.ExposureNotification.Resource.Id.standard = 2131296839;
+			Xamarin.ExposureNotification.Resource.Id.start = 2131296840;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_actions = 2131296851;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_clickable_spans = 2131296852;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_heading = 2131296853;
+			Xamarin.ExposureNotification.Resource.Id.tag_accessibility_pane_title = 2131296854;
+			Xamarin.ExposureNotification.Resource.Id.tag_screen_reader_focusable = 2131296855;
+			Xamarin.ExposureNotification.Resource.Id.tag_transition_group = 2131296856;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_event_manager = 2131296857;
+			Xamarin.ExposureNotification.Resource.Id.tag_unhandled_key_listeners = 2131296858;
+			Xamarin.ExposureNotification.Resource.Id.text = 2131296863;
+			Xamarin.ExposureNotification.Resource.Id.text2 = 2131296864;
+			Xamarin.ExposureNotification.Resource.Id.time = 2131296875;
+			Xamarin.ExposureNotification.Resource.Id.title = 2131296876;
+			Xamarin.ExposureNotification.Resource.Id.top = 2131296881;
+			Xamarin.ExposureNotification.Resource.Id.wide = 2131296939;
 			Xamarin.ExposureNotification.Resource.Integer.google_play_services_version = 2131361800;
 			Xamarin.ExposureNotification.Resource.Integer.status_bar_notification_info_maxnum = 2131361813;
 			Xamarin.ExposureNotification.Resource.Layout.browser_actions_context_menu_page = 2131492897;
@@ -11238,14 +11245,14 @@ namespace NDB.Covid19.Droid
 			Xamarin.ExposureNotification.Resource.String.common_signin_button_text = 2131689528;
 			Xamarin.ExposureNotification.Resource.String.common_signin_button_text_long = 2131689529;
 			Xamarin.ExposureNotification.Resource.String.status_bar_notification_info_overflow = 2131689581;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification = 2131755404;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755405;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755407;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755410;
-			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755412;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755638;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionText = 2131755639;
-			Xamarin.ExposureNotification.Resource.Style.Widget_Support_CoordinatorLayout = 2131755742;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification = 2131755405;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Info = 2131755406;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Line2 = 2131755408;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Time = 2131755411;
+			Xamarin.ExposureNotification.Resource.Style.TextAppearance_Compat_Notification_Title = 2131755413;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionContainer = 2131755639;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Compat_NotificationActionText = 2131755640;
+			Xamarin.ExposureNotification.Resource.Style.Widget_Support_CoordinatorLayout = 2131755743;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem = Styleable.ColorStateListItem;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_alpha = 2;
 			Xamarin.ExposureNotification.Resource.Styleable.ColorStateListItem_android_alpha = 1;
@@ -11404,7 +11411,7 @@ namespace NDB.Covid19.Droid.Views
 				return;
 			}
 			SetContentView(2131492928);
-			_launcherButton = FindViewById<Button>(2131296609);
+			_launcherButton = FindViewById<Button>(2131296613);
 			_continueInEnRelativeLayoutButton = FindViewById<RelativeLayout>(2131296410);
 			_continueInEnTextView = FindViewById<TextView>(2131296411);
 			_launcherButton.Text = InitializerViewModel.LAUNCHER_PAGE_START_BTN;
@@ -11507,8 +11514,8 @@ namespace NDB.Covid19.Droid.Views
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131492924);
-			base.FindViewById<TextView>(2131296526).TextFormatted = HtmlCompat.FromHtml(ForceUpdateViewModel.FORCE_UPDATE_MESSAGE, 0);
-			Button button = base.FindViewById<Button>(2131296525);
+			base.FindViewById<TextView>(2131296530).TextFormatted = HtmlCompat.FromHtml(ForceUpdateViewModel.FORCE_UPDATE_MESSAGE, 0);
+			Button button = base.FindViewById<Button>(2131296529);
 			button.Text = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
 			button.ContentDescription = ForceUpdateViewModel.FORCE_UPDATE_BUTTON_GOOGLE_ANDROID;
 			button.Click += new StressUtils.SingleClick(GoToGooglePlay).Run;
@@ -11619,12 +11626,12 @@ namespace NDB.Covid19.Droid.Views.Welcome
 				_previousButton.Click += new StressUtils.SingleClick(GetPreviousButton_Click, 500).Run;
 				_previousButton.Visibility = ViewStates.Invisible;
 				WelcomePagerAdapter adapter = new WelcomePagerAdapter(SupportFragmentManager, _pages);
-				_pager = base.FindViewById<NonSwipeableViewPager>(2131296529);
+				_pager = base.FindViewById<NonSwipeableViewPager>(2131296533);
 				_pager.Adapter = adapter;
 				_pager.SetPagingEnabled(enabled: false);
 				_pager.AddOnPageChangeListener(this);
 				_pager.AnnounceForAccessibility(IsOnBoarding ? WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE : WelcomeViewModel.ANNOUNCEMENT_PAGE_CHANGED_TO_ONE);
-				_dotLayout = base.FindViewById<TabLayout>(2131296842);
+				_dotLayout = base.FindViewById<TabLayout>(2131296846);
 				_dotLayout.SetupWithViewPager(_pager, autoRefresh: true);
 			}
 		}
@@ -11717,10 +11724,10 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493015, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296910);
-			TextView textView2 = view.FindViewById<TextView>(2131296912);
-			TextView textView3 = view.FindViewById<TextView>(2131296911);
-			TextView textView4 = view.FindViewById<TextView>(2131296916);
+			TextView textView = view.FindViewById<TextView>(2131296914);
+			TextView textView2 = view.FindViewById<TextView>(2131296916);
+			TextView textView3 = view.FindViewById<TextView>(2131296915);
+			TextView textView4 = view.FindViewById<TextView>(2131296920);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_FOUR_BODY_THREE;
@@ -11734,9 +11741,9 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493016, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296918);
-			TextView textView2 = view.FindViewById<TextView>(2131296919);
-			TextView textView3 = view.FindViewById<TextView>(2131296922);
+			TextView textView = view.FindViewById<TextView>(2131296922);
+			TextView textView2 = view.FindViewById<TextView>(2131296923);
+			TextView textView3 = view.FindViewById<TextView>(2131296926);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_ONE_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_ONE_TITLE;
@@ -11766,10 +11773,10 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493017, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296924);
-			TextView textView2 = view.FindViewById<TextView>(2131296925);
-			TextView textView3 = view.FindViewById<TextView>(2131296927);
-			TextView textView4 = view.FindViewById<TextView>(2131296926);
+			TextView textView = view.FindViewById<TextView>(2131296928);
+			TextView textView2 = view.FindViewById<TextView>(2131296929);
+			TextView textView3 = view.FindViewById<TextView>(2131296931);
+			TextView textView4 = view.FindViewById<TextView>(2131296930);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_ONE;
 			textView.ContentDescription = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_THREE_BODY_TWO;
@@ -11785,9 +11792,9 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			View view = inflater.Inflate(2131493018, container, attachToRoot: false);
-			TextView textView = view.FindViewById<TextView>(2131296928);
-			TextView textView2 = view.FindViewById<TextView>(2131296929);
-			TextView textView3 = view.FindViewById<TextView>(2131296932);
+			TextView textView = view.FindViewById<TextView>(2131296932);
+			TextView textView2 = view.FindViewById<TextView>(2131296933);
+			TextView textView3 = view.FindViewById<TextView>(2131296936);
 			textView.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_ONE;
 			textView2.Text = WelcomeViewModel.WELCOME_PAGE_TWO_BODY_TWO;
 			textView3.Text = WelcomeViewModel.WELCOME_PAGE_TWO_TITLE;
@@ -11810,21 +11817,21 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131493014);
-			base.FindViewById<LinearLayout>(2131296390).FindViewById<TextView>(2131296908).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
-			Button button = base.FindViewById<Button>(2131296905);
+			base.FindViewById<LinearLayout>(2131296390).FindViewById<TextView>(2131296912).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			Button button = base.FindViewById<Button>(2131296909);
 			button.Click += new StressUtils.SingleClick(PreviousButtonPressed, 500).Run;
 			button.Text = WelcomeViewModel.PREVIOUS_PAGE_BUTTON_TEXT;
-			Button button2 = base.FindViewById<Button>(2131296902);
+			Button button2 = base.FindViewById<Button>(2131296906);
 			button2.Click += new StressUtils.SingleClick(NextButtonPressed, 500).Run;
 			button2.Text = WelcomeViewModel.NEXT_PAGE_BUTTON_TEXT;
-			_switchCustom = base.FindViewById<SwitchCompat>(2131296906);
+			_switchCustom = base.FindViewById<SwitchCompat>(2131296910);
 			_switchCustom.CheckedChange += OnCheckedChange;
 			_switchCustom.ContentDescription = ConsentViewModel.SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR;
-			_consentWarning = base.FindViewById<LinearLayout>(2131296903);
+			_consentWarning = base.FindViewById<LinearLayout>(2131296907);
 			SetConsentWarningShown(shown: false);
-			_consentWarningTextView = base.FindViewById<TextView>(2131296904);
+			_consentWarningTextView = base.FindViewById<TextView>(2131296908);
 			_consentWarningTextView.Text = ConsentViewModel.CONSENT_REQUIRED;
-			TextView textView = base.FindViewById<TextView>(2131296907);
+			TextView textView = base.FindViewById<TextView>(2131296911);
 			textView.Text = ConsentViewModel.GIVE_CONSENT_TEXT;
 			textView.LabelFor = _switchCustom.Id;
 			RelativeLayout relativeLayout = base.FindViewById<RelativeLayout>(2131296398);
@@ -11973,12 +11980,12 @@ namespace NDB.Covid19.Droid.Views.Welcome
 		{
 			base.OnCreate(savedInstanceState);
 			((Activity)(object)this).SetContentView(2131493019);
-			base.FindViewById<TextView>(2131296934).Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_TITLE;
+			base.FindViewById<TextView>(2131296938).Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_TITLE;
 			SetBulletText(2131296356, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_ONE);
 			SetBulletText(2131296358, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_TWO);
 			SetBulletText(2131296357, WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BULLET_THREE);
-			Button button = base.FindViewById<Button>(2131296689);
-			TextView textView = base.FindViewById<TextView>(2131296524);
+			Button button = base.FindViewById<Button>(2131296693);
+			TextView textView = base.FindViewById<TextView>(2131296528);
 			button.Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_BUTTON;
 			textView.Text = WelcomePageWhatIsNewViewModel.WELCOME_PAGE_WHATS_NEW_FOOTER;
 			button.Click += new StressUtils.SingleClick(delegate
@@ -12015,11 +12022,11 @@ namespace NDB.Covid19.Droid.Views.Settings
 			{
 				switch (checkedId)
 				{
-				case 2131296779:
+				case 2131296783:
 					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.GetChangeLanguageViewModel);
 					LocalPreferencesHelper.SetAppLanguage("en");
 					break;
-				case 2131296776:
+				case 2131296780:
 					await DialogUtils.DisplayDialogAsync((Activity)(object)_self, SettingsGeneralViewModel.GetChangeLanguageViewModel);
 					LocalPreferencesHelper.SetAppLanguage("da");
 					break;
@@ -12042,15 +12049,15 @@ namespace NDB.Covid19.Droid.Views.Settings
 		{
 			Button button = base.FindViewById<Button>(2131296337);
 			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
-			TextView textView = base.FindViewById<TextView>(2131296795);
-			TextView textView2 = base.FindViewById<TextView>(2131296780);
-			TextView textView3 = base.FindViewById<TextView>(2131296781);
-			TextView textView4 = base.FindViewById<TextView>(2131296785);
-			TextView textView5 = base.FindViewById<TextView>(2131296784);
-			TextView textView6 = base.FindViewById<TextView>(2131296791);
-			TextView textView7 = base.FindViewById<TextView>(2131296788);
-			TextView textView8 = base.FindViewById<TextView>(2131296782);
-			TextView textView9 = base.FindViewById<TextView>(2131296782);
+			TextView textView = base.FindViewById<TextView>(2131296799);
+			TextView textView2 = base.FindViewById<TextView>(2131296784);
+			TextView textView3 = base.FindViewById<TextView>(2131296785);
+			TextView textView4 = base.FindViewById<TextView>(2131296789);
+			TextView textView5 = base.FindViewById<TextView>(2131296788);
+			TextView textView6 = base.FindViewById<TextView>(2131296795);
+			TextView textView7 = base.FindViewById<TextView>(2131296792);
+			TextView textView8 = base.FindViewById<TextView>(2131296786);
+			TextView textView9 = base.FindViewById<TextView>(2131296786);
 			textView.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_TITLE;
 			textView2.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_ONE;
 			textView3.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EXPLANATION_TWO;
@@ -12064,9 +12071,9 @@ namespace NDB.Covid19.Droid.Views.Settings
 			{
 				SettingsGeneralViewModel.OpenSmitteStopLink();
 			}).Run;
-			RadioGroup radioGroup = base.FindViewById<RadioGroup>(2131296792);
-			RadioButton radioButton = base.FindViewById<RadioButton>(2131296779);
-			RadioButton radioButton2 = base.FindViewById<RadioButton>(2131296776);
+			RadioGroup radioGroup = base.FindViewById<RadioGroup>(2131296796);
+			RadioButton radioButton = base.FindViewById<RadioButton>(2131296783);
+			RadioButton radioButton2 = base.FindViewById<RadioButton>(2131296780);
 			radioButton.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_EN;
 			radioButton2.Text = SettingsGeneralViewModel.SETTINGS_GENERAL_DA;
 			if (LocalesService.GetLanguage() == "en")
@@ -12078,7 +12085,7 @@ namespace NDB.Covid19.Droid.Views.Settings
 				radioButton2.Checked = true;
 			}
 			radioGroup.SetOnCheckedChangeListener(new OnCheckedChangeListener(this));
-			SwitchCompat switchCompat = base.FindViewById<SwitchCompat>(2131296793);
+			SwitchCompat switchCompat = base.FindViewById<SwitchCompat>(2131296797);
 			switchCompat.Checked = _viewModel.GetStoredCheckedState();
 			switchCompat.CheckedChange += OnCheckedChange;
 			button.Click += new StressUtils.SingleClick(delegate
@@ -12124,7 +12131,7 @@ namespace NDB.Covid19.Droid.Views.Settings
 			imageButton.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
 			_resetConsentsButton = base.FindViewById<Button>(2131296364);
 			_progressBar = base.FindViewById<ProgressBar>(2131296389);
-			base.FindViewById<TextView>(2131296908).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
+			base.FindViewById<TextView>(2131296912).Text = ConsentViewModel.WELCOME_PAGE_CONSENT_TITLE;
 			_resetConsentsButton.Text = ConsentViewModel.WITHDRAW_CONSENT_BUTTON_TEXT;
 			imageButton.Click += new StressUtils.SingleClick(delegate
 			{
@@ -12247,10 +12254,10 @@ namespace NDB.Covid19.Droid.Views.Settings
 		{
 			Button button = base.FindViewById<Button>(2131296336);
 			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
-			TextView textView = base.FindViewById<TextView>(2131296772);
-			TextView textView2 = base.FindViewById<TextView>(2131296770);
-			TextView textView3 = base.FindViewById<TextView>(2131296768);
-			base.FindViewById<TextView>(2131296773).Text = SettingsPage5ViewModel.GetVersionInfo();
+			TextView textView = base.FindViewById<TextView>(2131296776);
+			TextView textView2 = base.FindViewById<TextView>(2131296774);
+			TextView textView3 = base.FindViewById<TextView>(2131296772);
+			base.FindViewById<TextView>(2131296777).Text = SettingsPage5ViewModel.GetVersionInfo();
 			textView.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_HEADER;
 			textView2.Text = SettingsPage5ViewModel.SETTINGS_PAGE_5_CONTENT + " " + SettingsPage5ViewModel.SETTINGS_PAGE_5_LINK;
 			button.Click += new StressUtils.SingleClick(delegate
@@ -12276,20 +12283,20 @@ namespace NDB.Covid19.Droid.Views.Settings
 
 		private void Init()
 		{
-			ConstraintLayout constraintLayout = base.FindViewById<ConstraintLayout>(2131296806);
-			ConstraintLayout constraintLayout2 = base.FindViewById<ConstraintLayout>(2131296809);
-			ConstraintLayout constraintLayout3 = base.FindViewById<ConstraintLayout>(2131296774);
-			ConstraintLayout constraintLayout4 = base.FindViewById<ConstraintLayout>(2131296801);
-			ConstraintLayout constraintLayout5 = base.FindViewById<ConstraintLayout>(2131296690);
-			ConstraintLayout constraintLayout6 = base.FindViewById<ConstraintLayout>(2131296858);
-			ConstraintLayout constraintLayout7 = base.FindViewById<ConstraintLayout>(2131296531);
-			Button button = constraintLayout.FindViewById<Button>(2131296807);
-			Button button2 = constraintLayout2.FindViewById<Button>(2131296807);
-			Button button3 = constraintLayout3.FindViewById<Button>(2131296807);
-			Button button4 = constraintLayout4.FindViewById<Button>(2131296807);
-			Button button5 = constraintLayout5.FindViewById<Button>(2131296807);
-			Button button6 = constraintLayout7.FindViewById<Button>(2131296807);
-			Button button7 = constraintLayout6.FindViewById<Button>(2131296807);
+			ConstraintLayout constraintLayout = base.FindViewById<ConstraintLayout>(2131296810);
+			ConstraintLayout constraintLayout2 = base.FindViewById<ConstraintLayout>(2131296813);
+			ConstraintLayout constraintLayout3 = base.FindViewById<ConstraintLayout>(2131296778);
+			ConstraintLayout constraintLayout4 = base.FindViewById<ConstraintLayout>(2131296805);
+			ConstraintLayout constraintLayout5 = base.FindViewById<ConstraintLayout>(2131296694);
+			ConstraintLayout constraintLayout6 = base.FindViewById<ConstraintLayout>(2131296862);
+			ConstraintLayout constraintLayout7 = base.FindViewById<ConstraintLayout>(2131296535);
+			Button button = constraintLayout.FindViewById<Button>(2131296811);
+			Button button2 = constraintLayout2.FindViewById<Button>(2131296811);
+			Button button3 = constraintLayout3.FindViewById<Button>(2131296811);
+			Button button4 = constraintLayout4.FindViewById<Button>(2131296811);
+			Button button5 = constraintLayout5.FindViewById<Button>(2131296811);
+			Button button6 = constraintLayout7.FindViewById<Button>(2131296811);
+			Button button7 = constraintLayout6.FindViewById<Button>(2131296811);
 			button.Text = _settingsViewModel.SettingItemList[0].Text;
 			button2.Text = _settingsViewModel.SettingItemList[1].Text;
 			button3.Text = _settingsViewModel.SettingItemList[2].Text;
@@ -12301,7 +12308,7 @@ namespace NDB.Covid19.Droid.Views.Settings
 				button7.Text = _settingsViewModel.SettingItemList[6].Text;
 				constraintLayout6.Visibility = ViewStates.Visible;
 			}
-			ViewGroup viewGroup = base.FindViewById<ViewGroup>(2131296546);
+			ViewGroup viewGroup = base.FindViewById<ViewGroup>(2131296550);
 			viewGroup.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
 			viewGroup.Click += new StressUtils.SingleClick(delegate
 			{
@@ -12353,9 +12360,9 @@ namespace NDB.Covid19.Droid.Views.Settings
 		{
 			ImageButton imageButton = base.FindViewById<ImageButton>(2131296338);
 			imageButton.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
-			TextView textView = base.FindViewById<TextView>(2131296798);
-			TextView textView2 = base.FindViewById<TextView>(2131296800);
-			TextView textView3 = base.FindViewById<TextView>(2131296796);
+			TextView textView = base.FindViewById<TextView>(2131296802);
+			TextView textView2 = base.FindViewById<TextView>(2131296804);
+			TextView textView3 = base.FindViewById<TextView>(2131296800);
 			textView2.Text = SettingsPage4ViewModel.HEADER;
 			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + "<br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + "<br><a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a><br>" + SettingsPage4ViewModel.PHONE_NUM_Text + "<br><a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM + "</a><br><br>" + SettingsPage4ViewModel.SUPPORT_TEXT, 0);
 			textView.ContentDescriptionFormatted = HtmlCompat.FromHtml(SettingsPage4ViewModel.CONTENT_TEXT_BEFORE_SUPPORT_LINK + "<br><br>" + SettingsPage4ViewModel.EMAIL_TEXT + "<br><a href=\"mailto:" + SettingsPage4ViewModel.EMAIL + "\">" + SettingsPage4ViewModel.EMAIL + "</a><br>" + SettingsPage4ViewModel.PHONE_NUM_Text + "<br><a href=\"tel:" + SettingsPage4ViewModel.PHONE_NUM + "\">" + SettingsPage4ViewModel.PHONE_NUM_ACCESSIBILITY + "</a><br><br>" + SettingsPage4ViewModel.ACCESSIBILITY_SUPPORT_TEXT, 0);
@@ -12420,9 +12427,9 @@ namespace NDB.Covid19.Droid.Views.Settings
 		{
 			Button button = base.FindViewById<Button>(2131296333);
 			button.ContentDescription = SettingsViewModel.SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON;
-			TextView textView = base.FindViewById<TextView>(2131296803);
-			TextView textView2 = base.FindViewById<TextView>(2131296805);
-			TextView textView3 = base.FindViewById<TextView>(2131296802);
+			TextView textView = base.FindViewById<TextView>(2131296807);
+			TextView textView2 = base.FindViewById<TextView>(2131296809);
+			TextView textView3 = base.FindViewById<TextView>(2131296806);
 			textView2.Text = SettingsPage2ViewModel.SETTINGS_PAGE_2_HEADER;
 			textView.TextFormatted = HtmlCompat.FromHtml(SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT, 0);
 			string source = "<a href=\"" + SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK + "\">" + SettingsPage2ViewModel.SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT + "</a>";
@@ -12525,94 +12532,94 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 
 		private void InitLayout()
 		{
-			_buttonBack = base.FindViewById<Button>(2131296477);
+			_buttonBack = base.FindViewById<Button>(2131296481);
 			_buttonBack.Click += new StressUtils.SingleClick(delegate
 			{
 				((Activity)(object)this).Finish();
 			}).Run;
-			_buttonPullKeys = base.FindViewById<Button>(2131296482);
+			_buttonPullKeys = base.FindViewById<Button>(2131296486);
 			_buttonPullKeys.Click += new StressUtils.SingleClick(delegate
 			{
 				PullKeys();
 			}).Run;
-			_buttonPullKeysAndGetExposureInfo = base.FindViewById<Button>(2131296483);
+			_buttonPullKeysAndGetExposureInfo = base.FindViewById<Button>(2131296487);
 			_buttonPullKeysAndGetExposureInfo.Click += new StressUtils.SingleClick(delegate
 			{
 				PullKeysAndGetExposureInfo();
 			}).Run;
-			_buttonPushKeys = base.FindViewById<Button>(2131296484);
+			_buttonPushKeys = base.FindViewById<Button>(2131296488);
 			_buttonPushKeys.Click += new StressUtils.SingleClick(delegate
 			{
 				GetPushKeyInfo();
 			}).Run;
-			_buttonSendExposureMessage = base.FindViewById<Button>(2131296486);
+			_buttonSendExposureMessage = base.FindViewById<Button>(2131296490);
 			_buttonSendExposureMessage.Click += new StressUtils.SingleClick(async delegate
 			{
 				await SendExposureMessage();
 			}).Run;
-			_buttonSendExposureMessageIncrement = base.FindViewById<Button>(2131296489);
+			_buttonSendExposureMessageIncrement = base.FindViewById<Button>(2131296493);
 			_buttonSendExposureMessageIncrement.Click += new StressUtils.SingleClick(delegate
 			{
 				SendExposureMessageIncrement();
 			}).Run;
-			_buttonSendExposureMessageDecrement = base.FindViewById<Button>(2131296488);
+			_buttonSendExposureMessageDecrement = base.FindViewById<Button>(2131296492);
 			_buttonSendExposureMessageDecrement.Click += new StressUtils.SingleClick(delegate
 			{
 				SendExposureMessageDecrement();
 			}).Run;
-			_buttonSendExposureMessageAfter10Sec = base.FindViewById<Button>(2131296487);
+			_buttonSendExposureMessageAfter10Sec = base.FindViewById<Button>(2131296491);
 			_buttonSendExposureMessageAfter10Sec.Click += new StressUtils.SingleClick(async delegate
 			{
 				await SendExposureMessageAfter10Sec();
 			}).Run;
-			_buttonFetchExposureConfiguration = base.FindViewById<Button>(2131296478);
+			_buttonFetchExposureConfiguration = base.FindViewById<Button>(2131296482);
 			_buttonFetchExposureConfiguration.Click += new StressUtils.SingleClick(delegate
 			{
 				FetchExposureConfiguration();
 			}).Run;
-			_buttonLastUsedExposureConfiguration = base.FindViewById<Button>(2131296479);
+			_buttonLastUsedExposureConfiguration = base.FindViewById<Button>(2131296483);
 			_buttonLastUsedExposureConfiguration.Click += new StressUtils.SingleClick(delegate
 			{
 				LastUsedExposureConfiguration();
 			}).Run;
-			_buttonResetLocalData = base.FindViewById<Button>(2131296485);
+			_buttonResetLocalData = base.FindViewById<Button>(2131296489);
 			_buttonResetLocalData.Click += new StressUtils.SingleClick(delegate
 			{
 				ResetLocalData();
 			}).Run;
-			_buttonToggleMessageRetentionLength = base.FindViewById<Button>(2131296493);
+			_buttonToggleMessageRetentionLength = base.FindViewById<Button>(2131296497);
 			_buttonToggleMessageRetentionLength.Click += new StressUtils.SingleClick(delegate
 			{
 				ToggleRetentionTime();
 			}).Run;
-			_buttonPrintLastSymptomOnsetDate = base.FindViewById<Button>(2131296481);
+			_buttonPrintLastSymptomOnsetDate = base.FindViewById<Button>(2131296485);
 			_buttonPrintLastSymptomOnsetDate.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastSymptomsOnsetDate();
 			}).Run;
-			_buttonPrintLastKeysPulledAndTimestamp = base.FindViewById<Button>(2131296480);
+			_buttonPrintLastKeysPulledAndTimestamp = base.FindViewById<Button>(2131296484);
 			_buttonPrintLastKeysPulledAndTimestamp.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastPulledKeysAndTimestamp();
 			}).Run;
-			_buttonShowLastSummary = base.FindViewById<Button>(2131296491);
+			_buttonShowLastSummary = base.FindViewById<Button>(2131296495);
 			_buttonShowLastSummary.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastSummary();
 			}).Run;
-			_buttonShowLastExposureInfo = base.FindViewById<Button>(2131296490);
+			_buttonShowLastExposureInfo = base.FindViewById<Button>(2131296494);
 			_buttonShowLastExposureInfo.Click += new StressUtils.SingleClick(delegate
 			{
 				PrintLastExposureInfo();
 			}).Run;
-			_buttonShowLatestPullKeysTimesAndStatuses = base.FindViewById<Button>(2131296492);
+			_buttonShowLatestPullKeysTimesAndStatuses = base.FindViewById<Button>(2131296496);
 			_buttonShowLatestPullKeysTimesAndStatuses.Click += new StressUtils.SingleClick(delegate
 			{
 				ShowLatestPullKeysTimesAndStatuses();
 			}).Run;
-			_textViewDevOutput = base.FindViewById<TextView>(2131296497);
-			_buttonNoConsents = base.FindViewById<Button>(2131296673);
-			_buttonOnlyV1Consents = base.FindViewById<Button>(2131296693);
+			_textViewDevOutput = base.FindViewById<TextView>(2131296501);
+			_buttonNoConsents = base.FindViewById<Button>(2131296677);
+			_buttonOnlyV1Consents = base.FindViewById<Button>(2131296697);
 			_buttonAllConsents = base.FindViewById<Button>(2131296327);
 			_buttonNoConsents.Click += new StressUtils.SingleClick(delegate
 			{
@@ -12626,14 +12633,14 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			{
 				ChangeConsentsAndRestart(OnboardingStatus.CountriesOnboardingCompleted);
 			}).Run;
-			_buttonPrintActualPreferences = base.FindViewById<Button>(2131296706);
+			_buttonPrintActualPreferences = base.FindViewById<Button>(2131296710);
 			_buttonPrintActualPreferences.Click += OnPrintActualPreferences().Run;
-			_buttonFakeGateway = base.FindViewById<Button>(2131296513);
+			_buttonFakeGateway = base.FindViewById<Button>(2131296517);
 			_buttonFakeGateway.Click += OnFakeGateway().Run;
-			_pullWithDelay = base.FindViewById<Button>(2131296716);
+			_pullWithDelay = base.FindViewById<Button>(2131296720);
 			_pullWithDelay.Click += OnPullWithDelay().Run;
-			_buttonNoConsentsNoRestart = base.FindViewById<Button>(2131296674);
-			_buttonOnlyV1ConsentsNoRestart = base.FindViewById<Button>(2131296694);
+			_buttonNoConsentsNoRestart = base.FindViewById<Button>(2131296678);
+			_buttonOnlyV1ConsentsNoRestart = base.FindViewById<Button>(2131296698);
 			_buttonAllConsentNoRestarts = base.FindViewById<Button>(2131296328);
 			_buttonNoConsentsNoRestart.Click += new StressUtils.SingleClick(delegate
 			{
@@ -12755,7 +12762,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			UpdateText("Copied to clipboard: \n" + await _viewModel.GetPushKeyInfoFromSharedPrefs());
 		}
 
-		private async Task SendExposureMessage()
+		private async System.Threading.Tasks.Task SendExposureMessage()
 		{
 			UpdateText("Sending Exposure Message");
 			try
@@ -12768,7 +12775,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 			}
 		}
 
-		private async Task SendExposureMessageAfter10Sec()
+		private async System.Threading.Tasks.Task SendExposureMessageAfter10Sec()
 		{
 			UpdateText("Sending Exposure Message in 10 sec");
 			try
@@ -12783,7 +12790,7 @@ namespace NDB.Covid19.Droid.Views.ENDeveloperTools
 
 		private void FetchExposureConfiguration()
 		{
-			Task.Run(async delegate
+			System.Threading.Tasks.Task.Run(async delegate
 			{
 				string res = await _viewModel.FetchExposureConfigurationAsync();
 				base.RunOnUiThread((System.Action)delegate
@@ -12867,7 +12874,7 @@ namespace NDB.Covid19.Droid.Views.Messages
 		protected override void OnDestroy()
 		{
 			MessagesViewModel.UnsubscribeMessages(this);
-			Task.Run(delegate
+			System.Threading.Tasks.Task.Run(delegate
 			{
 				MessagesViewModel.MarkAllMessagesAsRead();
 			});
@@ -12902,12 +12909,12 @@ namespace NDB.Covid19.Droid.Views.Messages
 		{
 			SetLogoBasedOnAppLanguage();
 			MessagesViewModel.SubscribeMessages(this, ClearAndAddNewMessages);
-			base.FindViewById<TextView>(2131296638).Text = MessagesViewModel.MESSAGES_HEADER;
-			base.FindViewById<TextView>(2131296629).Text = MessagesViewModel.LastUpdateString;
-			base.FindViewById<TextView>(2131296677).Text = MessagesViewModel.MESSAGES_NO_ITEMS_TITLE;
-			base.FindViewById<TextView>(2131296675).Text = MessagesViewModel.MESSAGES_NO_ITEMS_DESCRIPTION;
-			_messagesList = base.FindViewById<ListView>(2131296637);
-			_noItemsLayout = base.FindViewById<LinearLayout>(2131296676);
+			base.FindViewById<TextView>(2131296642).Text = MessagesViewModel.MESSAGES_HEADER;
+			base.FindViewById<TextView>(2131296633).Text = MessagesViewModel.LastUpdateString;
+			base.FindViewById<TextView>(2131296681).Text = MessagesViewModel.MESSAGES_NO_ITEMS_TITLE;
+			base.FindViewById<TextView>(2131296679).Text = MessagesViewModel.MESSAGES_NO_ITEMS_DESCRIPTION;
+			_messagesList = base.FindViewById<ListView>(2131296641);
+			_noItemsLayout = base.FindViewById<LinearLayout>(2131296680);
 			_closeButton = base.FindViewById<ViewGroup>(2131296384);
 			_closeButton.Click += new StressUtils.SingleClick(OnCloseBtnClicked).Run;
 			_closeButton.ContentDescription = MessagesViewModel.MESSAGES_ACCESSIBILITY_CLOSE_BUTTON;
@@ -12919,7 +12926,7 @@ namespace NDB.Covid19.Droid.Views.Messages
 
 		private void SetLogoBasedOnAppLanguage()
 		{
-			View view = base.FindViewById<View>(2131296631);
+			View view = base.FindViewById<View>(2131296635);
 			string language = LocalesService.GetLanguage();
 			view?.SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165416 : 2131165415);
 		}
@@ -12946,7 +12953,7 @@ namespace NDB.Covid19.Droid.Views.Messages
 			_adapterMessages.ClearList();
 			ShowList(messages.Count > 0);
 			_adapterMessages.AddItems(messages);
-			base.FindViewById<TextView>(2131296629).Text = MessagesViewModel.LastUpdateString;
+			base.FindViewById<TextView>(2131296633).Text = MessagesViewModel.LastUpdateString;
 		}
 
 		public async void Update()
@@ -12990,10 +12997,10 @@ namespace NDB.Covid19.Droid.Views.Messages
 		public override View GetView(int position, View convertView, ViewGroup parent)
 		{
 			View obj = convertView ?? _context.LayoutInflater.Inflate(2131492931, null);
-			obj.FindViewById<TextView>(2131296636).Text = _items[position].Title;
-			obj.FindViewById<TextView>(2131296634).Text = _items[position].DayAndMonthString;
-			obj.FindViewById<TextView>(2131296635).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
-			obj.FindViewById<View>(2131296476).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
+			obj.FindViewById<TextView>(2131296640).Text = _items[position].Title;
+			obj.FindViewById<TextView>(2131296638).Text = _items[position].DayAndMonthString;
+			obj.FindViewById<TextView>(2131296639).Text = MessageItemViewModel.MESSAGES_RECOMMENDATIONS;
+			obj.FindViewById<View>(2131296480).Visibility = (_items[position].IsRead ? ViewStates.Invisible : ViewStates.Visible);
 			obj.SetBackgroundResource(_items[position].IsRead ? 2131165386 : 2131165387);
 			return obj;
 		}
@@ -13020,7 +13027,7 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE;
 			((Activity)(object)this).SetContentView(2131492929);
 			_viewModel = new DiseaseRateViewModel();
-			base.FindViewById<ProgressBar>(2131296707).Visibility = ViewStates.Visible;
+			base.FindViewById<ProgressBar>(2131296711).Visibility = ViewStates.Visible;
 		}
 
 		protected override void OnResume()
@@ -13109,7 +13116,7 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 			{
 				_self = self;
 				_layout = layout;
-				_scrollView = self.FindViewById<ScrollView>(2131296587);
+				_scrollView = self.FindViewById<ScrollView>(2131296591);
 			}
 
 			public void OnScrollChanged()
@@ -13237,7 +13244,12 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private async void PreventMultiplePermissionsDialogsForAction(Func<Task<bool>> action)
 		{
-			if ((!(await _viewModel.IsRunning()) || !_permissionUtils.HasPermissionsWithoutDialogs()) && !_dialogDisplayed)
+			bool flag = !(await _viewModel.IsRunning());
+			if (!flag)
+			{
+				flag = !(await _permissionUtils.HasPermissionsWithoutDialogs());
+			}
+			if (flag && !_dialogDisplayed)
 			{
 				_dialogDisplayed = true;
 				if (action != null)
@@ -13260,23 +13272,23 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private async void InitLayout()
 		{
-			_activityStatusText = base.FindViewById<TextView>(2131296554);
-			_activityStatusDescription = base.FindViewById<TextView>(2131296555);
-			_diseaseRateHeader = base.FindViewById<TextView>(2131296564);
-			_diseaseRateLastUpdated = base.FindViewById<TextView>(2131296576);
-			_messeageHeader = base.FindViewById<TextView>(2131296572);
-			_messageSubHeader = base.FindViewById<TextView>(2131296577);
-			_registrationHeader = base.FindViewById<TextView>(2131296584);
-			_registrationSubheader = base.FindViewById<TextView>(2131296583);
-			_scrollDownHeader = base.FindViewById<TextView>(2131296566);
-			_onOffButton = base.FindViewById<ImageButton>(2131296578);
-			_messageRelativeLayout = base.FindViewById<RelativeLayout>(2131296573);
-			_registrationRelativeLayout = base.FindViewById<RelativeLayout>(2131296580);
-			_menuIcon = base.FindViewById<ImageButton>(2131296568);
-			_diseaseRateCoverButton = base.FindViewById<Button>(2131296561);
-			_messageCoverButton = base.FindViewById<Button>(2131296574);
-			_registrationCoverButton = base.FindViewById<Button>(2131296581);
-			_notificationDot = base.FindViewById<ImageView>(2131296571);
+			_activityStatusText = base.FindViewById<TextView>(2131296558);
+			_activityStatusDescription = base.FindViewById<TextView>(2131296559);
+			_diseaseRateHeader = base.FindViewById<TextView>(2131296568);
+			_diseaseRateLastUpdated = base.FindViewById<TextView>(2131296580);
+			_messeageHeader = base.FindViewById<TextView>(2131296576);
+			_messageSubHeader = base.FindViewById<TextView>(2131296581);
+			_registrationHeader = base.FindViewById<TextView>(2131296588);
+			_registrationSubheader = base.FindViewById<TextView>(2131296587);
+			_scrollDownHeader = base.FindViewById<TextView>(2131296570);
+			_onOffButton = base.FindViewById<ImageButton>(2131296582);
+			_messageRelativeLayout = base.FindViewById<RelativeLayout>(2131296577);
+			_registrationRelativeLayout = base.FindViewById<RelativeLayout>(2131296584);
+			_menuIcon = base.FindViewById<ImageButton>(2131296572);
+			_diseaseRateCoverButton = base.FindViewById<Button>(2131296565);
+			_messageCoverButton = base.FindViewById<Button>(2131296578);
+			_registrationCoverButton = base.FindViewById<Button>(2131296585);
+			_notificationDot = base.FindViewById<ImageView>(2131296575);
 			_activityStatusText.Text = InfectionStatusViewModel.INFECTION_STATUS_ACTIVE_TEXT;
 			_activityStatusDescription.Text = InfectionStatusViewModel.INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT;
 			_diseaseRateHeader.Text = InfectionStatusViewModel.INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT;
@@ -13301,13 +13313,13 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 			{
 				NavigationHelper.GoToSettingsPage((Activity)(object)this);
 			}, 500).Run;
-			_buttonBackgroundAnimated = base.FindViewById<ImageView>(2131296557);
+			_buttonBackgroundAnimated = base.FindViewById<ImageView>(2131296561);
 			if (!(await _viewModel.IsRunning()))
 			{
 				_onOffButton.PerformClick();
 			}
-			_scrollView = base.FindViewById<ScrollView>(2131296587);
-			_scrollDown = base.FindViewById<ConstraintLayout>(2131296588);
+			_scrollView = base.FindViewById<ScrollView>(2131296591);
+			_scrollDown = base.FindViewById<ConstraintLayout>(2131296592);
 			_scrollDown.Click += delegate
 			{
 				_scrollView.FullScroll(FocusSearchDirection.Down);
@@ -13353,7 +13365,7 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 		{
 			base.RunOnUiThread((System.Action)async delegate
 			{
-				bool isLocationEnabled = _permissionUtils.IsLocationEnabled();
+				bool isLocationEnabled = await _permissionUtils.IsLocationEnabled();
 				bool isRunning = await _viewModel.IsRunning(isLocationEnabled);
 				_diseaseRateLastUpdated.Text = InfectionStatusViewModel.LastUpdateString;
 				TextView activityStatusText = _activityStatusText;
@@ -13384,14 +13396,14 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private async void StartStopButton_Click(object sender, EventArgs e)
 		{
-			bool flag = await _viewModel.IsRunning();
-			bool flag2 = _permissionUtils.HasPermissionsWithoutDialogs();
-			if (flag && !flag2)
+			bool isRunning = await _viewModel.IsRunning();
+			bool flag = await _permissionUtils.HasPermissionsWithoutDialogs();
+			if (isRunning && !flag)
 			{
 				await _permissionUtils.HasPermissions();
 				return;
 			}
-			if (!flag)
+			if (!isRunning)
 			{
 				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.OnDialogViewModel, StartGoogleAPI);
 			}
@@ -13485,7 +13497,7 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 			builder.SetCancelable(cancelable: false);
 			builder.SetTitle(InfectionStatusViewModel.INFECTION_STATUS_SPINNER_DIALOG_TITLE);
 			builder.SetMessage(InfectionStatusViewModel.INFECTION_STATUS_SPINNER_DIALOG_MESSAGE);
-			_picker = view.FindViewById(2131296704) as NumberPicker;
+			_picker = view.FindViewById(2131296708) as NumberPicker;
 			_picker.MaxValue = 5;
 			_picker.MinValue = 0;
 			_picker.DescendantFocusability = DescendantFocusability.BlockDescendants;
@@ -13540,7 +13552,8 @@ namespace NDB.Covid19.Droid.Views.InfectionStatus
 
 		private async void RegistrationLayoutButton_Click(object sender, EventArgs e)
 		{
-			if (!(await _viewModel.IsRunning(_permissionUtils.IsLocationEnabled())))
+			InfectionStatusViewModel viewModel = _viewModel;
+			if (!(await viewModel.IsRunning(await _permissionUtils.IsLocationEnabled())))
 			{
 				await DialogUtils.DisplayDialogAsync((Activity)(object)this, _viewModel.ReportingIllDialogViewModel);
 				return;
@@ -13579,27 +13592,30 @@ namespace NDB.Covid19.Droid.Views.DiseaseRate
 		private async void Init()
 		{
 			base.FindViewById<TextView>(2131296456).Text = DiseaseRateViewModel.DISEASE_RATE_HEADER;
-			base.FindViewById<TextView>(2131296468).Text = DiseaseRateViewModel.LastUpdateStringSubHeader;
-			TextView textView = base.FindViewById<TextView>(2131296469);
+			base.FindViewById<TextView>(2131296466).Text = DiseaseRateViewModel.LastUpdateStringSubHeader;
+			TextView textView = base.FindViewById<TextView>(2131296467);
 			ISpanned spanned = (ISpanned)(textView.ContentDescriptionFormatted = (textView.TextFormatted = HtmlCompat.FromHtml(DiseaseRateViewModel.LastUpdateStringSubSubHeader, 0)));
 			textView.MovementMethod = LinkMovementMethod.Instance;
 			textView.SetLinkTextColor(new Color(250, 220, 93));
-			base.FindViewById<TextView>(2131296459).Text = DiseaseRateViewModel.KEY_FEATURE_ONE_LABEL;
-			base.FindViewById<TextView>(2131296460).Text = DiseaseRateViewModel.ConfirmedCasesToday;
-			base.FindViewById<TextView>(2131296461).Text = DiseaseRateViewModel.ConfirmedCasesTotal;
+			base.FindViewById<TextView>(2131296457).Text = DiseaseRateViewModel.KEY_FEATURE_ONE_LABEL;
+			base.FindViewById<TextView>(2131296458).Text = DiseaseRateViewModel.ConfirmedCasesToday;
+			base.FindViewById<TextView>(2131296459).Text = DiseaseRateViewModel.ConfirmedCasesTotal;
 			base.FindViewById<TextView>(2131296450).Text = DiseaseRateViewModel.KEY_FEATURE_TWO_LABEL;
 			base.FindViewById<TextView>(2131296451).Text = DiseaseRateViewModel.DeathsToday;
 			base.FindViewById<TextView>(2131296452).Text = DiseaseRateViewModel.DeathsTotal;
-			base.FindViewById<TextView>(2131296470).Text = DiseaseRateViewModel.KEY_FEATURE_THREE_LABEL;
-			base.FindViewById<TextView>(2131296471).Text = DiseaseRateViewModel.TestsConductedToday;
-			base.FindViewById<TextView>(2131296472).Text = DiseaseRateViewModel.TestsConductedTotal;
-			base.FindViewById<TextView>(2131296457).Text = DiseaseRateViewModel.KEY_FEATURE_FOUR_LABEL;
-			base.FindViewById<TextView>(2131296458).Text = DiseaseRateViewModel.PatientsAdmittedToday;
+			base.FindViewById<TextView>(2131296468).Text = DiseaseRateViewModel.KEY_FEATURE_THREE_LABEL;
+			base.FindViewById<TextView>(2131296470).Text = DiseaseRateViewModel.TestsConductedToday;
+			base.FindViewById<TextView>(2131296471).Text = DiseaseRateViewModel.TestsConductedTotal;
+			base.FindViewById<TextView>(2131296472).Text = DiseaseRateViewModel.KEY_FEATURE_FOUR_LABEL;
+			base.FindViewById<TextView>(2131296473).Text = DiseaseRateViewModel.VaccinatedFirst;
+			base.FindViewById<TextView>(2131296474).Text = DiseaseRateViewModel.KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL;
+			base.FindViewById<TextView>(2131296475).Text = DiseaseRateViewModel.VaccinatedSecond;
+			base.FindViewById<TextView>(2131296476).Text = DiseaseRateViewModel.KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL;
 			base.FindViewById<TextView>(2131296453).Text = DiseaseRateViewModel.KEY_FEATURE_SIX_LABEL + " \n";
 			base.FindViewById<TextView>(2131296455).Text = DiseaseRateViewModel.SmittestopDownloadsTotal;
-			base.FindViewById<TextView>(2131296463).Text = DiseaseRateViewModel.KEY_FEATURE_FIVE_LABEL;
-			base.FindViewById<TextView>(2131296465).Text = DiseaseRateViewModel.NumberOfPositiveTestsResultsLast7Days;
-			base.FindViewById<TextView>(2131296466).Text = DiseaseRateViewModel.NumberOfPositiveTestsResultsTotal;
+			base.FindViewById<TextView>(2131296461).Text = DiseaseRateViewModel.KEY_FEATURE_FIVE_LABEL;
+			base.FindViewById<TextView>(2131296463).Text = DiseaseRateViewModel.NumberOfPositiveTestsResultsLast7Days;
+			base.FindViewById<TextView>(2131296464).Text = DiseaseRateViewModel.NumberOfPositiveTestsResultsTotal;
 			_closeButton = base.FindViewById<ViewGroup>(2131296448);
 			_closeButton.Click += new StressUtils.SingleClick(OnCloseBtnClicked).Run;
 			_closeButton.ContentDescription = MessagesViewModel.MESSAGES_ACCESSIBILITY_CLOSE_BUTTON;
@@ -13641,9 +13657,9 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void Init()
 		{
-			TextView obj = ((Activity)(object)this).FindViewById(2131296872) as TextView;
+			TextView obj = ((Activity)(object)this).FindViewById(2131296876) as TextView;
 			TextView textView = ((Activity)(object)this).FindViewById(2131296437) as TextView;
-			Button button = ((Activity)(object)this).FindViewById(2131296689) as Button;
+			Button button = ((Activity)(object)this).FindViewById(2131296693) as Button;
 			Button button2 = ((Activity)(object)this).FindViewById(2131296369) as Button;
 			obj.TextFormatted = HtmlCompat.FromHtml(QuestionnaireConfirmLeaveViewModel.QUESTIONNAIRE_CONFIRM_LEAVE_TITLE, 0);
 			textView.TextFormatted = HtmlCompat.FromHtml(QuestionnaireConfirmLeaveViewModel.QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION, 0);
@@ -13656,7 +13672,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			}).Run;
 			button.Click += new StressUtils.SingleClick(delegate
 			{
-				GoToLoadingPage();
+				QuestionnaireConfirmLeaveViewModel.ValidateData(GoToLoadingPage, OnFail);
 			}).Run;
 			Button button3 = base.FindViewById<Button>(2131296384);
 			button3.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
@@ -13664,6 +13680,11 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			{
 				ShowAreYouSureToExitDialog();
 			}).Run;
+		}
+
+		private void OnFail()
+		{
+			AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, null, "QuestionnaireConfirmLeaveActivity.OnFail: No miba data or token expired");
 		}
 
 		private async void ShowAreYouSureToExitDialog()
@@ -13728,13 +13749,19 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			SetContentView(2131492979);
 			_title = FindViewById<TextView>(2131296420);
 			_subtitle = FindViewById<TextView>(2131296419);
-			_footer = FindViewById<TextView>(2131296718);
+			_footer = FindViewById<TextView>(2131296722);
 			_nextButton = FindViewById<Button>(2131296415);
 			_recyclerView = FindViewById<RecyclerView>(2131296418);
-			_progressBar = FindViewById<ProgressBar>(2131296707);
+			_progressBar = FindViewById<ProgressBar>(2131296711);
 			_closeButton = FindViewById<Button>(2131296384);
 			PrepareRadioGroup();
 			_closeButton.ContentDescription = InformationAndConsentViewModel.CLOSE_BUTTON_ACCESSIBILITY_LABEL;
+			_closeButton.Click += new StressUtils.SingleClick(OnExitClick).Run;
+			_nextButton.Click += new StressUtils.SingleClick(OnNextButtonClick).Run;
+			_title.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_HEADER_TEXT;
+			_subtitle.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_INFORMATION_TEXT;
+			_footer.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_FOOTER;
+			_nextButton.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_BUTTON_TEXT;
 			RunOnUiThread(delegate
 			{
 				ShowSpinner(show: true);
@@ -13753,35 +13780,29 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			RunOnUiThread(delegate
 			{
 				ShowSpinner(show: false);
+				QuestionnaireCountriesSelectionAdapter adapter = new QuestionnaireCountriesSelectionAdapter(_countries);
+				LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+				_recyclerView.SetLayoutManager(layoutManager);
+				_recyclerView.SetAdapter(adapter);
 			});
-			_closeButton.Click += new StressUtils.SingleClick(OnExitClick).Run;
-			_nextButton.Click += new StressUtils.SingleClick(OnNextButtonClick).Run;
-			_title.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_HEADER_TEXT;
-			_subtitle.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_INFORMATION_TEXT;
-			_footer.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_FOOTER;
-			_nextButton.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_BUTTON_TEXT;
-			QuestionnaireCountriesSelectionAdapter adapter = new QuestionnaireCountriesSelectionAdapter(_countries);
-			LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-			_recyclerView.SetLayoutManager(layoutManager);
-			_recyclerView.SetAdapter(adapter);
 		}
 
 		private void PrepareRadioGroup()
 		{
-			RadioGroup radioGroup = FindViewById<RadioGroup>(2131296723);
+			RadioGroup radioGroup = FindViewById<RadioGroup>(2131296727);
 			radioGroup.CheckedChange += delegate
 			{
 				ConstraintLayout constraintLayout = FindViewById<ConstraintLayout>(2131296421);
 				ConstraintLayout constraintLayout2 = constraintLayout;
 				constraintLayout2.Visibility = radioGroup.CheckedRadioButtonId switch
 				{
-					2131296727 => ViewStates.Visible, 
-					2131296725 => ViewStates.Gone, 
+					2131296731 => ViewStates.Visible, 
+					2131296729 => ViewStates.Gone, 
 					_ => constraintLayout.Visibility, 
 				};
 			};
-			RadioButton radioButton = FindViewById<RadioButton>(2131296725);
-			RadioButton radioButton2 = FindViewById<RadioButton>(2131296727);
+			RadioButton radioButton = FindViewById<RadioButton>(2131296729);
+			RadioButton radioButton2 = FindViewById<RadioButton>(2131296731);
 			radioButton.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON;
 			radioButton2.Text = QuestionnaireCountriesViewModel.COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON;
 			radioButton.Toggle();
@@ -13808,7 +13829,8 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void OnNextButtonClick(object sender, EventArgs args)
 		{
-			_viewModel.InvokeNextButtonClick(GoToPreSharePage, OnFail, _countries);
+			List<CountryDetailsViewModel> selectedCountriesList = (FindViewById<RadioButton>(2131296731).Checked ? _countries : new List<CountryDetailsViewModel>());
+			_viewModel.InvokeNextButtonClick(GoToPreSharePage, OnFail, selectedCountriesList);
 		}
 
 		private void OnServerError()
@@ -13861,15 +13883,15 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void Init()
 		{
-			TextView obj = ((Activity)(object)this).FindViewById(2131296872) as TextView;
+			TextView obj = ((Activity)(object)this).FindViewById(2131296876) as TextView;
 			TextView textView = ((Activity)(object)this).FindViewById(2131296437) as TextView;
-			Button button = ((Activity)(object)this).FindViewById(2131296671) as Button;
+			Button button = ((Activity)(object)this).FindViewById(2131296675) as Button;
 			obj.TextFormatted = HtmlCompat.FromHtml(QuestionnairePreShareViewModel.QUESTIONNAIRE_PRE_SHARE_TITLE, 0);
 			textView.TextFormatted = HtmlCompat.FromHtml(QuestionnairePreShareViewModel.QUESTIONNAIRE_PRE_SHARE_DESCRIPTION, 0);
 			button.Text = QuestionnairePreShareViewModel.QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON;
 			button.Click += new StressUtils.SingleClick(delegate
 			{
-				GoToLoadingPage();
+				QuestionnairePreShareViewModel.InvokeNextButtonClick(GoToLoadingPage, OnFail);
 			}).Run;
 			Button button2 = base.FindViewById<Button>(2131296384);
 			button2.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
@@ -13877,6 +13899,11 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			{
 				ShowAreYouSureToExitDialog();
 			}).Run;
+		}
+
+		private void OnFail()
+		{
+			AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, null, "QuestionnairePreShareActivity.OnFail: No miba data or token expired");
 		}
 
 		private async void ShowAreYouSureToExitDialog()
@@ -13946,13 +13973,13 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		private void InitLayout()
 		{
 			_closeButton = base.FindViewById<Button>(2131296384);
-			_nemIdButton = base.FindViewById<Button>(2131296597);
-			_header = base.FindViewById<TextView>(2131296596);
-			_contentText = base.FindViewById<TextView>(2131296594);
-			_subtitleText = base.FindViewById<TextView>(2131296601);
-			_bodyOneText = base.FindViewById<TextView>(2131296591);
-			_bodyTwoText = base.FindViewById<TextView>(2131296593);
-			_contentTwoText = base.FindViewById<TextView>(2131296595);
+			_nemIdButton = base.FindViewById<Button>(2131296601);
+			_header = base.FindViewById<TextView>(2131296600);
+			_contentText = base.FindViewById<TextView>(2131296598);
+			_subtitleText = base.FindViewById<TextView>(2131296605);
+			_bodyOneText = base.FindViewById<TextView>(2131296595);
+			_bodyTwoText = base.FindViewById<TextView>(2131296597);
+			_contentTwoText = base.FindViewById<TextView>(2131296599);
 			_nemIdButton.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_NEMID_BUTTON_TEXT;
 			_header.Text = InformationAndConsentViewModel.INFORMATION_CONSENT_HEADER_TEXT;
 			_contentText.TextFormatted = HtmlCompat.FromHtml(InformationAndConsentViewModel.INFORMATION_CONSENT_CONTENT_TEXT ?? "", 0);
@@ -13966,7 +13993,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 				((Activity)(object)this).Finish();
 			}, 500).Run;
 			_nemIdButton.Click += new StressUtils.SingleClick(NemIdButton_Click, 500).Run;
-			_progressBar = base.FindViewById<ProgressBar>(2131296598);
+			_progressBar = base.FindViewById<ProgressBar>(2131296602);
 		}
 
 		private async void NemIdButton_Click(object sender, EventArgs e)
@@ -14036,8 +14063,8 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			base.OnCreate(savedInstanceState);
 			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE;
 			((Activity)(object)this).SetContentView(2131492929);
-			base.FindViewById<ProgressBar>(2131296707).Visibility = ViewStates.Visible;
-			_loadingText = base.FindViewById<TextView>(2131296623);
+			base.FindViewById<ProgressBar>(2131296711).Visibility = ViewStates.Visible;
+			_loadingText = base.FindViewById<TextView>(2131296627);
 			_loadingText.Text = LoadingPageViewModel.LOADING_PAGE_TEXT_NORMAL;
 			LogUtils.LogMessage(LogSeverity.INFO, "The user is seeing Loading Page", null, LocalPreferencesHelper.GetCorrelationId());
 		}
@@ -14048,7 +14075,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			if (!_isRunning)
 			{
 				LoadingPageViewModel.StartTimer(OnFinished);
-				StartPushActivity();
+				LoadingPageViewModel.ValidateData(StartPushActivity, OnFail);
 				_isRunning = true;
 			}
 		}
@@ -14071,11 +14098,13 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			}
 			catch (System.Exception e)
 			{
-				if (!((Activity)(object)this).IsFinishing)
-				{
-					OnError(e);
-				}
+				OnError(e);
 			}
+		}
+
+		private void OnFail()
+		{
+			OnError(new System.Exception("Validation Failed"), isOnFail: true);
 		}
 
 		protected override void OnActivityResult(int requestCode, [GeneratedEnum] Result resultCode, Intent data)
@@ -14093,7 +14122,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			});
 		}
 
-		private void OnError(System.Exception e)
+		private void OnError(System.Exception e, bool isOnFail = false)
 		{
 			if (e is AccessDeniedException)
 			{
@@ -14103,16 +14132,17 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 				}
 				LogUtils.LogMessage(LogSeverity.INFO, "The user refused to share keys", refusedCount++.ToString(), LocalPreferencesHelper.GetCorrelationId());
 				GoToConfirmLeavePage();
+				return;
 			}
-			else
+			if (!isOnFail)
 			{
-				LogUtils.LogMessage(LogSeverity.INFO, "Something went wrong during key sharing (INFO with correlation id)", null, LocalPreferencesHelper.GetCorrelationId());
-				refusedCount = 0;
-				base.RunOnUiThread((System.Action)delegate
-				{
-					AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, e, "Pushing keys failed");
-				});
+				LogUtils.LogMessage(LogSeverity.INFO, "Something went wrong during key sharing (INFO with correlation id)", e.Message, LocalPreferencesHelper.GetCorrelationId());
 			}
+			refusedCount = 0;
+			base.RunOnUiThread((System.Action)delegate
+			{
+				AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, e, "Pushing keys failed");
+			});
 		}
 
 		private void GoToConfirmLeavePage()
@@ -14145,11 +14175,11 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			{
 				GoToInfectionStatusActivity();
 			}).Run;
-			TextView textView = base.FindViewById<TextView>(2131296737);
-			TextView textView2 = base.FindViewById<TextView>(2131296736);
-			TextView textView3 = base.FindViewById<TextView>(2131296735);
-			TextView textView4 = base.FindViewById<TextView>(2131296729);
-			TextView textView5 = base.FindViewById<TextView>(2131296731);
+			TextView textView = base.FindViewById<TextView>(2131296741);
+			TextView textView2 = base.FindViewById<TextView>(2131296740);
+			TextView textView3 = base.FindViewById<TextView>(2131296739);
+			TextView textView4 = base.FindViewById<TextView>(2131296733);
+			TextView textView5 = base.FindViewById<TextView>(2131296735);
 			SetLogoBasedOnAppLanguage();
 			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_HEADER;
 			textView2.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_TEXT;
@@ -14161,14 +14191,14 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			textView3.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION;
 			textView4.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER;
 			textView5.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
-			Button button = base.FindViewById<Button>(2131296733);
+			Button button = base.FindViewById<Button>(2131296737);
 			button.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
 			button.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_DISMISS;
 			button.Click += new StressUtils.SingleClick(delegate
 			{
 				GoToInfectionStatusActivity();
 			}).Run;
-			base.FindViewById<RelativeLayout>(2131296732).Click += async delegate
+			base.FindViewById<RelativeLayout>(2131296736).Click += async delegate
 			{
 				await ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_RECEIPT_LINK, BrowserLaunchMode.SystemPreferred);
 			};
@@ -14178,7 +14208,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void SetLogoBasedOnAppLanguage()
 		{
-			ImageView imageView = base.FindViewById<ImageView>(2131296730);
+			ImageView imageView = base.FindViewById<ImageView>(2131296734);
 			string language = LocalesService.GetLanguage();
 			imageView?.SetBackgroundResource((language != null && language.ToLower() == "en") ? 2131165384 : 2131165383);
 		}
@@ -14264,16 +14294,16 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		{
 			LocalPreferencesHelper.UpdateCorrelationId(LogUtils.GenerateCorrelationId());
 			_questionnaireViewModel = new QuestionnaireViewModel();
-			TextView textView = base.FindViewById<TextView>(2131296721);
+			TextView textView = base.FindViewById<TextView>(2131296725);
 			textView.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
 			textView.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
-			TextView textView2 = base.FindViewById<TextView>(2131296720);
+			TextView textView2 = base.FindViewById<TextView>(2131296724);
 			ISpanned spanned = (ISpanned)(textView2.ContentDescriptionFormatted = (textView2.TextFormatted = HtmlCompat.FromHtml(QuestionnaireViewModel.REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT, 0)));
-			_questionnaireButton = base.FindViewById<Button>(2131296717);
+			_questionnaireButton = base.FindViewById<Button>(2131296721);
 			_questionnaireButton.Text = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
 			_questionnaireButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_NEXT;
 			_questionnaireButton.Click += OnNextButtonClick;
-			_infoButton = base.FindViewById<ImageButton>(2131296719);
+			_infoButton = base.FindViewById<ImageButton>(2131296723);
 			_infoButton.ContentDescription = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON;
 			_infoButton.Click += OnInfoButtonPressed;
 			_closeButton = base.FindViewById<Button>(2131296384);
@@ -14287,10 +14317,10 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 
 		private void PrepareRadioButtons()
 		{
-			_firstRadioButton = base.FindViewById<RadioButton>(2131296519);
-			_secondRadioButton = base.FindViewById<RadioButton>(2131296765);
-			_thirdRadioButton = base.FindViewById<RadioButton>(2131296870);
-			_fourthRadioButton = base.FindViewById<RadioButton>(2131296528);
+			_firstRadioButton = base.FindViewById<RadioButton>(2131296523);
+			_secondRadioButton = base.FindViewById<RadioButton>(2131296769);
+			_thirdRadioButton = base.FindViewById<RadioButton>(2131296874);
+			_fourthRadioButton = base.FindViewById<RadioButton>(2131296532);
 			_fourthRadioButton.Checked = true;
 			_datePickerTextView = base.FindViewById<TextView>(2131296433);
 			_datePickerTextView.Text = QuestionnaireViewModel.DateLabel;
@@ -14321,7 +14351,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 		{
 			switch (radioButton.Id)
 			{
-			case 2131296519:
+			case 2131296523:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.YesSince);
 				if (!_isChangedFromDatePicker)
 				{
@@ -14332,21 +14362,21 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 					_isChangedFromDatePicker = false;
 				}
 				break;
-			case 2131296765:
+			case 2131296769:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.YesBut);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
 				}
 				break;
-			case 2131296870:
+			case 2131296874:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.No);
 				if (_isChangedFromDatePicker)
 				{
 					_isChangedFromDatePicker = false;
 				}
 				break;
-			case 2131296528:
+			case 2131296532:
 				_questionnaireViewModel.SetSelection(QuestionaireSelection.Skip);
 				if (_isChangedFromDatePicker)
 				{
@@ -14407,7 +14437,17 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			{
 				LogUtils.LogMessage(LogSeverity.INFO, "The user does not want to provide health information", null, LocalPreferencesHelper.GetCorrelationId());
 			}
-			_questionnaireViewModel.InvokeNextButtonClick(GoToQuestionnaireCountriesSelectionPage, null, null);
+			_questionnaireViewModel.InvokeNextButtonClick(GoToQuestionnaireCountriesSelectionPage, OnFail, OnValidationFail);
+		}
+
+		private void OnFail()
+		{
+			AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, null, "QuestionnairePageActivity.OnFail: No miba data or token expired");
+		}
+
+		private void OnValidationFail()
+		{
+			AuthErrorUtils.GoToTechnicalError((Activity)(object)this, LogSeverity.ERROR, null, "QuestionnairePageActivity.OnValidationFail: Data validation failed");
 		}
 
 		private void OnInfoButtonPressed(object o, EventArgs args)
@@ -14444,7 +14484,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.ErrorActivities
 			string @string = extras.GetString("title");
 			string string2 = extras.GetString("description");
 			string string3 = extras.GetString("button");
-			TextView textView = base.FindViewById<TextView>(2131296506);
+			TextView textView = base.FindViewById<TextView>(2131296510);
 			if (extras.ContainsKey("subtitle"))
 			{
 				string text2 = (textView.ContentDescription = (textView.Text = extras.GetString("subtitle")));
@@ -14454,10 +14494,10 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.ErrorActivities
 			{
 				textView.Visibility = ViewStates.Gone;
 			}
-			TextView textView2 = base.FindViewById<TextView>(2131296507);
+			TextView textView2 = base.FindViewById<TextView>(2131296511);
 			textView2.Text = @string;
 			textView2.ContentDescription = @string;
-			TextView textView3 = base.FindViewById<TextView>(2131296504);
+			TextView textView3 = base.FindViewById<TextView>(2131296508);
 			ISpanned spanned = (ISpanned)(textView3.ContentDescriptionFormatted = (textView3.TextFormatted = HtmlCompat.FromHtml(string2, 0)));
 			textView3.MovementMethod = LinkMovementMethod.Instance;
 			ViewGroup viewGroup = base.FindViewById<ViewGroup>(2131296384);
@@ -14466,7 +14506,7 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow.ErrorActivities
 				NavigationHelper.GoToResultPageAndClearTop((Activity)(object)this);
 			}).Run;
 			viewGroup.ContentDescription = SettingsViewModel.SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON;
-			Button button = base.FindViewById<Button>(2131296503);
+			Button button = base.FindViewById<Button>(2131296507);
 			button.Text = string3;
 			button.ContentDescription = string3;
 			button.Click += new StressUtils.SingleClick(delegate
@@ -14663,7 +14703,7 @@ namespace NDB.Covid19.Droid.Utils
 				try
 				{
 					SetForegroundAsync(CreateForegroundInfo());
-					Task.Run((Func<Task>)DoAsyncWork).GetAwaiter().GetResult();
+					System.Threading.Tasks.Task.Run((Func<System.Threading.Tasks.Task>)DoAsyncWork).GetAwaiter().GetResult();
 					return Result.InvokeSuccess();
 				}
 				catch (System.Exception e)
@@ -14685,7 +14725,7 @@ namespace NDB.Covid19.Droid.Utils
 				return new ForegroundInfo(4, new LocalNotificationsManager().CreateNotification(NotificationsEnum.BackgroundFetch.Data()).GetAwaiter().GetResult());
 			}
 
-			private async Task DoAsyncWork()
+			private async System.Threading.Tasks.Task DoAsyncWork()
 			{
 				Stopwatch timer = new Stopwatch();
 				timer.Start();
@@ -14710,7 +14750,7 @@ namespace NDB.Covid19.Droid.Utils
 				timer.Stop();
 				if (timer.ElapsedMilliseconds < _minimalDisplayTime)
 				{
-					await Task.Delay((int)(_minimalDisplayTime - timer.ElapsedMilliseconds));
+					await System.Threading.Tasks.Task.Delay((int)(_minimalDisplayTime - timer.ElapsedMilliseconds));
 				}
 			}
 		}
@@ -14720,7 +14760,72 @@ namespace NDB.Covid19.Droid.Utils
 			PeriodicWorkRequest.Builder builder = new PeriodicWorkRequest.Builder(typeof(BackgroundFetchWorker), Conf.BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID);
 			builder.SetPeriodStartTime(TimeSpan.FromSeconds(1.0)).SetBackoffCriteria(BackoffPolicy.Linear, TimeSpan.FromSeconds(10.0)).SetConstraints(new AndroidX.Work.Constraints.Builder().SetRequiredNetworkType(NetworkType.Connected).Build());
 			PeriodicWorkRequest p = builder.Build();
-			WorkManager.GetInstance(Platform.AppContext).EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.Replace, p);
+			WorkManager.GetInstance(Platform.AppContext).EnqueueUniquePeriodicWork("exposurenotification", ExistingPeriodicWorkPolicy.Keep, p);
+		}
+	}
+	public static class DroidExposureNotificationsStatusHelper
+	{
+		private static IExposureNotificationClient Instance => NearbyClass.GetExposureNotificationClient(Application.Context);
+
+		public static async Task<bool> IsNearbyExposureNotificationBluetoothAndLocationDisabled()
+		{
+			try
+			{
+				return (await Instance.NativeGetStatus().CastTask()).ToArray().ToList().Any((Java.Lang.Object s) => s == ExposureNotificationStatus.BluetoothDisabled || s == ExposureNotificationStatus.LocationDisabled || s == ExposureNotificationStatus.BluetoothSupportUnknown);
+			}
+			catch (System.Exception)
+			{
+				return true;
+			}
+		}
+
+		public static async Task<bool> HasNearbyExposureNotificationStatus(ExposureNotificationStatus status)
+		{
+			try
+			{
+				return (await Instance.NativeGetStatus().CastTask()).ToArray().ToList().Any((Java.Lang.Object s) => s == status);
+			}
+			catch (System.Exception)
+			{
+				return true;
+			}
+		}
+	}
+	internal static class ExposureNotificationStatusExtensions
+	{
+		private class MyCompleteListener : Java.Lang.Object, IOnCompleteListener, IJavaObject, IDisposable, IJavaPeerable
+		{
+			private Action<Android.Gms.Tasks.Task> OnCompleteHandler
+			{
+				get;
+			}
+
+			public MyCompleteListener(Action<Android.Gms.Tasks.Task> onComplete)
+			{
+				OnCompleteHandler = onComplete;
+			}
+
+			public void OnComplete(Android.Gms.Tasks.Task task)
+			{
+				OnCompleteHandler?.Invoke(task);
+			}
+		}
+
+		public static Task<AbstractCollection> CastTask(this Android.Gms.Tasks.Task androidTask)
+		{
+			TaskCompletionSource<AbstractCollection> tcs = new TaskCompletionSource<AbstractCollection>();
+			androidTask.AddOnCompleteListener(new MyCompleteListener(delegate(Android.Gms.Tasks.Task t)
+			{
+				if (t.Exception == null)
+				{
+					tcs.TrySetResult(Android.Runtime.Extensions.JavaCast<AbstractCollection>(t.Result));
+				}
+				else
+				{
+					tcs.TrySetException(t.Exception);
+				}
+			}));
+			return tcs.Task;
 		}
 	}
 	public class ForegroundServiceHelper
@@ -14783,13 +14888,14 @@ namespace NDB.Covid19.Droid.Utils
 			PermissionsMessagingCenter.Unsubscribe(subscriber);
 		}
 
-		public bool HasPermissionsWithoutDialogs()
+		public async Task<bool> HasPermissionsWithoutDialogs()
 		{
-			if (IsBluetoothEnabled())
+			bool flag = await IsBluetoothEnabled();
+			if (flag)
 			{
-				return IsLocationEnabled();
+				flag = await IsLocationEnabled();
 			}
-			return false;
+			return flag;
 		}
 
 		public async Task<bool> HasBluetoothSupportAsync()
@@ -14825,7 +14931,7 @@ namespace NDB.Covid19.Droid.Utils
 
 		public async Task<bool> HasLocationPermissionsAsync()
 		{
-			if (IsLocationEnabled())
+			if (await IsLocationEnabled())
 			{
 				return true;
 			}
@@ -14838,27 +14944,31 @@ namespace NDB.Covid19.Droid.Utils
 			return false;
 		}
 
-		public bool IsBluetoothEnabled()
+		public Task<bool> IsBluetoothEnabled()
 		{
-			return BluetoothAdapter.DefaultAdapter?.IsEnabled ?? false;
+			return System.Threading.Tasks.Task.Run(async delegate
+			{
+				bool flag = !(await DroidExposureNotificationsStatusHelper.HasNearbyExposureNotificationStatus(ExposureNotificationStatus.BluetoothDisabled));
+				if (flag)
+				{
+					flag = !(await DroidExposureNotificationsStatusHelper.HasNearbyExposureNotificationStatus(ExposureNotificationStatus.BluetoothSupportUnknown));
+				}
+				return flag;
+			});
 		}
 
-		public bool IsLocationEnabled()
+		public Task<bool> IsLocationEnabled()
 		{
 			if (Build.VERSION.SdkInt >= (BuildVersionCodes)30)
 			{
-				return true;
+				return System.Threading.Tasks.Task.FromResult(result: true);
 			}
-			if (Build.VERSION.SdkInt >= BuildVersionCodes.P)
-			{
-				return ((LocationManager)CrossCurrentActivity.Current.AppContext.GetSystemService("location")).IsLocationEnabled;
-			}
-			return Settings.Secure.GetInt(CrossCurrentActivity.Current.AppContext.ContentResolver, "location_mode", 0) != 0;
+			return System.Threading.Tasks.Task.Run(async () => !(await DroidExposureNotificationsStatusHelper.HasNearbyExposureNotificationStatus(ExposureNotificationStatus.LocationDisabled)));
 		}
 
-		public bool AreAllPermissionsGranted()
+		public async Task<bool> AreAllPermissionsGranted()
 		{
-			return HasPermissionsWithoutDialogs();
+			return !(await DroidExposureNotificationsStatusHelper.IsNearbyExposureNotificationBluetoothAndLocationDisabled());
 		}
 
 		private void CancelTask()
@@ -14890,11 +15000,12 @@ namespace NDB.Covid19.Droid.Utils
 			}
 		}
 
-		public void OnActivityResult(int requestCode, Result resultCode, Intent data)
+		public async void OnActivityResult(int requestCode, Result resultCode, Intent data)
 		{
 			if ((requestCode == 1 || requestCode == 2) && resultCode != Result.FirstUser)
 			{
-				_tcs.TrySetResult(HasPermissionsWithoutDialogs());
+				TaskCompletionSource<bool> tcs = _tcs;
+				tcs.TrySetResult(await HasPermissionsWithoutDialogs());
 			}
 		}
 	}
@@ -15612,7 +15723,7 @@ namespace NDB.Covid19.Droid.Services
 
 		private void GenerateLocalPermissionsNotificationBroadcasted(Context context, NotificationViewModel viewModel)
 		{
-			Task.Run(async delegate
+			System.Threading.Tasks.Task.Run(async delegate
 			{
 				NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(context);
 				NotificationManagerCompat notificationManagerCompat2 = notificationManagerCompat;
@@ -15634,10 +15745,10 @@ namespace NDB.Covid19.Droid.Services
 
 		private void GenerateLocalNotificationBroadcasted(Context context, NotificationViewModel notificationViewModel, int triggerInSeconds)
 		{
-			Task.Run(async delegate
+			System.Threading.Tasks.Task.Run(async delegate
 			{
 				NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.From(context);
-				await Task.Delay(triggerInSeconds * 1000);
+				await System.Threading.Tasks.Task.Delay(triggerInSeconds * 1000);
 				NotificationManagerCompat notificationManagerCompat2 = notificationManagerCompat;
 				int type = (int)notificationViewModel.Type;
 				notificationManagerCompat2.Notify(type, await new LocalNotificationsManager(context).CreateNotification(notificationViewModel));
@@ -15646,10 +15757,35 @@ namespace NDB.Covid19.Droid.Services
 
 		private void GenerateForegroundServiceNotificationWithUpdatesBroadcasted(Context context, NotificationViewModel notificationViewModel, long ticksLeft)
 		{
-			Task.Run(delegate
+			System.Threading.Tasks.Task.Run(delegate
 			{
 				NotificationManagerCompat.From(context).Notify((int)notificationViewModel.Type, new LocalNotificationsManager(context).CreateNotificationWithExtraLongData(notificationViewModel, ticksLeft));
 			});
+		}
+	}
+	[Service(Enabled = true, Exported = false)]
+	public class RemovedFromRecentDetectorService : Service
+	{
+		public override IBinder OnBind(Intent intent)
+		{
+			return null;
+		}
+
+		public override void OnTaskRemoved(Intent rootIntent)
+		{
+			base.OnTaskRemoved(rootIntent);
+			try
+			{
+				string correlationId = LocalPreferencesHelper.GetCorrelationId();
+				if (!string.IsNullOrEmpty(correlationId))
+				{
+					LogUtils.LogMessage(LogSeverity.INFO, "The user has closed the app", null, correlationId);
+				}
+				LogUtils.SendAllLogs();
+			}
+			catch
+			{
+			}
 		}
 	}
 	[Service]
@@ -15805,10 +15941,10 @@ namespace NDB.Covid19.Droid.Services
 
 		private async void NotifyAboutPermissionsChange()
 		{
-			bool flag;
+			bool isEnabled;
 			try
 			{
-				flag = await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync();
+				isEnabled = await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync();
 			}
 			catch (System.Exception ex)
 			{
@@ -15816,9 +15952,9 @@ namespace NDB.Covid19.Droid.Services
 				{
 					throw ex;
 				}
-				flag = false;
+				isEnabled = false;
 			}
-			if (!_permissionsUtils.HasPermissionsWithoutDialogs() && flag)
+			if (!(await _permissionsUtils.HasPermissionsWithoutDialogs()) && isEnabled)
 			{
 				PermissionsMessagingCenter.NotifyPermissionsChanged(this);
 			}
