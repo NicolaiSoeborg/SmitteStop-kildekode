@@ -130,7 +130,6 @@ namespace NDB.Covid19.Droid
 
 		private void Init()
 		{
-			StartService(new Intent(this, typeof(RemovedFromRecentDetectorService)));
 			_filter = new IntentFilter();
 			_filter.AddAction("android.bluetooth.adapter.action.STATE_CHANGED");
 			_filter.AddAction("android.location.PROVIDERS_CHANGED");
@@ -14282,6 +14281,10 @@ namespace NDB.Covid19.Droid.Views.AuthenticationFlow
 			base.Title = QuestionnaireViewModel.REGISTER_QUESTIONAIRE_HEADER;
 			((Activity)(object)this).SetContentView(2131492980);
 			Init();
+			if (!RemovedFromRecentDetectorService.IsRunning)
+			{
+				((Context)(object)this).StartService(new Intent((Context)(object)this, typeof(RemovedFromRecentDetectorService)));
+			}
 		}
 
 		protected override void OnResume()
@@ -15766,6 +15769,24 @@ namespace NDB.Covid19.Droid.Services
 	[Service(Enabled = true, Exported = false)]
 	public class RemovedFromRecentDetectorService : Service
 	{
+		public static bool IsRunning
+		{
+			get;
+			set;
+		}
+
+		public override void OnCreate()
+		{
+			base.OnCreate();
+			IsRunning = true;
+		}
+
+		public override void OnDestroy()
+		{
+			base.OnDestroy();
+			IsRunning = false;
+		}
+
 		public override IBinder OnBind(Intent intent)
 		{
 			return null;
