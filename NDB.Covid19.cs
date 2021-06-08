@@ -29,15 +29,12 @@ using JWT.Algorithms;
 using JWT.Builder;
 using Microsoft.Security.Application;
 using MoreLinq;
-using NDB.Covid19.Config;
+using NDB.Covid19.Configuration;
 using NDB.Covid19.Enums;
-using NDB.Covid19.ExposureNotification;
-using NDB.Covid19.ExposureNotification.Helpers;
-using NDB.Covid19.ExposureNotification.Helpers.ExposureDetected;
-using NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys;
+using NDB.Covid19.ExposureNotifications;
+using NDB.Covid19.ExposureNotifications.Helpers;
 using NDB.Covid19.ExposureNotifications.Helpers.ExposureDetected;
 using NDB.Covid19.ExposureNotifications.Helpers.FetchExposureKeys;
-using NDB.Covid19.Implementation;
 using NDB.Covid19.Interfaces;
 using NDB.Covid19.Models;
 using NDB.Covid19.Models.DTOsForServer;
@@ -46,11 +43,11 @@ using NDB.Covid19.Models.SQLite;
 using NDB.Covid19.Models.UserDefinedExceptions;
 using NDB.Covid19.OAuth2;
 using NDB.Covid19.PersistedData;
-using NDB.Covid19.PersistedData.SecureStorage;
 using NDB.Covid19.PersistedData.SQLite;
+using NDB.Covid19.PersistedData.SecureStorage;
 using NDB.Covid19.ProtoModels;
-using NDB.Covid19.SecureStorage;
 using NDB.Covid19.Utils;
+using NDB.Covid19.Utils.DeveloperTools;
 using NDB.Covid19.ViewModels;
 using NDB.Covid19.WebServices;
 using NDB.Covid19.WebServices.ErrorHandlers;
@@ -128,6 +125,12 @@ namespace NDB.Covid19
 				LogUtils.LogException(LogSeverity.ERROR, e, className + "." + methodName + ": EN API call is not supported");
 				return true;
 			}
+			if (e.ToString().Contains("com.google.android.gms.common.api") || e.ToString().Contains("Android.Gms.Common.Apis.ApiException"))
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, className + "." + methodName + ": Other EN api error occurred");
+				return true;
+			}
+			LogUtils.LogException(LogSeverity.ERROR, e, className + "." + methodName + ": Other unrelated to EN api error occurred");
 			return false;
 		}
 	}
@@ -230,8 +233,6 @@ namespace NDB.Covid19.WebServices
 {
 	public class BaseWebService
 	{
-		private readonly BadConnectionErrorHandler _badConnectionErrorHandler = new BadConnectionErrorHandler();
-
 		public static JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
 		{
 			ContractResolver = new CamelCasePropertyNamesContractResolver(),
@@ -240,6 +241,8 @@ namespace NDB.Covid19.WebServices
 		};
 
 		public static JsonSerializer JsonSerializer = new JsonSerializer();
+
+		private readonly BadConnectionErrorHandler _badConnectionErrorHandler = new BadConnectionErrorHandler();
 
 		private HttpClientManager _httpClientManager
 		{
@@ -463,65 +466,6 @@ namespace NDB.Covid19.WebServices
 			return obj?.Data;
 		}
 	}
-	public class ExposureNotificationWebService : BaseWebService
-	{
-		public async Task<bool> PostSelvExposureKeys(IEnumerable<ExposureKeyModel> temporaryExposureKeys)
-		{
-			return await PostSelvExposureKeys(new SelfDiagnosisSubmissionDTO(temporaryExposureKeys), temporaryExposureKeys);
-		}
-
-		public async Task<bool> PostSelvExposureKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, IEnumerable<ExposureKeyModel> temporaryExposureKeys)
-		{
-			return await PostSelvExposureKeys(selfDiagnosisSubmissionDTO, temporaryExposureKeys, this);
-		}
-
-		public async Task<bool> PostSelvExposureKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, IEnumerable<ExposureKeyModel> temporaryExposureKeys, BaseWebService service)
-		{
-			ApiResponse apiResponse = await service.Post(selfDiagnosisSubmissionDTO, Conf.URL_PUT_UPLOAD_DIAGNOSIS_KEYS);
-			if (!apiResponse.IsSuccessfull)
-			{
-				string redactedKeys = RedactedTekListHelper.CreateRedactedTekList(temporaryExposureKeys);
-				BaseWebService.HandleErrorsSilently(apiResponse, new PostExposureKeysErrorHandler(redactedKeys));
-			}
-			else
-			{
-				BaseWebService.HandleErrorsSilently(apiResponse);
-			}
-			ENDeveloperToolsViewModel.UpdatePushKeysInfo(apiResponse, selfDiagnosisSubmissionDTO, BaseWebService.JsonSerializerSettings);
-			return apiResponse.IsSuccessfull;
-		}
-
-		public async Task<Configuration> GetExposureConfiguration()
-		{
-			ApiResponse<AttenuationBucketsConfigurationDTO> apiResponse = await Get<AttenuationBucketsConfigurationDTO>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
-			BaseWebService.HandleErrorsSilently(apiResponse);
-			LogUtils.SendAllLogs();
-			if (apiResponse.IsSuccessfull && apiResponse.Data != null && apiResponse.Data.Configuration != null)
-			{
-				if (apiResponse.Data.AttenuationBucketsParams != null)
-				{
-					LocalPreferencesHelper.ExposureTimeThreshold = apiResponse.Data.AttenuationBucketsParams.ExposureTimeThreshold;
-					LocalPreferencesHelper.LowAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.LowAttenuationBucketMultiplier;
-					LocalPreferencesHelper.MiddleAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.MiddleAttenuationBucketMultiplier;
-					LocalPreferencesHelper.HighAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.HighAttenuationBucketMultiplier;
-				}
-				return apiResponse.Data.Configuration;
-			}
-			return null;
-		}
-
-		public virtual async Task<ApiResponse<Stream>> GetDiagnosisKeys(string batchRequestString, CancellationToken cancellationToken)
-		{
-			string url = Conf.URL_GET_DIAGNOSIS_KEYS + "/" + batchRequestString;
-			ApiResponse<Stream> obj = await GetFileAsStreamAsync(url);
-			BaseWebService.HandleErrorsSilently(obj);
-			if (obj.IsSuccessfull)
-			{
-				LocalPreferencesHelper.UpdateLastUpdatedDate();
-			}
-			return obj;
-		}
-	}
 	internal class FakeGatewayWebService : BaseWebService
 	{
 		public async Task<ApiResponse> UploadKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDto)
@@ -542,47 +486,20 @@ namespace NDB.Covid19.WebServices
 			return (await Post(t, Conf.URL_LOG_MESSAGE)).IsSuccessfull;
 		}
 	}
-	public static class HeaderUtils
-	{
-		public static void AddSecretToHeader(IHttpClientAccessor accessor)
-		{
-			if (accessor.HttpClient.DefaultRequestHeaders.Contains("Authorization"))
-			{
-				accessor.HttpClient.DefaultRequestHeaders.Remove("Authorization");
-			}
-			if (AuthenticationState.PersonalData != null && AuthenticationState.PersonalData.Validate())
-			{
-				string str = AuthenticationState.PersonalData?.Access_token;
-				accessor.HttpClient.DefaultRequestHeaders.Add("Authorization", "Bearer " + str);
-			}
-		}
-	}
 }
 namespace NDB.Covid19.WebServices.Utils
 {
 	public interface IHttpClientAccessor
 	{
-		HttpClient HttpClient
-		{
-			get;
-		}
+		HttpClient HttpClient { get; }
 
-		CookieContainer Cookies
-		{
-			get;
-		}
+		CookieContainer Cookies { get; }
 	}
 	public class DefaultHttpClientAccessor : IHttpClientAccessor
 	{
-		public HttpClient HttpClient
-		{
-			get;
-		}
+		public HttpClient HttpClient { get; }
 
-		public CookieContainer Cookies
-		{
-			get;
-		}
+		public CookieContainer Cookies { get; }
 
 		public DefaultHttpClientAccessor()
 		{
@@ -594,15 +511,30 @@ namespace NDB.Covid19.WebServices.Utils
 			HttpClient.Timeout = TimeSpan.FromSeconds(10.0);
 		}
 	}
+	public static class HeaderUtils
+	{
+		public static void AddSecretToHeader(IHttpClientAccessor accessor)
+		{
+			if (accessor.HttpClient.DefaultRequestHeaders.Contains("Authorization"))
+			{
+				accessor.HttpClient.DefaultRequestHeaders.Remove("Authorization");
+			}
+			if (AuthenticationState.PersonalData != null && AuthenticationState.PersonalData.Validate())
+			{
+				string text = AuthenticationState.PersonalData?.Access_token;
+				accessor.HttpClient.DefaultRequestHeaders.Add("Authorization", "Bearer " + text);
+			}
+		}
+	}
 	public class HttpClientManager
 	{
 		public static string CsrfpTokenCookieName = "Csrfp-Token";
 
 		public static string CsrfpTokenHeader = "csrfp-token";
 
-		public IHttpClientAccessor HttpClientAccessor;
-
 		private static HttpClientManager _instance;
+
+		public IHttpClientAccessor HttpClientAccessor;
 
 		public static HttpClientManager Instance
 		{
@@ -694,25 +626,72 @@ namespace NDB.Covid19.WebServices.ExposureNotification
 			return BatchType.DK;
 		}
 	}
+	public class ExposureNotificationWebService : BaseWebService
+	{
+		public async Task<bool> PostSelvExposureKeys(IEnumerable<ExposureKeyModel> temporaryExposureKeys)
+		{
+			return await PostSelvExposureKeys(new SelfDiagnosisSubmissionDTO(temporaryExposureKeys), temporaryExposureKeys);
+		}
+
+		public async Task<bool> PostSelvExposureKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, IEnumerable<ExposureKeyModel> temporaryExposureKeys)
+		{
+			return await PostSelvExposureKeys(selfDiagnosisSubmissionDTO, temporaryExposureKeys, this);
+		}
+
+		public async Task<bool> PostSelvExposureKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, IEnumerable<ExposureKeyModel> temporaryExposureKeys, BaseWebService service)
+		{
+			ApiResponse apiResponse = await service.Post(selfDiagnosisSubmissionDTO, Conf.URL_PUT_UPLOAD_DIAGNOSIS_KEYS);
+			if (!apiResponse.IsSuccessfull)
+			{
+				string redactedKeys = RedactedTekListHelper.CreateRedactedTekList(temporaryExposureKeys);
+				BaseWebService.HandleErrorsSilently(apiResponse, new PostExposureKeysErrorHandler(redactedKeys));
+			}
+			else
+			{
+				BaseWebService.HandleErrorsSilently(apiResponse);
+			}
+			ENDeveloperToolsViewModel.UpdatePushKeysInfo(apiResponse, selfDiagnosisSubmissionDTO, BaseWebService.JsonSerializerSettings);
+			return apiResponse.IsSuccessfull;
+		}
+
+		public async Task<Xamarin.ExposureNotifications.Configuration> GetExposureConfiguration()
+		{
+			ApiResponse<AttenuationBucketsConfigurationDTO> apiResponse = await Get<AttenuationBucketsConfigurationDTO>(Conf.URL_GET_EXPOSURE_CONFIGURATION);
+			BaseWebService.HandleErrorsSilently(apiResponse);
+			LogUtils.SendAllLogs();
+			if (apiResponse.IsSuccessfull && apiResponse.Data != null && apiResponse.Data.Configuration != null)
+			{
+				if (apiResponse.Data.AttenuationBucketsParams != null)
+				{
+					LocalPreferencesHelper.ExposureTimeThreshold = apiResponse.Data.AttenuationBucketsParams.ExposureTimeThreshold;
+					LocalPreferencesHelper.LowAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.LowAttenuationBucketMultiplier;
+					LocalPreferencesHelper.MiddleAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.MiddleAttenuationBucketMultiplier;
+					LocalPreferencesHelper.HighAttenuationDurationMultiplier = apiResponse.Data.AttenuationBucketsParams.HighAttenuationBucketMultiplier;
+				}
+				return apiResponse.Data.Configuration;
+			}
+			return null;
+		}
+
+		public virtual async Task<ApiResponse<Stream>> GetDiagnosisKeys(string batchRequestString, CancellationToken cancellationToken)
+		{
+			string url = Conf.URL_GET_DIAGNOSIS_KEYS + "/" + batchRequestString;
+			ApiResponse<Stream> obj = await GetFileAsStreamAsync(url);
+			BaseWebService.HandleErrorsSilently(obj);
+			if (obj.IsSuccessfull)
+			{
+				LocalPreferencesHelper.UpdateLastUpdatedDate();
+			}
+			return obj;
+		}
+	}
 	public class PullKeysParams
 	{
-		public DateTime Date
-		{
-			get;
-			set;
-		}
+		public DateTime Date { get; set; }
 
-		public BatchType BatchType
-		{
-			get;
-			set;
-		}
+		public BatchType BatchType { get; set; }
 
-		public int BatchNumber
-		{
-			get;
-			set;
-		}
+		public int BatchNumber { get; set; }
 
 		public string ToBatchFileRequest()
 		{
@@ -819,10 +798,6 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 	{
 		public bool IsSilent;
 
-		public DefaultErrorHandler()
-		{
-		}
-
 		public DefaultErrorHandler(bool IsSilent)
 		{
 			this.IsSilent = IsSilent;
@@ -848,11 +823,7 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 	}
 	public class PlatformDialogServiceArguments
 	{
-		public object Context
-		{
-			get;
-			set;
-		}
+		public object Context { get; set; }
 	}
 	public interface IErrorHandler
 	{
@@ -871,10 +842,6 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 		public NoInternetErrorHandler(bool IsSilent)
 		{
 			this.IsSilent = IsSilent;
-		}
-
-		public NoInternetErrorHandler()
-		{
 		}
 
 		public bool IsResponsible(ApiResponse apiResponse)
@@ -923,10 +890,6 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 			this.IsSilent = IsSilent;
 		}
 
-		public TimeoutErrorHandler()
-		{
-		}
-
 		public bool IsResponsible(ApiResponse apiResponse)
 		{
 			if (apiResponse.Exception != null)
@@ -945,6 +908,1725 @@ namespace NDB.Covid19.WebServices.ErrorHandlers
 				ShowErrorToUser();
 			}
 		}
+	}
+}
+namespace NDB.Covid19.ViewModels
+{
+	public class ConsentViewModel
+	{
+		public bool ConsentIsGiven;
+
+		public static string WELCOME_PAGE_CONSENT_TITLE => "WELCOME_PAGE_FIVE_TITLE".Translate();
+
+		public static string CONSENT_ONE_TITLE => "CONSENT_ONE_TITLE".Translate();
+
+		public static string CONSENT_ONE_PARAGRAPH => "CONSENT_ONE_PARAGRAPH".Translate();
+
+		public static string CONSENT_TWO_TITLE => "CONSENT_TWO_TITLE".Translate();
+
+		public static string CONSENT_TWO_PARAGRAPH => "CONSENT_TWO_PARAGRAPH".Translate();
+
+		public static string CONSENT_THREE_TITLE => "CONSENT_THREE_TITLE".Translate();
+
+		public static string CONSENT_THREE_PARAGRAPH => "CONSENT_THREE_PARAGRAPH".Translate();
+
+		public static string CONSENT_FOUR_TITLE => "CONSENT_FOUR_TITLE".Translate();
+
+		public static string CONSENT_FOUR_PARAGRAPH => "CONSENT_FOUR_PARAGRAPH".Translate();
+
+		public static string CONSENT_FIVE_TITLE => "CONSENT_FIVE_TITLE".Translate();
+
+		public static string CONSENT_FIVE_PARAGRAPH => "CONSENT_FIVE_PARAGRAPH".Translate();
+
+		public static string CONSENT_SIX_TITLE => "CONSENT_SIX_TITLE".Translate();
+
+		public static string CONSENT_SIX_PARAGRAPH => "CONSENT_SIX_PARAGRAPH".Translate();
+
+		public static string CONSENT_SEVEN_TITLE => "CONSENT_SEVEN_TITLE".Translate();
+
+		public static string CONSENT_SEVEN_PARAGRAPH => "CONSENT_SEVEN_PARAGRAPH".Translate();
+
+		public static string CONSENT_SEVEN_BUTTON_TEXT => "CONSENT_SEVEN_BUTTON_TEXT".Translate();
+
+		public static string CONSENT_SEVEN_BUTTON_URL => "CONSENT_SEVEN_BUTTON_URL".Translate();
+
+		public static string CONSENT_EIGHT_TITLE => "CONSENT_EIGHT_TITLE".Translate();
+
+		public static string CONSENT_EIGHT_PARAGRAPH => "CONSENT_EIGHT_PARAGRAPH".Translate();
+
+		public static string CONSENT_NINE_TITLE => "CONSENT_NINE_TITLE".Translate();
+
+		public static string CONSENT_NINE_PARAGRAPH => "CONSENT_NINE_PARAGRAPH".Translate();
+
+		public static string CONSENT_REMOVE_TITLE => "CONSENT_REMOVE_TITLE".Translate();
+
+		public static string CONSENT_REMOVE_MESSAGE => "CONSENT_REMOVE_MESSAGE".Translate();
+
+		public static string CONSENT_OK_BUTTON_TEXT => "CONSENT_OK_BUTTON_TEXT".Translate();
+
+		public static string CONSENT_NO_BUTTON_TEXT => "CONSENT_NO_BUTTON_TEXT".Translate();
+
+		public static string GIVE_CONSENT_TEXT => "CONSENT_GIVE_CONSENT".Translate();
+
+		public static string WITHDRAW_CONSENT_BUTTON_TEXT => "CONSENT_WITHDRAW_BUTTON_TEXT".Translate();
+
+		public static string WITHDRAW_CONSENT_SUCCESS_TITLE => "CONSENT_WITHDRAW_SUCCES_TITLE".Translate();
+
+		public static string WITHDRAW_CONSENT_SUCCESS_TEXT => "CONSENT_WITHDRAW_SUCCES_BODY".Translate();
+
+		public static string SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR => "WELCOME_PAGE_FIVE_ACCESSIBILITY_CONSENT_SWITCH".Translate();
+
+		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN".Translate();
+
+		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN".Translate();
+
+		public static string CONSENT_THREE_PARAGRAPH_ACCESSIBILITY => "CONSENT_THREE_PARAGRAPH_ACCESSIBILITY".Translate();
+
+		public static string CONSENT_REQUIRED => "CONSENT_REQUIRED".Translate();
+
+		public static void OpenPrivacyPolicyLink()
+		{
+			try
+			{
+				ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(CONSENT_SEVEN_BUTTON_URL);
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "Failed to open Privacy policy");
+			}
+		}
+
+		public List<NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts> GetConsentSectionsTexts()
+		{
+			return new List<NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts>
+			{
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_ONE_TITLE, CONSENT_ONE_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_TWO_TITLE, CONSENT_TWO_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_THREE_TITLE, CONSENT_THREE_PARAGRAPH, CONSENT_THREE_PARAGRAPH_ACCESSIBILITY),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_FOUR_TITLE, CONSENT_FOUR_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_FIVE_TITLE, CONSENT_FIVE_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_SIX_TITLE, CONSENT_SIX_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_SEVEN_TITLE, CONSENT_SEVEN_PARAGRAPH, CONSENT_SEVEN_PARAGRAPH.Replace("|", "")),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_EIGHT_TITLE, CONSENT_EIGHT_PARAGRAPH, null),
+				new NDB.Covid19.Models.ConsentViewModel.ConsentSectionTexts(CONSENT_NINE_TITLE, CONSENT_NINE_PARAGRAPH, null)
+			};
+		}
+	}
+	public class CountryDetailsViewModel
+	{
+		public string Name { get; set; }
+
+		public string Code { get; set; }
+
+		public bool Checked { get; set; }
+	}
+	public class DialogViewModel
+	{
+		public string Title { get; set; }
+
+		public string Body { get; set; }
+
+		public string OkBtnTxt { get; set; }
+
+		public string CancelbtnTxt { get; set; }
+	}
+	public class DiseaseRateViewModel
+	{
+		private static readonly DiseaseRateOfTheDayWebService WebService;
+
+		public static string DISEASE_RATE_HEADER => "DISEASE_RATE_HEADER".Translate();
+
+		public static string DISEASE_RATE_SUBHEADER => "DISEASE_RATE_SUBHEADER".Translate();
+
+		public static string KEY_FEATURE_ONE_UPDATE_NEW => "KEY_FEATURE_ONE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_ONE_UPDATE_ALL => "KEY_FEATURE_ONE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_ONE_LABEL => "KEY_FEATURE_ONE_LABEL".Translate();
+
+		public static string KEY_FEATURE_TWO_UPDATE_NEW => "KEY_FEATURE_TWO_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_TWO_UPDATE_ALL => "KEY_FEATURE_TWO_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_TWO_LABEL => "KEY_FEATURE_TWO_LABEL".Translate();
+
+		public static string KEY_FEATURE_THREE_UPDATE_NEW => "KEY_FEATURE_THREE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_THREE_UPDATE_ALL => "KEY_FEATURE_THREE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_THREE_LABEL => "KEY_FEATURE_THREE_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_UPDATE_NEW => "KEY_FEATURE_FOUR_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_FOUR_LABEL => "KEY_FEATURE_FOUR_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL => "KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL => "KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL".Translate();
+
+		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER".Translate();
+
+		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER".Translate();
+
+		public static string KEY_FEATURE_FIVE_UPDATE_NEW => "KEY_FEATURE_FIVE_UPDATE_NEW".Translate();
+
+		public static string KEY_FEATURE_FIVE_UPDATE_ALL => "KEY_FEATURE_FIVE_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_FIVE_LABEL => "KEY_FEATURE_FIVE_LABEL".Translate();
+
+		public static string KEY_FEATURE_SIX_UPDATE_ALL => "KEY_FEATURE_SIX_UPDATE_ALL".Translate();
+
+		public static string KEY_FEATURE_SIX_LABEL => "KEY_FEATURE_SIX_LABEL".Translate();
+
+		public static string DISEASE_RATE_SUBSUBHEADER => "DISEASE_RATE_SUBSUBHEADER".Translate();
+
+		public static DateTime LastUpdateSSINumbersDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+
+		public static DateTime LastUpdateDownloadsNumbersDateTime => LocalPreferencesHelper.APPDownloadNumberLastUpdateDateTime.ToLocalTime();
+
+		public static string LastUpdateStringSubHeader
+		{
+			get
+			{
+				DateTime lastUpdateSSINumbersDateTime = LastUpdateSSINumbersDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(lastUpdateSSINumbersDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(DISEASE_RATE_SUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "t") ?? "");
+			}
+		}
+
+		public static string LastUpdateStringSubSubHeader
+		{
+			get
+			{
+				DateTime lastUpdateDownloadsNumbersDateTime = LastUpdateDownloadsNumbersDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(lastUpdateDownloadsNumbersDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(DISEASE_RATE_SUBSUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "t") ?? "");
+			}
+		}
+
+		public static string ConfirmedCasesToday => string.Format(KEY_FEATURE_ONE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesToday:N0}");
+
+		public static string ConfirmedCasesTotal => string.Format(KEY_FEATURE_ONE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesTotal:N0}");
+
+		public static string DeathsToday => string.Format(KEY_FEATURE_TWO_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsToday:N0}");
+
+		public static string DeathsTotal => string.Format(KEY_FEATURE_TWO_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsTotal:N0}");
+
+		public static string TestsConductedToday => string.Format(KEY_FEATURE_THREE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedToday:N0}");
+
+		public static string TestsConductedTotal => string.Format(KEY_FEATURE_THREE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedTotal:N0}");
+
+		public static string VaccinatedFirst => string.Format(KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedFirst:N1}");
+
+		public static string VaccinatedSecond => string.Format(KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedSecond:N1}");
+
+		public static string NumberOfPositiveTestsResultsLast7Days => string.Format(KEY_FEATURE_FIVE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsLast7Days:N0}");
+
+		public static string NumberOfPositiveTestsResultsTotal => string.Format(KEY_FEATURE_FIVE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsTotal:N0}");
+
+		public static string SmittestopDownloadsTotal => string.Format(KEY_FEATURE_SIX_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPSmittestopDownloadsTotal:N0}");
+
+		static DiseaseRateViewModel()
+		{
+			WebService = new DiseaseRateOfTheDayWebService();
+		}
+
+		public static async Task<bool> UpdateSSIDataAsync()
+		{
+			try
+			{
+				DiseaseRateOfTheDayDTO diseaseRateOfTheDayDTO = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
+				if (diseaseRateOfTheDayDTO?.SSIStatistics == null || diseaseRateOfTheDayDTO.AppStatistics == null || diseaseRateOfTheDayDTO.SSIStatisticsVaccination == null)
+				{
+					return false;
+				}
+				LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(diseaseRateOfTheDayDTO);
+				MessagingCenter.Send(new object(), MessagingCenterKeys.KEY_UPDATE_DISEASE_RATE);
+				return true;
+			}
+			catch (NullReferenceException e)
+			{
+				LogUtils.LogException(LogSeverity.WARNING, e, "DiseaseRateViewModel.UpdateSSIDataAsync: Failed to fetch the data.");
+			}
+			catch (Exception e2)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e2, "DiseaseRateViewModel.UpdateSSIDataAsync: Unidentified exception.");
+			}
+			return false;
+		}
+	}
+	public class ENDeveloperToolsViewModel
+	{
+		private static bool _longRetentionTime = true;
+
+		public static string PushKeysInfo = "";
+
+		private readonly string _logPrefix = "ENDeveloperToolsViewModel: ";
+
+		private DateTime _messageDateTime = DateTime.Now;
+
+		public Action DevToolUpdateOutput;
+
+		public string DevToolsOutput { get; set; }
+
+		private static IDeveloperToolsService _devTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
+
+		private IClipboard _clipboard => ServiceLocator.Current.GetInstance<IClipboard>();
+
+		public void PullWithDelay(Func<Task<bool>> action)
+		{
+			Task.Run(async delegate
+			{
+				LocalPreferencesHelper.TermsNotificationWasShown = false;
+				await Task.Delay(10000);
+				if (action != null)
+				{
+					await action();
+				}
+			});
+		}
+
+		internal static void UpdatePushKeysInfo(ApiResponse response, SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings)
+		{
+			PushKeysInfo = string.Format("StatusCode: {0}, Time (UTC): {1}\n\n", response.StatusCode, DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss"));
+			ParseKeys(selfDiagnosisSubmissionDTO, settings, ENOperation.PUSH);
+			PutInPushKeyInfoInSharedPrefs();
+		}
+
+		private static void ParseKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings, ENOperation varAssignCheck)
+		{
+			JObject jObject = JObject.Parse(JsonConvert.SerializeObject(selfDiagnosisSubmissionDTO, settings));
+			JArray jArray = (JArray)jObject["keys"];
+			JArray arg = (JArray)jObject["visitedCountries"];
+			JArray arg2 = (JArray)jObject["regions"];
+			PushKeysInfo += $"visitedCountries: {arg}\n";
+			PushKeysInfo += $"regions: {arg2}\n";
+			jArray?.ForEach(delegate(JToken key)
+			{
+				string text = "Key: " + EncodingUtils.ConvertByteArrayToString((byte[]?)key["key"]) + " ,\n" + string.Format("rollingStart: {0},\n", key["rollingStart"]) + string.Format("rollingDuration: {0},\n", key["rollingDuration"]) + string.Format("transmissionRiskLevel: {0},\n", key["transmissionRiskLevel"]) + string.Format("daysSinceOnsetOfSymptoms: {0}\n\n", key["daysSinceOnsetOfSymptoms"]);
+				PushKeysInfo += text;
+			});
+		}
+
+		private static void PutInPushKeyInfoInSharedPrefs()
+		{
+			ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastKeyUploadInfo = PushKeysInfo;
+		}
+
+		public async Task<string> GetPushKeyInfoFromSharedPrefs()
+		{
+			string res = "Empty";
+			PushKeysInfo = _devTools.LastKeyUploadInfo;
+			if (PushKeysInfo != "")
+			{
+				res = PushKeysInfo;
+			}
+			await _clipboard.SetTextAsync(res);
+			return res;
+		}
+
+		public async Task<string> GetFormattedPreferences()
+		{
+			int migrationCount = LocalPreferencesHelper.MigrationCount;
+			int lastPullKeysBatchNumberNotSubmitted = LocalPreferencesHelper.LastPullKeysBatchNumberNotSubmitted;
+			int lastPullKeysBatchNumberSuccessfullySubmitted = LocalPreferencesHelper.LastPullKeysBatchNumberSuccessfullySubmitted;
+			BatchType lastPulledBatchType = LocalPreferencesHelper.LastPulledBatchType;
+			bool isOnboardingCompleted = LocalPreferencesHelper.IsOnboardingCompleted;
+			bool isOnboardingCountriesCompleted = LocalPreferencesHelper.IsOnboardingCountriesCompleted;
+			bool isDownloadWithMobileDataEnabled = LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled();
+			DateTime updatedDateTime = LocalPreferencesHelper.GetUpdatedDateTime();
+			DateTime lastPullKeysSucceededDateTime = LocalPreferencesHelper.GetLastPullKeysSucceededDateTime();
+			string appLanguage = LocalPreferencesHelper.GetAppLanguage();
+			string formattedString = $"EXPOSURE_TIME_THRESHOLD: {LocalPreferencesHelper.ExposureTimeThreshold}\n" + $"LOW_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.LowAttenuationDurationMultiplier}\n" + $"MIDDLE_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.MiddleAttenuationDurationMultiplier}\n" + $"HIGH_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.HighAttenuationDurationMultiplier}\n\n" + $"MIGRATION_COUNT: {migrationCount}\n " + $"LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED: {lastPullKeysBatchNumberNotSubmitted}\n " + $"LAST_PULLED_BATCH_NUMBER_SUBMITTED: {lastPullKeysBatchNumberSuccessfullySubmitted}\n " + $"LAST_PULLED_BATCH_TYPE: {lastPulledBatchType}\n " + $"IS_ONBOARDING_COMPLETED_PREF: {isOnboardingCompleted}\n " + $"IS_ONBOARDING_COUNTRIES_COMPLETED_PREF: {isOnboardingCountriesCompleted}\n" + $"USE_MOBILE_DATA_PREF: {isDownloadWithMobileDataEnabled}\n" + $"MESSAGES_LAST_UPDATED_PREF: {updatedDateTime}\n" + $"LAST_PULL_KEYS_SUCCEEDED_DATE_TIME: {lastPullKeysSucceededDateTime}\n" + $"TERMS_NOTIFICATION_WAS_SENT: {LocalPreferencesHelper.TermsNotificationWasShown}\n" + "APP_LANGUAGE: " + appLanguage + "\n\n";
+			await _clipboard.SetTextAsync(formattedString);
+			return formattedString;
+		}
+
+		public static string GetLastPullResult()
+		{
+			return _devTools.LastPullHistory;
+		}
+
+		public string LastUsedExposureConfigurationAsync()
+		{
+			string lastUsedConfiguration = _devTools.LastUsedConfiguration;
+			_clipboard.SetTextAsync(lastUsedConfiguration);
+			return lastUsedConfiguration;
+		}
+
+		public async Task<ApiResponse> FakeGateway(string region)
+		{
+			ApiResponse result = default(ApiResponse);
+			object obj;
+			int num;
+			try
+			{
+				if (string.IsNullOrEmpty(region))
+				{
+					region = "dk";
+				}
+				result = await FakeGatewayUtils.PostKeysToFakeGateway(region);
+				return result;
+			}
+			catch (Exception ex)
+			{
+				obj = ex;
+				num = 1;
+			}
+			if (num != 1)
+			{
+				return result;
+			}
+			Exception ex2 = (Exception)obj;
+			LogUtils.LogException(LogSeverity.ERROR, ex2, _logPrefix + "Fake gateway upload failed");
+			await _clipboard.SetTextAsync($"Push keys failed:\n{ex2}");
+			return null;
+		}
+
+		public async Task<bool> PullKeysFromServer()
+		{
+			DevToolsOutput = GetLastPullResult();
+			bool processedAnyFiles = false;
+			try
+			{
+				await ExposureNotification.UpdateKeysFromServer();
+			}
+			catch (Exception arg)
+			{
+				string error = $"Pull keys failed:\n{arg}";
+				await _clipboard.SetTextAsync(error);
+				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().AddToPullHistoryRecord(error);
+			}
+			return processedAnyFiles;
+		}
+
+		public async Task<bool> PullKeysFromServerAndGetExposureInfo()
+		{
+			DevToolsOutput = GetLastPullResult();
+			bool processedAnyFiles = false;
+			_devTools.ShouldSaveExposureInfo = true;
+			try
+			{
+				await ExposureNotification.UpdateKeysFromServer();
+			}
+			catch (Exception arg)
+			{
+				string error = $"Pull keys failed:\n{arg}";
+				await _clipboard.SetTextAsync(error);
+				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().AddToPullHistoryRecord(error);
+			}
+			return processedAnyFiles;
+		}
+
+		public string GetExposureInfosFromLastPull()
+		{
+			string persistedExposureInfo = _devTools.PersistedExposureInfo;
+			string text = "";
+			if (persistedExposureInfo == "")
+			{
+				text = "We have not saved any ExposureInfos yet";
+			}
+			else
+			{
+				try
+				{
+					foreach (ExposureInfo item in ExposureInfoJsonHelper.ExposureInfosFromJsonCompatibleString(persistedExposureInfo))
+					{
+						string text2 = ((text == "") ? "" : "\n");
+						text += text2;
+						text += "[ExposureInfo with ";
+						text += $"AttenuationValue: {item.AttenuationValue},";
+						text += $"Duration: {item.Duration},";
+						text += $"Timestamp: {item.Timestamp},";
+						text += $"TotalRiskScore: {item.TotalRiskScore},";
+						text += $"TransmissionRiskLevel: {item.TransmissionRiskLevel}";
+						text += "]";
+					}
+				}
+				catch (Exception e)
+				{
+					LogUtils.LogException(LogSeverity.WARNING, e, _logPrefix + "GetExposureInfosFromLastPull");
+					text = "Failed at deserializing the saved ExposureInfos";
+				}
+			}
+			string text3 = "These are the ExposureInfos we got the last time \"Pull keys and get exposure info\" was clicked:\n" + text;
+			_clipboard.SetTextAsync(text3);
+			return text3;
+		}
+
+		public async Task<string> FetchExposureConfigurationAsync()
+		{
+			Xamarin.ExposureNotifications.Configuration configuration = await new ExposureNotificationHandler().GetConfigurationAsync();
+			string res = (DevToolsOutput = $" AttenuationWeight: {configuration.AttenuationWeight}, Values: {EnConfArrayString(configuration.AttenuationScores)} \n" + $" DaysSinceLastExposureWeight: {configuration.DaysSinceLastExposureWeight}, Values: {EnConfArrayString(configuration.DaysSinceLastExposureScores)} \n" + $" DurationWeight: {configuration.DurationWeight}, Values: {EnConfArrayString(configuration.DurationScores)} \n" + $" TransmissionWeight: {configuration.TransmissionWeight}, Values: {EnConfArrayString(configuration.TransmissionRiskScores)} \n" + $" MinimumRiskScore: {configuration.MinimumRiskScore}" + $" DurationAtAttenuationThresholds: [{configuration.DurationAtAttenuationThresholds[0]},{configuration.DurationAtAttenuationThresholds[1]}]");
+			DevToolUpdateOutput?.Invoke();
+			await _clipboard.SetTextAsync(res);
+			return res;
+		}
+
+		private string EnConfArrayString(int[] values)
+		{
+			string text = "";
+			for (int i = 0; i < 8; i++)
+			{
+				text = ((i == 7) ? (text + values[i]) : (text + values[i] + ", "));
+			}
+			return text;
+		}
+
+		public string ToggleMessageRetentionTime()
+		{
+			if (_longRetentionTime)
+			{
+				Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = Conf.MESSAGE_RETENTION_TIME_IN_MINUTES_SHORT;
+				_longRetentionTime = false;
+			}
+			else
+			{
+				Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = Conf.MESSAGE_RETENTION_TIME_IN_MINUTES_LONG;
+				_longRetentionTime = true;
+			}
+			return $"Message retention time minutes: \n{Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES}";
+		}
+
+		public string IncementExposureDate()
+		{
+			_messageDateTime = _messageDateTime.AddDays(1.0);
+			return "Incremented date for Send Message function: \n" + _messageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
+		}
+
+		public string DecrementExposureDate()
+		{
+			_messageDateTime = _messageDateTime.AddDays(-1.0);
+			return "Decremented date for Send Message function: \n" + _messageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
+		}
+
+		public string PrintLastSymptomOnsetDate()
+		{
+			PersonalDataModel personalData = AuthenticationState.PersonalData;
+			return "Last Symptom Onset Date: " + QuestionnaireViewModel.DateLabel + ", " + $"Selection: {QuestionnaireViewModel.Selection}, " + "MiBaDate:" + personalData?.Covid19_smitte_start + ", " + $"Date used for risk calc:{personalData?.FinalMiBaDate}";
+		}
+
+		public string PrintLastPulledKeysAndTimestamp()
+		{
+			string text = _devTools.LastProvidedFilesPref;
+			if (text == "")
+			{
+				text = "We have not saved any downloaded keys yet";
+			}
+			string text2 = "These are the last TEK batch files provided to the EN API:\n" + text;
+			_clipboard.SetTextAsync(text2);
+			return text2;
+		}
+
+		public async Task SimulateExposureMessage(int notificationTriggerInSeconds = 0)
+		{
+			await Task.Delay(notificationTriggerInSeconds * 1000);
+			await MessageUtils.CreateMessage(this, _messageDateTime);
+		}
+
+		public async Task SimulateExposureMessageAfter10Sec()
+		{
+			await SimulateExposureMessage(10);
+		}
+
+		public string GetLastExposureSummary()
+		{
+			string text = ((!ServiceLocator.Current.GetInstance<SecureStorageService>().KeyExists(SecureStorageKeys.LAST_SUMMARY_KEY)) ? "No summary yet" : ("Last exposure summary: " + ServiceLocator.Current.GetInstance<SecureStorageService>().GetValue(SecureStorageKeys.LAST_SUMMARY_KEY)));
+			_clipboard.SetTextAsync(text);
+			return text;
+		}
+
+		public string GetPullHistory()
+		{
+			string allPullHistory = _devTools.AllPullHistory;
+			if (allPullHistory == "")
+			{
+				return "No pull history";
+			}
+			_clipboard.SetTextAsync(allPullHistory);
+			return allPullHistory;
+		}
+	}
+	public static class ErrorViewModel
+	{
+		public static string REGISTER_ERROR_NOMATCH_HEADER => "REGISTER_ERROR_NOMATCH_HEADER".Translate();
+
+		public static string REGISTER_ERROR_NOMATCH_DESCRIPTION => "REGISTER_ERROR_NOMATCH_DESCRIPTION".Translate();
+
+		public static string REGISTER_ERROR_TOOMANYTRIES_HEADER => "REGISTER_ERROR_TOOMANYTRIES_HEADER".Translate();
+
+		public static string REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION => "REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION".Translate();
+
+		public static string REGISTER_ERROR_HEADER => "REGISTER_ERROR_HEADER".Translate();
+
+		public static string REGISTER_ERROR_DESCRIPTION => "REGISTER_ERROR_DESCRIPTION".Translate();
+
+		public static string REGISTER_ERROR_DISMISS => "REGISTER_ERROR_DISMISS".Translate();
+
+		public static string REGISTER_LEAVE_HEADER => "REGISTER_LEAVE_HEADER".Translate();
+
+		public static string REGISTER_LEAVE_DESCRIPTION => "REGISTER_LEAVE_DESCRIPTION".Translate();
+
+		public static string REGISTER_LEAVE_CANCEL => "REGISTER_LEAVE_CANCEL".Translate();
+
+		public static string REGISTER_LEAVE_CONFIRM => "REGISTER_LEAVE_CONFIRM".Translate();
+
+		public static string REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT => "REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
+
+		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER".Translate();
+
+		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION".Translate();
+
+		public static string REGISTER_ERROR_FETCH_SSI_DATA_HEADER => "REGISTER_ERROR_FETCH_SSI_DATA_HEADER".Translate();
+
+		public static string REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION => "REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION".Translate();
+	}
+	public class ForceUpdateViewModel
+	{
+		public static string FORCE_UPDATE_MESSAGE => "FORCE_UPDATE_MESSAGE".Translate();
+
+		public static string FORCE_UPDATE_BUTTON_GOOGLE_ANDROID => "FORCE_UPDATE_BUTTON_GOOGLE_ANDROID".Translate();
+
+		public static string FORCE_UPDATE_BUTTON_APPSTORE_IOS => "FORCE_UPDATE_BUTTON_APPSTORE_IOS".Translate();
+	}
+	public class InfectionStatusViewModel
+	{
+		public static bool IsScrollDownShown = LocalPreferencesHelper.IsScrollDownShown;
+
+		private DateTime _latestMessageDateTime = DateTime.Today;
+
+		public static string INFECTION_STATUS_PAGE_TITLE => "SMITTESPORING_PAGE_TITLE".Translate();
+
+		public static string INFECTION_STATUS_ACTIVE_TEXT => "SMITTESPORING_ACTIVE_HEADER".Translate();
+
+		public static string INFECTION_STATUS_INACTIVE_TEXT => "SMITTESPORING_INACTIVE_HEADER".Translate();
+
+		public static string INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT => "SMITTESPORING_ACTIVE_DESCRIPTION".Translate();
+
+		public static string SMITTESPORING_INACTIVE_DESCRIPTION => "SMITTESPORING_INACTIVE_DESCRIPTION".Translate();
+
+		public static string INFECTION_STATUS_MESSAGE_HEADER_TEXT => "SMITTESPORING_MESSAGE_HEADER".Translate();
+
+		public static string INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT => "SMITTESPORING_MESSAGE_HEADER_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_MESSAGE_DESCRIPTION".Translate();
+
+		public static string INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_NO_NEW_MESSAGE_DESCRIPTION".Translate();
+
+		public static string INFECTION_STATUS_REGISTRATION_HEADER_TEXT => "SMITTESPORING_REGISTER_HEADER".Translate();
+
+		public static string INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT => "SMITTESPORING_REGISTER_DESCRIPTION".Translate();
+
+		public static string SCROLL_DOWN_HEADER_TEXT => "SMITTESPORING_SCROLL".Translate();
+
+		public static string INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT => "MENU_TEXT".Translate();
+
+		public static string INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT => "SMITTESPORING_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_START_BUTTON_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_STOP_BUTTON_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT => "SMITTESPORING_DISEASE_RATE_HEADER".Translate();
+
+		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
+
+		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE_ACCESSIBILITY".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_TITLE => "INFECTION_STATUS_SPINNER_DIALOG_TITLE".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_MESSAGE => "INFECTION_STATUS_SPINNER_DIALOG_MESSAGE".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS".Translate();
+
+		public static string INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON => "INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON".Translate();
+
+		public static DateTime DiseaseRateUpdatedDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
+
+		public static string LastUpdateString
+		{
+			get
+			{
+				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
+			}
+		}
+
+		public static string LastUpdateAccessibilityString
+		{
+			get
+			{
+				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
+			}
+		}
+
+		public bool ShowNewMessageIcon { get; private set; }
+
+		public EventHandler NewMessagesIconVisibilityChanged { get; set; }
+
+		public bool IsAppRestricted { get; set; }
+
+		public string NewMessageSubheaderTxt
+		{
+			get
+			{
+				if (!ShowNewMessageIcon)
+				{
+					return INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT;
+				}
+				return INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT + " " + DateUtils.GetDateFromDateTime(_latestMessageDateTime, "m");
+			}
+		}
+
+		public string NewMessageAccessibilityText => INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT + ". " + NewMessageSubheaderTxt;
+
+		public string NewRegistrationAccessibilityText => INFECTION_STATUS_REGISTRATION_HEADER_TEXT + ". " + INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
+
+		public string NewDiseaseRateAccessibilityText => INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT + ". " + LastUpdateAccessibilityString;
+
+		public DialogViewModel OffDialogViewModel => new DialogViewModel
+		{
+			Title = "SMITTESPORING_TOGGLE_OFF_HEADER".Translate(),
+			Body = "SMITTESPORING_TOGGLE_OFF_DESCRIPTION".Translate(),
+			OkBtnTxt = "SMITTESPORING_TOGGLE_OFF_CONFIRM".Translate(),
+			CancelbtnTxt = "SMITTESPORING_TOGGLE_OFF_CANCEL".Translate()
+		};
+
+		public DialogViewModel OnDialogViewModel => new DialogViewModel
+		{
+			Title = "SMITTESPORING_TOGGLE_ON_HEADER".Translate(),
+			Body = "SMITTESPORING_TOGGLE_ON_DESCRIPTION".Translate(),
+			OkBtnTxt = "SMITTESPORING_TOGGLE_ON_CONFIRM".Translate(),
+			CancelbtnTxt = "SMITTESPORING_TOGGLE_ON_CANCEL".Translate()
+		};
+
+		public DialogViewModel PermissionViewModel => new DialogViewModel
+		{
+			Title = "SMITTESPORING_EN_PERMISSION_DENIED_HEADER".Translate(),
+			Body = "SMITTESPORING_EN_PERMISSION_DENIED_BODY".Translate(),
+			OkBtnTxt = "SMITTESPORING_EN_PERMISSION_DENIED_OK_BTN".Translate()
+		};
+
+		public DialogViewModel ReportingIllDialogViewModel => new DialogViewModel
+		{
+			Title = "SMITTESPORING_REPORTING_ILL_DIALOG_HEADER".Translate(),
+			Body = "SMITTESPORING_REPORTING_ILL_DIALOG_BODY".Translate(),
+			OkBtnTxt = "SMITTESPORING_REPORTING_ILL_DIALOG_OK_BTN".Translate()
+		};
+
+		public InfectionStatusViewModel()
+		{
+			SubscribeMessages();
+			Connectivity.ConnectivityChanged += delegate(object sender, ConnectivityChangedEventArgs args)
+			{
+				if (args.NetworkAccess == NetworkAccess.Internet)
+				{
+					RequestSSIUpdate();
+				}
+			};
+		}
+
+		public static async void RequestSSIUpdate(Action onFinish = null)
+		{
+			if (DiseaseRateUpdatedDateTime.Date != SystemTime.Now().ToLocalTime().Date)
+			{
+				await DiseaseRateViewModel.UpdateSSIDataAsync();
+				onFinish?.Invoke();
+			}
+		}
+
+		public async Task<string> StatusTxt()
+		{
+			return (await IsRunning()) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
+		}
+
+		public async Task<string> StatusTxt(bool isLocationEnabled)
+		{
+			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
+		}
+
+		public async Task<string> StatusTxtDescription()
+		{
+			return (await IsRunning()) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
+		}
+
+		public async Task<string> StatusTxtDescription(bool isLocationEnabled)
+		{
+			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
+		}
+
+		public async Task<bool> IsRunning()
+		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
+			try
+			{
+				return await ExposureNotification.GetStatusAsync() == Status.Active;
+			}
+			catch (Exception e)
+			{
+				e.HandleExposureNotificationException("InfectionStatusViewModel", "IsRunning");
+				return false;
+			}
+		}
+
+		public async Task<bool> IsRunning(bool isLocationEnabled)
+		{
+			return await IsRunning() && isLocationEnabled;
+		}
+
+		public async Task<bool> IsEnabled()
+		{
+			try
+			{
+				return await ExposureNotification.IsEnabledAsync();
+			}
+			catch (Exception e)
+			{
+				e.HandleExposureNotificationException("InfectionStatusViewModel", "IsEnabled");
+				return false;
+			}
+		}
+
+		public async Task<bool> StartENService()
+		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
+			try
+			{
+				await ExposureNotification.StartAsync();
+			}
+			catch (Exception e)
+			{
+				e.HandleExposureNotificationException("InfectionStatusViewModel", "StartENService");
+			}
+			return await IsRunning();
+		}
+
+		public async Task<bool> StopENService()
+		{
+			if (IsAppRestricted)
+			{
+				return false;
+			}
+			try
+			{
+				await ExposureNotification.StopAsync();
+			}
+			catch (Exception e)
+			{
+				e.HandleExposureNotificationException("InfectionStatusViewModel", "StopENService");
+			}
+			return await IsRunning();
+		}
+
+		public async void CheckIfAppIsRestricted(Action action = null)
+		{
+			_ = 2;
+			try
+			{
+				bool flag = await IsEnabled();
+				if (flag)
+				{
+					flag = await IsRunning();
+				}
+				if (flag)
+				{
+					await ExposureNotification.StartAsync();
+				}
+				IsAppRestricted = false;
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.WARNING, e, "InfectionStatusViewModel:CheckIfAppIsRestricted - Could not start EN Api. Assuming EN api is restricted");
+				IsAppRestricted = true;
+			}
+			action?.Invoke();
+		}
+
+		private async Task NewMessagesFetched()
+		{
+			List<MessageItemViewModel> list = MessageUtils.ToMessageItemViewModelList((await MessageUtils.GetMessages()).OrderByDescending((MessageSQLiteModel message) => message.TimeStamp).ToList());
+			if (list.Any())
+			{
+				_latestMessageDateTime = list[0].TimeStamp;
+			}
+			ShowNewMessageIcon = (await MessageUtils.GetAllUnreadMessages()).Any();
+			NewMessagesIconVisibilityChanged?.Invoke(this, null);
+		}
+
+		public void SubscribeMessages()
+		{
+			MessagingCenter.Subscribe<object>(this, MessagingCenterKeys.KEY_MESSAGE_RECEIVED, async delegate
+			{
+				await NewMessagesFetched();
+			});
+		}
+
+		public async void UpdateNotificationDot()
+		{
+			await NewMessagesFetched();
+		}
+	}
+	public class InformationAndConsentViewModel
+	{
+		private NDB.Covid19.OAuth2.AuthenticationManager _authManager;
+
+		private EventHandler<AuthErrorType> _onError;
+
+		private EventHandler _onSuccess;
+
+		public static string INFORMATION_CONSENT_HEADER_TEXT => "INFOCONSENT_HEADER".Translate();
+
+		public static string INFORMATION_CONSENT_CONTENT_TEXT => "INFOCONSENT_DESCRIPTION".Translate();
+
+		public static string INFORMATION_CONSENT_NEMID_BUTTON_TEXT => "INFOCONSENT_LOGIN".Translate();
+
+		public static string CLOSE_BUTTON_ACCESSIBILITY_LABEL => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
+
+		public static string INFOCONSENT_TITLE => "INFOCONSENT_TITLE".Translate();
+
+		public static string INFOCONSENT_BODY_ONE => "INFOCONSENT_BODY_ONE".Translate();
+
+		public static string INFOCONSENT_BODY_TWO => "INFOCONSENT_BODY_TWO".Translate();
+
+		public static string INFOCONSENT_DESCRIPTION_ONE => "INFOCONSENT_DESCRIPTION_ONE".Translate();
+
+		public event EventHandler<AuthErrorType> OnError;
+
+		public event EventHandler OnSuccess;
+
+		public InformationAndConsentViewModel(EventHandler onSuccess, EventHandler<AuthErrorType> onError)
+		{
+			_onSuccess = onSuccess;
+			_onError = onError;
+			_authManager = new NDB.Covid19.OAuth2.AuthenticationManager();
+		}
+
+		public void Init()
+		{
+			OnError += _onError;
+			OnSuccess += _onSuccess;
+			_authManager.Setup(OnAuthCompleted, OnAuthError);
+		}
+
+		public void Cleanup()
+		{
+			if (this.OnError != null)
+			{
+				OnError -= _onError;
+			}
+			if (this.OnSuccess != null)
+			{
+				OnSuccess -= _onSuccess;
+			}
+			_onError = null;
+			_onSuccess = null;
+			if (_authManager != null)
+			{
+				_authManager.Cleanup();
+			}
+		}
+
+		private void Unsubscribe()
+		{
+			if (this.OnError != null)
+			{
+				OnError -= _onError;
+			}
+			if (this.OnSuccess != null)
+			{
+				OnSuccess -= _onSuccess;
+			}
+		}
+
+		private void OnAuthError(object sender, AuthenticatorErrorEventArgs e)
+		{
+			this.OnError?.Invoke(this, AuthErrorType.Unknown);
+		}
+
+		private void OnAuthCompleted(object sender, AuthenticatorCompletedEventArgs e)
+		{
+			string text = "InformationAndConsentViewModel.OnAuthCompleted: ";
+			if (e != null && e.IsAuthenticated && e.Account?.Properties != null && e.Account.Properties.ContainsKey("access_token"))
+			{
+				LogUtils.LogMessage(LogSeverity.INFO, text + "User returned from NemID after authentication and access_token exists.");
+				string accessToken = e.Account?.Properties["access_token"];
+				PersonalDataModel payloadValidateJWTToken = _authManager.GetPayloadValidateJWTToken(accessToken);
+				if (payloadValidateJWTToken == null)
+				{
+					this.OnError?.Invoke(this, AuthErrorType.Unknown);
+					return;
+				}
+				if (e.Account.Properties.TryGetValue("expires_in", out var value))
+				{
+					int.TryParse(value, out var result);
+					if (result > 0)
+					{
+						payloadValidateJWTToken.TokenExpiration = DateTime.Now.AddSeconds(result);
+						LogUtils.LogMessage(LogSeverity.INFO, text + "Access-token expires timestamp", payloadValidateJWTToken.TokenExpiration.ToString());
+					}
+				}
+				else
+				{
+					LogUtils.LogMessage(LogSeverity.ERROR, text + "'expires_in' value does not exist");
+				}
+				SaveCovidRelatedAttributes(payloadValidateJWTToken);
+				if (AuthenticationState.PersonalData.IsBlocked)
+				{
+					this.OnError?.Invoke(this, AuthErrorType.MaxTriesExceeded);
+				}
+				else if (AuthenticationState.PersonalData.IsNotInfected)
+				{
+					this.OnError?.Invoke(this, AuthErrorType.NotInfected);
+				}
+				else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.UnknownStatus)
+				{
+					if (AuthenticationState.PersonalData.UnknownStatus)
+					{
+						LogUtils.LogMessage(LogSeverity.ERROR, text + "Value Covid19_status = ukendt");
+					}
+					this.OnError?.Invoke(this, AuthErrorType.Unknown);
+				}
+				else
+				{
+					this.OnSuccess?.Invoke(this, null);
+				}
+			}
+			else
+			{
+				Restart();
+			}
+		}
+
+		private void Restart()
+		{
+			Unsubscribe();
+			if (_authManager != null)
+			{
+				_authManager.Cleanup();
+			}
+			_authManager = new NDB.Covid19.OAuth2.AuthenticationManager();
+			Init();
+		}
+
+		private void SaveCovidRelatedAttributes(PersonalDataModel payload)
+		{
+			AuthenticationState.PersonalData = payload;
+		}
+	}
+	public class InitializerViewModel
+	{
+		public static string LAUNCHER_PAGE_START_BTN => "LAUNCHER_PAGE_START_BTN".Translate();
+
+		public static string LAUNCHER_PAGE_CONTINUE_IN_ENG => "LAUNCHER_PAGE_CONTINUE_IN_ENG".Translate();
+	}
+	public static class LoadingPageViewModel
+	{
+		private static System.Timers.Timer _timer;
+
+		private static int _textChangeSeconds = 4;
+
+		private static Action _onFinished;
+
+		public static string LOADING_PAGE_TEXT_NORMAL => "LOADING_PAGE_TEXT_NORMAL".Translate();
+
+		public static string LOADING_PAGE_TEXT_TIME_EXTENDED => "LOADING_PAGE_TEXT_TIME_EXTENDED".Translate();
+
+		public static void StartTimer(Action onFinished)
+		{
+			_timer = new System.Timers.Timer
+			{
+				Interval = 1000.0,
+				Enabled = true
+			};
+			_timer.Elapsed += TimerOnElapsed;
+			_onFinished = onFinished;
+			_textChangeSeconds = 4;
+			_timer.Start();
+		}
+
+		private static void TimerOnElapsed(object sender, ElapsedEventArgs e)
+		{
+			if (--_textChangeSeconds == 0)
+			{
+				_onFinished?.Invoke();
+				_timer?.Stop();
+				_timer = null;
+			}
+		}
+
+		public static void ValidateData(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Loading Page - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
+	}
+	public class MessageItemViewModel
+	{
+		public static readonly string MESSAGES_RECOMMENDATIONS = "MESSAGES_RECOMMENDATIONS_".Translate();
+
+		private bool _isRead;
+
+		public int ID { get; }
+
+		public string Title { get; }
+
+		public DateTime TimeStamp { get; }
+
+		public string MessageLink { get; }
+
+		public string DayAndMonthString => DateUtils.GetDateFromDateTime(TimeStamp, "m") ?? "";
+
+		public bool IsRead
+		{
+			get
+			{
+				return _isRead;
+			}
+			set
+			{
+				MessageUtils.MarkAsRead(this, value);
+				_isRead = value;
+			}
+		}
+
+		public MessageItemViewModel(MessageSQLiteModel model)
+		{
+			ID = model.ID;
+			Title = model.Title;
+			TimeStamp = model.TimeStamp;
+			MessageLink = model.MessageLink;
+			IsRead = model.IsRead;
+		}
+	}
+	public class MessagesViewModel
+	{
+		private static readonly object Subscriber = new object();
+
+		public static string MESSAGES_HEADER => "MESSAGES_HEADER".Translate();
+
+		public static string MESSAGES_NO_ITEMS_TITLE => "MESSAGES_NOMESSAGES_HEADER".Translate();
+
+		public static string MESSAGES_NO_ITEMS_DESCRIPTION => "MESSAGES_NOMESSAGES_LABEL".Translate();
+
+		public static string MESSAGES_LAST_UPDATED_LABEL => "MESSAGES_LAST_UPDATED_LABEL".Translate();
+
+		public static string MESSAGES_ACCESSIBILITY_CLOSE_BUTTON => "MESSAGES_ACCESSIBILITY_CLOSE_BUTTON".Translate();
+
+		public static DateTime LastUpdateDateTime => LocalPreferencesHelper.GetUpdatedDateTime().ToLocalTime();
+
+		public static string LastUpdateString
+		{
+			get
+			{
+				DateTime lastUpdateDateTime = LastUpdateDateTime;
+				DateTime minValue = DateTime.MinValue;
+				if (!(lastUpdateDateTime != minValue.ToLocalTime()))
+				{
+					return "";
+				}
+				return string.Format(MESSAGES_LAST_UPDATED_LABEL, DateUtils.GetDateFromDateTime(LastUpdateDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateDateTime, "t") ?? "");
+			}
+		}
+
+		public static void SubscribeMessages(object subscriber, Action<List<MessageItemViewModel>> action)
+		{
+			MessagingCenter.Subscribe<object>(subscriber, MessagingCenterKeys.KEY_MESSAGE_RECEIVED, async delegate
+			{
+				action?.Invoke(await GetMessages());
+				MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
+			});
+		}
+
+		public static void UnsubscribeMessages(object subscriber)
+		{
+			MessagingCenter.Unsubscribe<object>(subscriber, MessagingCenterKeys.KEY_MESSAGE_RECEIVED);
+		}
+
+		public static async Task<List<MessageItemViewModel>> GetMessages()
+		{
+			return MessageUtils.ToMessageItemViewModelList(await MessageUtils.GetMessages());
+		}
+
+		public static void MarkAllMessagesAsRead()
+		{
+			MessageUtils.MarkAllAsRead();
+			MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
+		}
+	}
+	public static class NotificationChannelsViewModel
+	{
+		public static string NOTIFICATION_CHANNEL_EXPOSURE_NAME => "NOTIFICATION_CHANNEL_EXPOSURE_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION => "NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_PERMISSIONS_NAME => "NOTIFICATION_CHANNEL_PERMISSIONS_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION => "NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_REMINDER_NAME => "NOTIFICATION_CHANNEL_REMINDER_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION => "NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION".Translate();
+
+		public static string NOTIFICATION_CHANNEL_COUNTDOWN_NAME => "NOTIFICATION_CHANNEL_COUNTDOWN_NAME".Translate();
+
+		public static string NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION => "NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION".Translate();
+	}
+	public class NotificationViewModel
+	{
+		public NotificationsEnum Type { get; set; }
+
+		public string Title { get; set; }
+
+		public string Body { get; set; }
+	}
+	public static class QuestionnaireConfirmLeaveViewModel
+	{
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_TITLE => "QUESTIONNAIRE_CONFIRM_LEAVE_TITLE".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION => "QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK".Translate();
+
+		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL".Translate();
+
+		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
+
+		public static void ValidateData(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Confirm Leave - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
+	}
+	public class QuestionnaireCountriesViewModel
+	{
+		public static QuestionnaireCountriesVisitedEnum Selection = QuestionnaireCountriesVisitedEnum.No;
+
+		public static string COUNTRY_QUESTIONAIRE_HEADER_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_HEADER_TEXT".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_INFORMATION_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_INFORMATION_TEXT".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_BUTTON_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_BUTTON_TEXT".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_FOOTER => "REGISTER_COUNTRY_QUESTIONAIRE_FOOTER".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON".Translate();
+
+		public static string COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON".Translate();
+
+		public DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
+
+		public async Task<List<CountryDetailsViewModel>> GetListOfCountriesAsync()
+		{
+			return (from model in (await new CountryListService().GetCountryList())?.CountryCollection?.Select((CountryDetailsDTO x) => new CountryDetailsViewModel
+				{
+					Name = x.GetName(),
+					Code = x.Code
+				})
+				orderby model.Name
+				select model).ToList() ?? new List<CountryDetailsViewModel>();
+		}
+
+		public void InvokeNextButtonClick(Action onSuccess, Action onFail, List<CountryDetailsViewModel> selectedCountriesList)
+		{
+			if (AuthenticationState.PersonalData != null && AuthenticationState.PersonalData.Validate())
+			{
+				AuthenticationState.PersonalData.VisitedCountries = (from x in selectedCountriesList
+					where x.Checked
+					select x.Code).ToList();
+				onSuccess?.Invoke();
+			}
+			else
+			{
+				LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Countries - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+				onFail?.Invoke();
+			}
+		}
+	}
+	public static class QuestionnairePreShareViewModel
+	{
+		public static string QUESTIONNAIRE_PRE_SHARE_TITLE => "QUESTIONNAIRE_PRE_SHARE_TITLE".Translate();
+
+		public static string QUESTIONNAIRE_PRE_SHARE_DESCRIPTION => "QUESTIONNAIRE_PRE_SHARE_DESCRIPTION".Translate();
+
+		public static string QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON => "QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON".Translate();
+
+		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
+
+		public static void InvokeNextButtonClick(Action onSuccess, Action onFail)
+		{
+			if (AuthenticationState.PersonalData.Validate())
+			{
+				onSuccess?.Invoke();
+				return;
+			}
+			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Pre Share - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+			onFail?.Invoke();
+		}
+	}
+	public class QuestionnaireViewModel
+	{
+		public static bool DateHasBeenSet;
+
+		public static string REGISTER_QUESTIONAIRE_HEADER => "REGISTER_QUESTIONAIRE_HEADER".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_NEXT => "REGISTER_QUESTIONAIRE_NEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_HEADER => "REGISTER_QUESTIONAIRE_RECEIPT_HEADER".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_TEXT => "REGISTER_QUESTIONAIRE_RECEIPT_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION => "REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_DISMISS => "REGISTER_QUESTIONAIRE_RECEIPT_DISMISS".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER => "REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE => "REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_RECEIPT_LINK => "REGISTER_QUESTIONAIRE_RECEIPT_LINK".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATEPICKER => "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER".Translate();
+
+		public static string REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT => "REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT".Translate();
+
+		public DialogViewModel CloseDialogViewModel => new DialogViewModel
+		{
+			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
+			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
+			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
+			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
+		};
+
+		public static string DateLabel
+		{
+			get
+			{
+				if (!(_selectedDateUTC == DateTime.MinValue))
+				{
+					return DateUtils.GetDateFromDateTime(_localSelectedDate, "d");
+				}
+				return REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT;
+			}
+		}
+
+		private static DateTime _selectedDateUTC { get; set; }
+
+		private static DateTime _localSelectedDate => DateTime.SpecifyKind(_selectedDateUTC, DateTimeKind.Utc).ToLocalTime();
+
+		public static QuestionaireSelection Selection { get; private set; } = QuestionaireSelection.Skip;
+
+
+		public DateTime MinimumDate { get; } = new DateTime(2020, 1, 1, 0, 0, 0).ToUniversalTime();
+
+
+		public DateTime MaximumDate { get; } = DateTime.Today.ToUniversalTime();
+
+
+		public string RadioButtonAccessibilityDatepicker => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT;
+
+		public string RadioButtonAccessibilityYesDontRemember => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT;
+
+		public string RadioButtonAccessibilityNo => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO + "\n " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT;
+
+		public string RadioButtonAccessibilitySkip => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT;
+
+		public string ReceipetPageReadMoreButtonAccessibility => REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
+
+		public void SetSelectedDateUTC(DateTime newDate)
+		{
+			_selectedDateUTC = newDate;
+			DateHasBeenSet = true;
+		}
+
+		public static DateTime GetLocalSelectedDate()
+		{
+			return _localSelectedDate;
+		}
+
+		public void SetSelection(QuestionaireSelection selection)
+		{
+			Selection = selection;
+		}
+
+		public void InvokeNextButtonClick(Action onSuccess, Action onFail, Action onValidationFail, PlatformDialogServiceArguments platformDialogServiceArguments = null)
+		{
+			if (Selection == QuestionaireSelection.YesSince)
+			{
+				if (_selectedDateUTC == DateTime.MinValue)
+				{
+					ServiceLocator.Current.GetInstance<IDialogService>().ShowMessageDialog(null, "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate(), "ERROR_OK_BTN".Translate(), platformDialogServiceArguments);
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - data validation failed", null, LocalPreferencesHelper.GetCorrelationId());
+					onValidationFail?.Invoke();
+					return;
+				}
+				AuthenticationState.PersonalData.FinalMiBaDate = _localSelectedDate;
+			}
+			else
+			{
+				if (!AuthenticationState.PersonalData.Validate())
+				{
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+					onFail?.Invoke();
+					LogUtils.LogMessage(LogSeverity.ERROR, "Validation of personaldata failed because of miba data was null or accesstoken expired");
+					return;
+				}
+				try
+				{
+					AuthenticationState.PersonalData.FinalMiBaDate = Convert.ToDateTime(AuthenticationState.PersonalData.Covid19_smitte_start);
+				}
+				catch
+				{
+					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
+					onFail?.Invoke();
+					LogUtils.LogMessage(LogSeverity.ERROR, "Miba data can't be parsed into datetime");
+					return;
+				}
+			}
+			onSuccess?.Invoke();
+		}
+	}
+	public class SettingsGeneralViewModel
+	{
+		public static string SETTINGS_GENERAL_TITLE = "SETTINGS_GENERAL_TITLE".Translate();
+
+		public static string SETTINGS_GENERAL_EXPLANATION_ONE = "SETTINGS_GENERAL_EXPLANATION_ONE".Translate();
+
+		public static string SETTINGS_GENERAL_EXPLANATION_TWO = "SETTINGS_GENERAL_EXPLANATION_TWO".Translate();
+
+		public static string SETTINGS_GENERAL_MOBILE_DATA_HEADER = "SETTINGS_GENERAL_MOBILE_DATA_HEADER".Translate();
+
+		public static string SETTINGS_GENERAL_MOBILE_DATA_DESC = "SETTINGS_GENERAL_MOBILE_DATA_DESC".Translate();
+
+		public static string SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER = "SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER".Translate();
+
+		public static string SETTINGS_GENERAL_RESTART_REQUIRED_TEXT = "SETTINGS_GENERAL_RESTART_REQUIRED_TEXT".Translate();
+
+		public static string SETTINGS_GENERAL_MORE_INFO_LINK = "SETTINGS_GENERAL_MORE_INFO_LINK".Translate();
+
+		public static string SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT = "SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT".Translate();
+
+		public static string SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT = "SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT".Translate();
+
+		public static string SETTINGS_GENERAL_DA = "SETTINGS_GENERAL_DA".Translate();
+
+		public static string SETTINGS_GENERAL_EN = "SETTINGS_GENERAL_EN".Translate();
+
+		public static DialogViewModel AreYouSureDialogViewModel = new DialogViewModel
+		{
+			Body = "SETTINGS_GENERAL_DIALOG_BODY".Translate(),
+			CancelbtnTxt = "SETTINGS_GENERAL_DIALOG_CANCEL".Translate(),
+			OkBtnTxt = "SETTINGS_GENERAL_DIALOG_OK".Translate(),
+			Title = "SETTINGS_GENERAL_DIALOG_TITLE".Translate()
+		};
+
+		public static SettingsLanguageSelection Selection { get; private set; }
+
+		public static DialogViewModel GetChangeLanguageViewModel => new DialogViewModel
+		{
+			Title = "SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER".Translate(),
+			Body = "SETTINGS_GENERAL_RESTART_REQUIRED_TEXT".Translate(),
+			OkBtnTxt = "SETTINGS_GENERAL_DIALOG_OK".Translate()
+		};
+
+		public bool GetStoredCheckedState()
+		{
+			return LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled();
+		}
+
+		public void OnCheckedChange(bool isChecked)
+		{
+			LocalPreferencesHelper.SetIsDownloadWithMobileDataEnabled(isChecked);
+		}
+
+		public static void OpenSmitteStopLink()
+		{
+			try
+			{
+				ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(SETTINGS_GENERAL_MORE_INFO_LINK);
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "Failed to open smittestop.dk link on general settings page");
+			}
+		}
+
+		public void SetSelection(SettingsLanguageSelection selection)
+		{
+			Selection = selection;
+		}
+	}
+	public class SettingsPage2ViewModel
+	{
+		public static string SETTINGS_PAGE_2_HEADER => "SETTINGS_PAGE_2_HEADER_TEXT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_INTRO => "SETTINGS_PAGE_2_CONTENT_TEXT_INTRO".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_TITLE".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_CONTENT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT".Translate();
+
+		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK".Translate();
+	}
+	public class SettingsPage4ViewModel
+	{
+		public static string HEADER => "SETTINGS_PAGE_4_HEADER_TEXT".Translate();
+
+		public static string CONTENT_TEXT_BEFORE_SUPPORT_LINK => "SETTINGS_PAGE_4_CONTENT_TEXT_BEFORE_SUPPORT_LINK".Translate();
+
+		public static string SUPPORT_LINK_SHOWN_TEXT => "SETTINGS_PAGE_4_SUPPORT_LINK_SHOWN_TEXT".Translate();
+
+		public static string SUPPORT_LINK => "SETTINGS_PAGE_4_SUPPORT_LINK".Translate();
+
+		public static string EMAIL_TEXT => "SETTINGS_PAGE_4_EMAIL_TEXT".Translate();
+
+		public static string EMAIL => "SETTINGS_PAGE_4_EMAIL".Translate();
+
+		public static string PHONE_NUM_Text => "SETTINGS_PAGE_4_PHONE_NUM_TEXT".Translate();
+
+		public static string PHONE_NUM => "SETTINGS_PAGE_4_PHONE_NUM".Translate();
+
+		public static string SUPPORT_TEXT => "SETTINGS_PAGE_4_SUPPORT_TEXT".Translate();
+
+		public static string PHONE_NUM_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_NUM".Translate();
+
+		public static string ACCESSIBILITY_SUPPORT_TEXT => "SETTINGS_PAGE_4_ACCESSIBILITY_SUPPORT_TEXT".Translate();
+	}
+	public class SettingsPage5ViewModel
+	{
+		public static string SETTINGS_PAGE_5_HEADER => "SETTINGS_PAGE_5_HEADER_TEXT".Translate();
+
+		public static string SETTINGS_PAGE_5_CONTENT => "SETTINGS_PAGE_5_CONTENT_TEXT".Translate();
+
+		public static string SETTINGS_PAGE_5_LINK => "SETTINGS_PAGE_5_LINK".Translate();
+
+		public static string GetVersionInfo()
+		{
+			IAppInfo instance = ServiceLocator.Current.GetInstance<IAppInfo>();
+			return $"V{instance.VersionString} B{instance.BuildString} A{Conf.APIVersion} {GetPartialUrlFromConf()} ";
+		}
+
+		public static string GetPartialUrlFromConf()
+		{
+			try
+			{
+				string uRL_PREFIX = Conf.URL_PREFIX;
+				int length = "Https://".Length;
+				int length2 = uRL_PREFIX.IndexOf(".smittestop") - length;
+				return uRL_PREFIX.Substring(length, length2);
+			}
+			catch
+			{
+				return "u";
+			}
+		}
+	}
+	public class SettingsViewModel
+	{
+		public static string SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
+
+		public static string SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON => "SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON".Translate();
+
+		public bool ShowDebugItem => Conf.UseDeveloperTools;
+
+		public List<SettingItem> SettingItemList { get; }
+
+		public SettingsViewModel()
+		{
+			SettingItemList = new List<SettingItem>
+			{
+				new SettingItem(SettingItemType.Intro),
+				new SettingItem(SettingItemType.HowItWorks),
+				new SettingItem(SettingItemType.Consent),
+				new SettingItem(SettingItemType.Help),
+				new SettingItem(SettingItemType.About),
+				new SettingItem(SettingItemType.Settings)
+			};
+			if (Conf.UseDeveloperTools)
+			{
+				SettingItemList.Add(new SettingItem(SettingItemType.Debug));
+			}
+		}
+	}
+	public class WelcomePageWhatIsNewViewModel
+	{
+		public static string WELCOME_PAGE_WHATS_NEW_TITLE => "WELCOME_PAGE_WHATS_NEW_TITLE".Translate();
+
+		public static string WELCOME_PAGE_WHATS_NEW_BULLET_ONE => "WELCOME_PAGE_WHATS_NEW_BULLET_ONE".Translate();
+
+		public static string WELCOME_PAGE_WHATS_NEW_BULLET_TWO => "WELCOME_PAGE_WHATS_NEW_BULLET_TWO".Translate();
+
+		public static string WELCOME_PAGE_WHATS_NEW_BULLET_THREE => "WELCOME_PAGE_WHATS_NEW_BULLET_THREE".Translate();
+
+		public static string WELCOME_PAGE_WHATS_NEW_BUTTON => "WELCOME_PAGE_WHATS_NEW_BUTTON".Translate();
+
+		public static string WELCOME_PAGE_WHATS_NEW_FOOTER => "WELCOME_PAGE_WHATS_NEW_FOOTER".Translate();
+	}
+	public class WelcomeViewModel
+	{
+		public static string NEXT_PAGE_BUTTON_TEXT => "WELCOME_PAGE_NEXT_BUTTON_TEXT".Translate();
+
+		public static string PREVIOUS_PAGE_BUTTON_TEXT => "WELCOME_PAGE_PREVIOUS_BUTTON_TEXT".Translate();
+
+		public static string WELCOME_PAGE_ONE_TITLE => "WELCOME_PAGE_ONE_TITLE".Translate();
+
+		public static string WELCOME_PAGE_ONE_BODY_ONE => "WELCOME_PAGE_ONE_BODY_ONE".Translate();
+
+		public static string WELCOME_PAGE_ONE_BODY_TWO => "WELCOME_PAGE_ONE_BODY_TWO".Translate();
+
+		public static string WELCOME_PAGE_TWO_TITLE => "WELCOME_PAGE_TWO_TITLE".Translate();
+
+		public static string WELCOME_PAGE_TWO_BODY_ONE => "WELCOME_PAGE_TWO_BODY_ONE".Translate();
+
+		public static string WELCOME_PAGE_TWO_BODY_TWO => "WELCOME_PAGE_TWO_BODY_TWO".Translate();
+
+		public static string WELCOME_PAGE_THREE_TITLE => "WELCOME_PAGE_THREE_TITLE".Translate();
+
+		public static string WELCOME_PAGE_THREE_BODY_ONE => "WELCOME_PAGE_THREE_BODY_ONE".Translate();
+
+		public static string WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY => "WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY".Translate();
+
+		public static string WELCOME_PAGE_THREE_BODY_TWO => "WELCOME_PAGE_THREE_BODY_TWO".Translate();
+
+		public static string WELCOME_PAGE_THREE_INFOBOX_BODY => "WELCOME_PAGE_THREE_INFOBOX_BODY".Translate();
+
+		public static string WELCOME_PAGE_FOUR_TITLE => "WELCOME_PAGE_FOUR_TITLE".Translate();
+
+		public static string WELCOME_PAGE_FOUR_BODY_ONE => "WELCOME_PAGE_FOUR_BODY_ONE".Translate();
+
+		public static string WELCOME_PAGE_FOUR_BODY_TWO => "WELCOME_PAGE_FOUR_BODY_TWO".Translate();
+
+		public static string WELCOME_PAGE_FOUR_BODY_THREE => "WELCOME_PAGE_FOUR_BODY_THREE".Translate();
+
+		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON".Translate();
+
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_ONE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE".Translate();
+
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_TWO => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_TWO".Translate();
+
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_THREE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_THREE".Translate();
+
+		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR".Translate();
+
+		public static string TRANSMISSION_ERROR_MSG => "TRANSMISSION_ERROR_MSG".Translate();
+
+		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE => "WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE".Translate();
+
+		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE => "WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE".Translate();
 	}
 }
 namespace NDB.Covid19.Utils
@@ -1016,8 +2698,6 @@ namespace NDB.Covid19.Utils
 
 		private static IConnectivity _connectivity => ServiceLocator.Current.GetInstance<IConnectivity>();
 
-		public static NetworkAccess NetworkAccess => _connectivity.NetworkAccess;
-
 		public static IEnumerable<ConnectionProfile> ConnectionProfiles => _connectionProfiles ?? _connectivity.ConnectionProfiles;
 
 		public static void MockConnectionProfiles(List<ConnectionProfile> mockedConnectionProfiles)
@@ -1037,11 +2717,11 @@ namespace NDB.Covid19.Utils
 			if (date.HasValue)
 			{
 				DateTime value = date.Value;
-				CultureInfo currentCulture = CultureInfo.CurrentCulture;
-				CultureInfo cultureInfo = CultureInfo.GetCultureInfo(Conf.DEFAULT_LANGUAGE);
-				bool flag = Conf.SUPPORTED_LANGUAGES.Contains(currentCulture.TwoLetterISOLanguageName);
-				DateTime dateTime = new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute, value.Second, value.Millisecond, flag ? CultureInfo.CurrentCulture.Calendar : new GregorianCalendar());
-				return dateTime.ToString(dateFormat, flag ? currentCulture : cultureInfo).Replace("-", "/");
+				CultureInfo cultureInfo = CultureInfo.GetCultureInfo(LocalesService.GetLanguage());
+				CultureInfo cultureInfo2 = CultureInfo.GetCultureInfo(Conf.DEFAULT_LANGUAGE);
+				bool flag = Conf.SUPPORTED_LANGUAGES.Contains(cultureInfo.TwoLetterISOLanguageName);
+				DateTime dateTime = new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute, value.Second, value.Millisecond, flag ? cultureInfo.Calendar : new GregorianCalendar());
+				return dateTime.ToString(dateFormat, flag ? cultureInfo : cultureInfo2).Replace("-", "/");
 			}
 			return string.Empty;
 		}
@@ -1077,344 +2757,6 @@ namespace NDB.Covid19.Utils
 		public static DateTime TrimMilliseconds(this DateTime dt)
 		{
 			return new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0, dt.Kind);
-		}
-	}
-	public sealed class DeveloperToolsService : IDeveloperToolsService
-	{
-		public static readonly string DEV_TOOLS_LAST_PROVIDED_FILES_PREF = "DEV_TOOLS_LAST_PROVIDED_FILES_PREF";
-
-		public static readonly string DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF = "DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF";
-
-		public static readonly string DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF = "DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF";
-
-		public static readonly string DEV_TOOLS_LAST_KEY_UPLOAD_INFO = "LastKeyUploadInfo";
-
-		public static readonly string DEV_TOOLS_LAST_USED_CONFIGURATION = "LastUsedConfiguration";
-
-		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
-
-		public string LastKeyUploadInfo
-		{
-			get
-			{
-				return _preferences.Get(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
-			}
-			set
-			{
-				_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, value);
-			}
-		}
-
-		public string LastUsedConfiguration
-		{
-			get
-			{
-				return _preferences.Get(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
-			}
-			set
-			{
-				_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, value);
-			}
-		}
-
-		public bool ShouldSaveExposureInfo
-		{
-			get
-			{
-				return _preferences.Get(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, defaultValue: false);
-			}
-			set
-			{
-				_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, value);
-			}
-		}
-
-		public string LastProvidedFilesPref
-		{
-			get
-			{
-				return _preferences.Get(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
-			}
-			set
-			{
-				_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, value);
-			}
-		}
-
-		public string PersistedExposureInfo
-		{
-			get
-			{
-				return _preferences.Get(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
-			}
-			set
-			{
-				_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, value);
-			}
-		}
-
-		public string AllPullHistory
-		{
-			get
-			{
-				return _preferences.Get(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY, "");
-			}
-			set
-			{
-				_preferences.Set(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY, value);
-			}
-		}
-
-		public string LastPullHistory
-		{
-			get
-			{
-				return _preferences.Get(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD, "");
-			}
-			set
-			{
-				_preferences.Set(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD, value);
-			}
-		}
-
-		public void ClearAllFields()
-		{
-			_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
-			_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
-			_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, "");
-			_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
-			_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
-		}
-
-		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
-		{
-			string str = "TEK batch files downloaded at " + SystemTime.Now().ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC:\n#######\n";
-			foreach (string localFileUrl in localFileUrls)
-			{
-				TemporaryExposureKeyExport temporaryExposureKeyExport = BatchFileHelper.ZipToTemporaryExposureKeyExport(BatchFileHelper.UrlToZipArchive(localFileUrl));
-				string str2 = TemporaryExposureKeyExportToPrettyString(temporaryExposureKeyExport);
-				str = str + str2 + "\n";
-			}
-			str = (LastProvidedFilesPref = str + "#######");
-		}
-
-		public async Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
-		{
-			bool flag;
-			try
-			{
-				flag = ShouldSaveExposureInfo;
-			}
-			catch (Exception)
-			{
-				flag = false;
-			}
-			if (flag)
-			{
-				try
-				{
-					ShouldSaveExposureInfo = false;
-					string text2 = (PersistedExposureInfo = ExposureInfoJsonHelper.ExposureInfosToJson(await getExposureInfo()));
-				}
-				catch (Exception e)
-				{
-					LogUtils.LogException(LogSeverity.WARNING, e, "ExposureDetectedHelper.DevToolsSaveLastExposureInfos");
-				}
-			}
-		}
-
-		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
-		{
-			try
-			{
-				string str = "TEK batch, containing these keys:\n";
-				str = str + "Regions: " + temporaryExposureKeyExport.Region + "\n";
-				string text = "";
-				int num = 0;
-				foreach (NDB.Covid19.ProtoModels.TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
-				{
-					string str2 = ((text == "") ? "--" : "\n--");
-					text += str2;
-					text = text + "[TemporaryExposureKey with KeyData.ToBase64()=" + key.KeyData.ToBase64() + ", <In DB format: " + EncodingUtils.ConvertByteArrayToString(key.KeyData.ToByteArray()) + "> " + $"TransmissionRiskLevel={key.TransmissionRiskLevel}, " + "RollingStartIntervalNumber=" + DateTimeOffset.FromUnixTimeSeconds(key.RollingStartIntervalNumber * 600).UtcDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC and " + $"RollingPeriod={key.RollingPeriod * 10} minutes]";
-					num++;
-					if (num == 200)
-					{
-						break;
-					}
-				}
-				return str + text;
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "DeveloperToolsService.TemporaryExposureKeyExportToPrettyString");
-				return "";
-			}
-		}
-
-		public void StartPullHistoryRecord()
-		{
-			string str = SystemTime.Now().ToGreGorianUtcString("yyyy-MM-dd HH:mm");
-			string text2 = (LastPullHistory = "Pulled the following keys (batches) at " + str + " UTC:");
-			string allPullHistory = AllPullHistory;
-			AllPullHistory = (string.IsNullOrEmpty(allPullHistory) ? text2 : (allPullHistory + "\n\n" + text2));
-		}
-
-		public void AddToPullHistoryRecord(string message, string requestUrl = null)
-		{
-			string text = ((requestUrl == null) ? ("\n* " + message) : ("\n* " + requestUrl + ": " + message));
-			AllPullHistory += text;
-			LastPullHistory += text;
-		}
-	}
-	public interface IDeveloperToolsService
-	{
-		string LastKeyUploadInfo
-		{
-			get;
-			set;
-		}
-
-		string LastUsedConfiguration
-		{
-			get;
-			set;
-		}
-
-		bool ShouldSaveExposureInfo
-		{
-			get;
-			set;
-		}
-
-		string LastProvidedFilesPref
-		{
-			get;
-			set;
-		}
-
-		string PersistedExposureInfo
-		{
-			get;
-			set;
-		}
-
-		string LastPullHistory
-		{
-			get;
-			set;
-		}
-
-		string AllPullHistory
-		{
-			get;
-			set;
-		}
-
-		void ClearAllFields();
-
-		void StoreLastProvidedFiles(IEnumerable<string> localFileUrls);
-
-		Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo);
-
-		string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport);
-
-		void StartPullHistoryRecord();
-
-		void AddToPullHistoryRecord(string message, string requestUrl = null);
-	}
-	public class ReleaseToolsService : IDeveloperToolsService
-	{
-		public string LastKeyUploadInfo
-		{
-			get
-			{
-				return "";
-			}
-			set
-			{
-			}
-		}
-
-		public string LastUsedConfiguration
-		{
-			get
-			{
-				return "";
-			}
-			set
-			{
-			}
-		}
-
-		public bool ShouldSaveExposureInfo
-		{
-			get
-			{
-				return false;
-			}
-			set
-			{
-			}
-		}
-
-		public string LastProvidedFilesPref
-		{
-			get
-			{
-				return "";
-			}
-			set
-			{
-			}
-		}
-
-		public string PersistedExposureInfo
-		{
-			get
-			{
-				return "";
-			}
-			set
-			{
-			}
-		}
-
-		public string AllPullHistory
-		{
-			get;
-			set;
-		}
-
-		public string LastPullHistory
-		{
-			get;
-			set;
-		}
-
-		public void ClearAllFields()
-		{
-		}
-
-		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
-		{
-		}
-
-		public Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
-		{
-			return Task.FromResult(result: true);
-		}
-
-		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
-		{
-			return "";
-		}
-
-		public void StartPullHistoryRecord()
-		{
-		}
-
-		public void AddToPullHistoryRecord(string message, string requestUrl)
-		{
 		}
 	}
 	public static class DeviceUtils
@@ -1461,14 +2803,11 @@ namespace NDB.Covid19.Utils
 		{
 			try
 			{
-				await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
+				await ExposureNotification.StopAsync();
 			}
-			catch (Exception ex)
+			catch (Exception e)
 			{
-				if (!ex.HandleExposureNotificationException("DeviceUtils", "StopScanServices"))
-				{
-					throw ex;
-				}
+				e.HandleExposureNotificationException("DeviceUtils", "StopScanServices");
 			}
 		}
 	}
@@ -1483,12 +2822,7 @@ namespace NDB.Covid19.Utils
 	{
 		public static IEnumerable<ExposureKeyModel> LastPulledExposureKeys = new List<ExposureKeyModel>();
 
-		public static bool IsFakeGatewayTest
-		{
-			get;
-			set;
-		} = false;
-
+		public static bool IsFakeGatewayTest { get; set; }
 
 		private static SelfDiagnosisSubmissionDTO CreateFakeDataForRegions(List<string> regions)
 		{
@@ -1508,11 +2842,8 @@ namespace NDB.Covid19.Utils
 			try
 			{
 				IsFakeGatewayTest = true;
-				await Xamarin.ExposureNotifications.ExposureNotification.SubmitSelfDiagnosisAsync();
-				return await new FakeGatewayWebService().UploadKeys(CreateFakeDataForRegions(new List<string>
-				{
-					region
-				}));
+				await ExposureNotification.SubmitSelfDiagnosisAsync();
+				return await new FakeGatewayWebService().UploadKeys(CreateFakeDataForRegions(new List<string> { region }));
 			}
 			finally
 			{
@@ -1863,7 +3194,7 @@ namespace NDB.Covid19.Utils
 	}
 	public static class MessageUtils
 	{
-		private static string _logPrefix = "MessageUtils";
+		private static readonly string _logPrefix = "MessageUtils";
 
 		private static SecureStorageService _secureStorageService => ServiceLocator.Current.GetInstance<SecureStorageService>();
 
@@ -1992,15 +3323,9 @@ namespace NDB.Covid19.Utils
 		{
 			private readonly bool _isStrongReference;
 
-			private WeakReference DelegateWeakReference
-			{
-				get;
-			}
+			private WeakReference DelegateWeakReference { get; }
 
-			private object DelegateStrongReference
-			{
-				get;
-			}
+			private object DelegateStrongReference { get; }
 
 			public object Target
 			{
@@ -2064,27 +3389,13 @@ namespace NDB.Covid19.Utils
 				}
 				if (MethodInfo.IsStatic)
 				{
-					MethodInfo.Invoke(null, (MethodInfo.GetParameters().Length != 1) ? new object[2]
-					{
-						sender,
-						args
-					} : new object[1]
-					{
-						sender
-					});
+					MethodInfo.Invoke(null, (MethodInfo.GetParameters().Length != 1) ? new object[2] { sender, args } : new object[1] { sender });
 					return;
 				}
 				object target = DelegateSource.Target;
 				if (target != null)
 				{
-					MethodInfo.Invoke(target, (MethodInfo.GetParameters().Length != 1) ? new object[2]
-					{
-						sender,
-						args
-					} : new object[1]
-					{
-						sender
-					});
+					MethodInfo.Invoke(target, (MethodInfo.GetParameters().Length != 1) ? new object[2] { sender, args } : new object[1] { sender });
 				}
 			}
 
@@ -2100,16 +3411,8 @@ namespace NDB.Covid19.Utils
 
 		private readonly Dictionary<Sender, List<Subscription>> _subscriptions = new Dictionary<Sender, List<Subscription>>();
 
-		public static IMessagingCenter Instance
-		{
-			get;
-		} = new MessagingCenter();
+		public static IMessagingCenter Instance { get; } = new MessagingCenter();
 
-
-		public static void Send<TSender, TArgs>(TSender sender, string message, TArgs args) where TSender : class
-		{
-			Instance.Send(sender, message, args);
-		}
 
 		void IMessagingCenter.Send<TSender, TArgs>(TSender sender, string message, TArgs args)
 		{
@@ -2120,11 +3423,6 @@ namespace NDB.Covid19.Utils
 			InnerSend(message, typeof(TSender), typeof(TArgs), sender, args);
 		}
 
-		public static void Send<TSender>(TSender sender, string message) where TSender : class
-		{
-			Instance.Send(sender, message);
-		}
-
 		void IMessagingCenter.Send<TSender>(TSender sender, string message)
 		{
 			if (sender == null)
@@ -2132,11 +3430,6 @@ namespace NDB.Covid19.Utils
 				throw new ArgumentNullException("sender");
 			}
 			InnerSend(message, typeof(TSender), null, sender, null);
-		}
-
-		public static void Subscribe<TSender, TArgs>(object subscriber, string message, Action<TSender, TArgs> callback, TSender source = null) where TSender : class
-		{
-			Instance.Subscribe(subscriber, message, callback, source);
 		}
 
 		void IMessagingCenter.Subscribe<TSender, TArgs>(object subscriber, string message, Action<TSender, TArgs> callback, TSender source)
@@ -2158,11 +3451,6 @@ namespace NDB.Covid19.Utils
 			InnerSubscribe(subscriber, message, typeof(TSender), typeof(TArgs), target, callback.GetMethodInfo(), filter);
 		}
 
-		public static void Subscribe<TSender>(object subscriber, string message, Action<TSender> callback, TSender source = null) where TSender : class
-		{
-			Instance.Subscribe(subscriber, message, callback, source);
-		}
-
 		void IMessagingCenter.Subscribe<TSender>(object subscriber, string message, Action<TSender> callback, TSender source)
 		{
 			if (subscriber == null)
@@ -2182,24 +3470,44 @@ namespace NDB.Covid19.Utils
 			InnerSubscribe(subscriber, message, typeof(TSender), null, target, callback.GetMethodInfo(), filter);
 		}
 
-		public static void Unsubscribe<TSender, TArgs>(object subscriber, string message) where TSender : class
-		{
-			Instance.Unsubscribe<TSender, TArgs>(subscriber, message);
-		}
-
 		void IMessagingCenter.Unsubscribe<TSender, TArgs>(object subscriber, string message)
 		{
 			InnerUnsubscribe(message, typeof(TSender), typeof(TArgs), subscriber);
 		}
 
-		public static void Unsubscribe<TSender>(object subscriber, string message) where TSender : class
-		{
-			Instance.Unsubscribe<TSender>(subscriber, message);
-		}
-
 		void IMessagingCenter.Unsubscribe<TSender>(object subscriber, string message)
 		{
 			InnerUnsubscribe(message, typeof(TSender), null, subscriber);
+		}
+
+		public static void Send<TSender, TArgs>(TSender sender, string message, TArgs args) where TSender : class
+		{
+			Instance.Send(sender, message, args);
+		}
+
+		public static void Send<TSender>(TSender sender, string message) where TSender : class
+		{
+			Instance.Send(sender, message);
+		}
+
+		public static void Subscribe<TSender, TArgs>(object subscriber, string message, Action<TSender, TArgs> callback, TSender source = null) where TSender : class
+		{
+			Instance.Subscribe(subscriber, message, callback, source);
+		}
+
+		public static void Subscribe<TSender>(object subscriber, string message, Action<TSender> callback, TSender source = null) where TSender : class
+		{
+			Instance.Subscribe(subscriber, message, callback, source);
+		}
+
+		public static void Unsubscribe<TSender, TArgs>(object subscriber, string message) where TSender : class
+		{
+			Instance.Unsubscribe<TSender, TArgs>(subscriber, message);
+		}
+
+		public static void Unsubscribe<TSender>(object subscriber, string message) where TSender : class
+		{
+			Instance.Unsubscribe<TSender>(subscriber, message);
 		}
 
 		private void InnerSend(string message, Type senderType, Type argType, object sender, object args)
@@ -2240,10 +3548,7 @@ namespace NDB.Covid19.Utils
 				_subscriptions[key].Add(item);
 				return;
 			}
-			List<Subscription> value = new List<Subscription>
-			{
-				item
-			};
+			List<Subscription> value = new List<Subscription> { item };
 			_subscriptions[key] = value;
 		}
 
@@ -2382,58 +3687,308 @@ namespace NDB.Covid19.Utils
 		}
 	}
 }
-namespace NDB.Covid19.SecureStorage
+namespace NDB.Covid19.Utils.DeveloperTools
 {
-	public class SecureStorageService : ISecureStorageService
+	public sealed class DeveloperToolsService : IDeveloperToolsService
 	{
-		private Plugin.SecureStorage.Abstractions.ISecureStorage _secureStorage;
+		public static readonly string DEV_TOOLS_LAST_PROVIDED_FILES_PREF = "DEV_TOOLS_LAST_PROVIDED_FILES_PREF";
 
-		public Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage
+		public static readonly string DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF = "DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF";
+
+		public static readonly string DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF = "DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF";
+
+		public static readonly string DEV_TOOLS_LAST_KEY_UPLOAD_INFO = "LastKeyUploadInfo";
+
+		public static readonly string DEV_TOOLS_LAST_USED_CONFIGURATION = "LastUsedConfiguration";
+
+		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+
+		public string LastKeyUploadInfo
 		{
 			get
 			{
-				if (_secureStorage == null)
-				{
-					_secureStorage = CrossSecureStorage.Current;
-				}
-				return _secureStorage;
+				return _preferences.Get(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, value);
 			}
 		}
 
-		public bool SaveValue(string key, string value)
+		public string LastUsedConfiguration
 		{
-			return SecureStorage.SetValue(key, value);
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, value);
+			}
 		}
 
-		public string GetValue(string key)
+		public bool ShouldSaveExposureInfo
 		{
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, defaultValue: false);
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, value);
+			}
+		}
+
+		public string LastProvidedFilesPref
+		{
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, value);
+			}
+		}
+
+		public string PersistedExposureInfo
+		{
+			get
+			{
+				return _preferences.Get(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
+			}
+			set
+			{
+				_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, value);
+			}
+		}
+
+		public string AllPullHistory
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY, "");
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY, value);
+			}
+		}
+
+		public string LastPullHistory
+		{
+			get
+			{
+				return _preferences.Get(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD, "");
+			}
+			set
+			{
+				_preferences.Set(PreferencesKeys.DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD, value);
+			}
+		}
+
+		public void ClearAllFields()
+		{
+			_preferences.Set(DEV_TOOLS_LAST_KEY_UPLOAD_INFO, "");
+			_preferences.Set(DEV_TOOLS_LAST_USED_CONFIGURATION, "");
+			_preferences.Set(DEV_TOOLS_SHOULD_SAVE_EXPOSURE_INFOS_PREF, "");
+			_preferences.Set(DEV_TOOLS_LAST_EXPOSURE_INFOS_PREF, "");
+			_preferences.Set(DEV_TOOLS_LAST_PROVIDED_FILES_PREF, "");
+		}
+
+		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
+		{
+			string text = "TEK batch files downloaded at " + SystemTime.Now().ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC:\n#######\n";
+			foreach (string localFileUrl in localFileUrls)
+			{
+				TemporaryExposureKeyExport temporaryExposureKeyExport = BatchFileHelper.ZipToTemporaryExposureKeyExport(BatchFileHelper.UrlToZipArchive(localFileUrl));
+				string text2 = TemporaryExposureKeyExportToPrettyString(temporaryExposureKeyExport);
+				text = text + text2 + "\n";
+			}
+			text = (LastProvidedFilesPref = text + "#######");
+		}
+
+		public async Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
+		{
+			bool flag;
 			try
 			{
-				return SecureStorage.GetValue(key);
+				flag = ShouldSaveExposureInfo;
 			}
 			catch (Exception)
 			{
-				SecureStorage.DeleteKey(key);
-				return null;
+				flag = false;
 			}
-		}
-
-		public bool KeyExists(string key)
-		{
-			return SecureStorage.HasKey(key);
-		}
-
-		public void Delete(string key)
-		{
-			if (KeyExists(key))
+			if (flag)
 			{
-				SecureStorage.DeleteKey(key);
+				try
+				{
+					ShouldSaveExposureInfo = false;
+					string text2 = (PersistedExposureInfo = ExposureInfoJsonHelper.ExposureInfosToJson(await getExposureInfo()));
+				}
+				catch (Exception e)
+				{
+					LogUtils.LogException(LogSeverity.WARNING, e, "ExposureDetectedHelper.DevToolsSaveLastExposureInfos");
+				}
 			}
 		}
 
-		public void SetSecureStorageInstance(Plugin.SecureStorage.Abstractions.ISecureStorage instance)
+		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
 		{
-			_secureStorage = instance;
+			try
+			{
+				string text = "TEK batch, containing these keys:\n";
+				text = text + "Regions: " + temporaryExposureKeyExport.Region + "\n";
+				string text2 = "";
+				int num = 0;
+				foreach (NDB.Covid19.ProtoModels.TemporaryExposureKey key in temporaryExposureKeyExport.Keys)
+				{
+					string text3 = ((text2 == "") ? "--" : "\n--");
+					text2 += text3;
+					text2 = text2 + "[TemporaryExposureKey with KeyData.ToBase64()=" + key.KeyData.ToBase64() + ", <In DB format: " + EncodingUtils.ConvertByteArrayToString(key.KeyData.ToByteArray()) + "> " + $"TransmissionRiskLevel={key.TransmissionRiskLevel}, " + "RollingStartIntervalNumber=" + DateTimeOffset.FromUnixTimeSeconds(key.RollingStartIntervalNumber * 60 * 10).UtcDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + " UTC and " + $"RollingPeriod={key.RollingPeriod * 10} minutes]";
+					num++;
+					if (num == 200)
+					{
+						break;
+					}
+				}
+				return text + text2;
+			}
+			catch (Exception e)
+			{
+				LogUtils.LogException(LogSeverity.ERROR, e, "DeveloperToolsService.TemporaryExposureKeyExportToPrettyString");
+				return "";
+			}
+		}
+
+		public void StartPullHistoryRecord()
+		{
+			string text = SystemTime.Now().ToGreGorianUtcString("yyyy-MM-dd HH:mm");
+			string text3 = (LastPullHistory = "Pulled the following keys (batches) at " + text + " UTC:");
+			string allPullHistory = AllPullHistory;
+			AllPullHistory = (string.IsNullOrEmpty(allPullHistory) ? text3 : (allPullHistory + "\n\n" + text3));
+		}
+
+		public void AddToPullHistoryRecord(string message, string requestUrl = null)
+		{
+			string text = ((requestUrl == null) ? ("\n* " + message) : ("\n* " + requestUrl + ": " + message));
+			AllPullHistory += text;
+			LastPullHistory += text;
+		}
+	}
+	public interface IDeveloperToolsService
+	{
+		string LastKeyUploadInfo { get; set; }
+
+		string LastUsedConfiguration { get; set; }
+
+		bool ShouldSaveExposureInfo { get; set; }
+
+		string LastProvidedFilesPref { get; set; }
+
+		string PersistedExposureInfo { get; set; }
+
+		string LastPullHistory { get; set; }
+
+		string AllPullHistory { get; set; }
+
+		void ClearAllFields();
+
+		void StoreLastProvidedFiles(IEnumerable<string> localFileUrls);
+
+		Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo);
+
+		string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport);
+
+		void StartPullHistoryRecord();
+
+		void AddToPullHistoryRecord(string message, string requestUrl = null);
+	}
+	public class ReleaseToolsService : IDeveloperToolsService
+	{
+		public string LastKeyUploadInfo
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string LastUsedConfiguration
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public bool ShouldSaveExposureInfo
+		{
+			get
+			{
+				return false;
+			}
+			set
+			{
+			}
+		}
+
+		public string LastProvidedFilesPref
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string PersistedExposureInfo
+		{
+			get
+			{
+				return "";
+			}
+			set
+			{
+			}
+		}
+
+		public string AllPullHistory { get; set; }
+
+		public string LastPullHistory { get; set; }
+
+		public void ClearAllFields()
+		{
+		}
+
+		public void StoreLastProvidedFiles(IEnumerable<string> localFileUrls)
+		{
+		}
+
+		public Task SaveLastExposureInfos(Func<Task<IEnumerable<ExposureInfo>>> getExposureInfo)
+		{
+			return Task.FromResult(result: true);
+		}
+
+		public string TemporaryExposureKeyExportToPrettyString(TemporaryExposureKeyExport temporaryExposureKeyExport)
+		{
+			return "";
+		}
+
+		public void StartPullHistoryRecord()
+		{
+		}
+
+		public void AddToPullHistoryRecord(string message, string requestUrl)
+		{
 		}
 	}
 }
@@ -2890,6 +4445,99 @@ namespace NDB.Covid19.PersistedData
 			_preferences.Set(PreferencesKeys.CORRELATION_ID, correlationId);
 		}
 	}
+	public class PreferencesKeys
+	{
+		public static readonly string MIGRATION_COUNT = "MIGRATION_COUNT";
+
+		public static readonly string MESSAGES_LAST_UPDATED_PREF = "MESSAGES_LAST_UPDATED_PREF";
+
+		public static readonly string SSI_DATA_HAS_NEVER_BEEN_CALLED = "SSI_DATA_HAS_NEVER_BEEN_CALLED";
+
+		public static readonly string SSI_DATA_LAST_UPDATED_PREF = "SSI_DATA_LAST_UPDATED_PREF";
+
+		public static readonly string SSI_DATA_CONFIRMED_CASES_TODAY_PREF = "SSI_DATA_CONFIRMED_CASES_TODAY_PREF";
+
+		public static readonly string SSI_DATA_CONFIRMED_CASES_TOTAL_PREF = "SSI_DATA_CONFIRMED_CASES_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_DEATHS_TODAY_PREF = "SSI_DATA_DEATHS_TODAY_PREF";
+
+		public static readonly string SSI_DATA_DEATHS_TOTAL_PREF = "SSI_DATA_DEATHS_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_TESTS_CONDUCTED_TODAY_PREF = "SSI_DATA_TESTS_CONDUCTED_TODAY_PREF";
+
+		public static readonly string SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF = "SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF";
+
+		public static readonly string SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF = "SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_ENTRY_DATE_PREF = "SSI_DATA_VACCINATED_ENTRY_DATE_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_FIRST_PREF = "SSI_DATA_VACCINATED_FIRST_PREF";
+
+		public static readonly string SSI_DATA_VACCINATED_SECOND_PREF = "SSI_DATA_VACCINATED_SECOND_PREF";
+
+		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF";
+
+		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF";
+
+		public static readonly string APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF = "APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF";
+
+		public static readonly string APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF = "APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF";
+
+		public static readonly string IS_SCROLL_DOWN_SHOWN_PREF = "SCROLL_DOWN_SHOWN_PREF";
+
+		public static readonly string IS_ONBOARDING_COMPLETED_PREF = "isOnboardingCompleted";
+
+		public static readonly string IS_ONBOARDING_COUNTRIES_COMPLETED_PREF = "isOnboardingCountriesCompleted";
+
+		public static readonly string USE_MOBILE_DATA_PREF = "USE_MOBILE_DATA_PREF";
+
+		public static readonly string LAST_PULL_KEYS_SUCCEEDED_DATE_TIME = "LAST_PULL_KEYS_SUCCEEDED_DATE_TIME";
+
+		public static readonly string LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED = "LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED";
+
+		public static readonly string LAST_PULLED_BATCH_NUMBER_SUBMITTED = "LAST_PULLED_BATCH_NUMBER_SUBMITTED";
+
+		public static readonly string LAST_PULLED_BATCH_TYPE = "LAST_PULLED_BATCH_TYPE";
+
+		public static readonly string APP_LANGUAGE = "APP_LANGUAGE";
+
+		public static readonly string DEV_TOOLS_PULL_KEYS_HISTORY = "DEV_TOOLS_PULL_KEYS_HISTORY";
+
+		public static readonly string DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD = "DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD";
+
+		public static readonly string TERMS_NOTIFICATION_WAS_SENT = "TERMS_NOTIFICATION_WAS_SENT";
+
+		public static readonly string LAST_PERMISSIONS_NOTIFICATION_DATE_TIME = "LAST_PERMISSIONS_NOTIFICATION_DATE_TIME";
+
+		public static readonly string EXPOSURE_TIME_THRESHOLD = "EXPOSURE_TIME_THRESHOLD";
+
+		public static readonly string LOW_ATTENUATION_DURATION_MULTIPLIER = "LOW_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string MIDDLE_ATTENUATION_DURATION_MULTIPLIER = "MIDDLE_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string HIGH_ATTENUATION_DURATION_MULTIPLIER = "HIGH_ATTENUATION_DURATION_MULTIPLIER";
+
+		public static readonly string CORRELATION_ID = "CORRELATION_ID";
+
+		public static readonly string LAST_NTP_UTC_DATE_TIME = "LAST_NTP_DATE_TIME";
+
+		public static readonly string FETCHING_ACROSS_DATES_204_FIRST_BATCH = "FETCHING_ACROSS_DATES_204_FIRST_BATCH";
+
+		[Obsolete]
+		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
+
+		[Obsolete]
+		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF";
+
+		[Obsolete]
+		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF";
+
+		[Obsolete]
+		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF";
+
+		[Obsolete]
+		public static readonly string CURRENT_DOWNLOAD_DAY_BATCH_PREF = "CURRENT_DOWNLOAD_DAY_BATCH_PREF";
+	}
 }
 namespace NDB.Covid19.PersistedData.SQLite
 {
@@ -2921,9 +4569,9 @@ namespace NDB.Covid19.PersistedData.SQLite
 	}
 	public class LoggingSQLiteManager : ILoggingManager
 	{
-		private readonly SQLiteAsyncConnection _database;
-
 		private static readonly SemaphoreSlim _syncLock = new SemaphoreSlim(1, 1);
+
+		private readonly SQLiteAsyncConnection _database;
 
 		public LoggingSQLiteManager()
 		{
@@ -3004,9 +4652,9 @@ namespace NDB.Covid19.PersistedData.SQLite
 	}
 	public class MessagesManager : IMessagesManager
 	{
-		private readonly SQLiteAsyncConnection _database;
-
 		private static readonly SemaphoreSlim _syncLock = new SemaphoreSlim(1, 1);
+
+		private readonly SQLiteAsyncConnection _database;
 
 		public MessagesManager()
 		{
@@ -3137,9 +4785,6 @@ namespace NDB.Covid19.PersistedData.SecureStorage
 
 		public static readonly string LAST_SUMMARY_KEY = "LAST_SUMMARY_KEY";
 
-		[Obsolete]
-		public static readonly string LAST_MEDIUM_RISK_ALERT_UTC_KEY = "LAST_MEDIUM_RISK_ALERT_UTC_KEY";
-
 		public static IEnumerable<string> GetAllKeysForCleaningDevice()
 		{
 			return from field in typeof(SecureStorageKeys).GetFields()
@@ -3148,20 +4793,72 @@ namespace NDB.Covid19.PersistedData.SecureStorage
 				select field.ToString();
 		}
 	}
+	public class SecureStorageService : ISecureStorageService
+	{
+		private Plugin.SecureStorage.Abstractions.ISecureStorage _secureStorage;
+
+		public Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage
+		{
+			get
+			{
+				if (_secureStorage == null)
+				{
+					_secureStorage = CrossSecureStorage.Current;
+				}
+				return _secureStorage;
+			}
+		}
+
+		public bool SaveValue(string key, string value)
+		{
+			return SecureStorage.SetValue(key, value);
+		}
+
+		public string GetValue(string key)
+		{
+			try
+			{
+				return SecureStorage.GetValue(key);
+			}
+			catch (Exception)
+			{
+				SecureStorage.DeleteKey(key);
+				return null;
+			}
+		}
+
+		public bool KeyExists(string key)
+		{
+			return SecureStorage.HasKey(key);
+		}
+
+		public void Delete(string key)
+		{
+			if (KeyExists(key))
+			{
+				SecureStorage.DeleteKey(key);
+			}
+		}
+
+		public void SetSecureStorageInstance(Plugin.SecureStorage.Abstractions.ISecureStorage instance)
+		{
+			_secureStorage = instance;
+		}
+	}
 }
 namespace NDB.Covid19.OAuth2
 {
 	public class AuthenticationManager
 	{
+		public static JsonSerializer JsonSerializer = new JsonSerializer();
+
 		public EventHandler<AuthenticatorCompletedEventArgs> _completedHandler;
 
 		public EventHandler<AuthenticatorErrorEventArgs> _errorHandler;
 
-		public static JsonSerializer JsonSerializer = new JsonSerializer();
-
 		public void Setup(EventHandler<AuthenticatorCompletedEventArgs> completedHandler, EventHandler<AuthenticatorErrorEventArgs> errorHandler)
 		{
-			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(OAuthConf.OAUTH2_CLIENT_ID, null, OAuthConf.OAUTH2_SCOPE, new Uri(OAuthConf.OAUTH2_AUTHORISE_URL), new Uri(OAuthConf.OAUTH2_REDIRECT_URL), new Uri(OAuthConf.OAUTH2_ACCESSTOKEN_URL), null, ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform.ToString().Equals("iOS"));
+			AuthenticationState.Authenticator = new CustomOAuth2Authenticator(OAuthConf.OAUTH2_CLIENT_ID, null, OAuthConf.OAUTH2_SCOPE, new Uri(OAuthConf.OAUTH2_AUTHORISE_URL), new Uri(OAuthConf.OAUTH2_REDIRECT_URL), new Uri(OAuthConf.OAUTH2_ACCESS_TOKEN_URL), null, ServiceLocator.Current.GetInstance<IDeviceInfo>().Platform.ToString().Equals("iOS"));
 			AuthenticationState.Authenticator.ClearCookiesBeforeLogin = true;
 			AuthenticationState.Authenticator.ShowErrors = false;
 			AuthenticationState.Authenticator.AllowCancel = true;
@@ -3210,11 +4907,11 @@ namespace NDB.Covid19.OAuth2
 	}
 	public class CustomOAuth2Authenticator : OAuth2Authenticator
 	{
-		private Uri _accessTokenUrl;
-
-		private string _redirectUrl;
+		private readonly Uri _accessTokenUrl;
 
 		private string _codeVerifier;
+
+		private string _redirectUrl;
 
 		public CustomOAuth2Authenticator(string clientId, string scope, Uri authorizeUrl, Uri redirectUrl, GetUsernameAsyncFunc getUsernameAsync = null, bool isUsingNativeUI = false)
 			: base(clientId, scope, authorizeUrl, redirectUrl, getUsernameAsync, isUsingNativeUI)
@@ -3316,1928 +5013,21 @@ namespace NDB.Covid19.OAuth2
 		}
 	}
 }
-namespace NDB.Covid19.ViewModels
-{
-	public class ConsentViewModel
-	{
-		public class ConsentSectionTexts
-		{
-			public string Title
-			{
-				get;
-				private set;
-			}
-
-			public string Paragraph
-			{
-				get;
-				private set;
-			}
-
-			public string ParagraphAccessibilityText
-			{
-				get;
-				private set;
-			}
-
-			public ConsentSectionTexts(string title, string paragraph, string paragraphAccessibilityText)
-			{
-				Title = title;
-				Paragraph = paragraph;
-				ParagraphAccessibilityText = paragraphAccessibilityText;
-			}
-		}
-
-		public bool ConsentIsGiven;
-
-		public static string WELCOME_PAGE_CONSENT_TITLE => "WELCOME_PAGE_FIVE_TITLE".Translate();
-
-		public static string CONSENT_ONE_TITLE => "CONSENT_ONE_TITLE".Translate();
-
-		public static string CONSENT_ONE_PARAGRAPH => "CONSENT_ONE_PARAGRAPH".Translate();
-
-		public static string CONSENT_TWO_TITLE => "CONSENT_TWO_TITLE".Translate();
-
-		public static string CONSENT_TWO_PARAGRAPH => "CONSENT_TWO_PARAGRAPH".Translate();
-
-		public static string CONSENT_THREE_TITLE => "CONSENT_THREE_TITLE".Translate();
-
-		public static string CONSENT_THREE_PARAGRAPH => "CONSENT_THREE_PARAGRAPH".Translate();
-
-		public static string CONSENT_FOUR_TITLE => "CONSENT_FOUR_TITLE".Translate();
-
-		public static string CONSENT_FOUR_PARAGRAPH => "CONSENT_FOUR_PARAGRAPH".Translate();
-
-		public static string CONSENT_FIVE_TITLE => "CONSENT_FIVE_TITLE".Translate();
-
-		public static string CONSENT_FIVE_PARAGRAPH => "CONSENT_FIVE_PARAGRAPH".Translate();
-
-		public static string CONSENT_SIX_TITLE => "CONSENT_SIX_TITLE".Translate();
-
-		public static string CONSENT_SIX_PARAGRAPH => "CONSENT_SIX_PARAGRAPH".Translate();
-
-		public static string CONSENT_SEVEN_TITLE => "CONSENT_SEVEN_TITLE".Translate();
-
-		public static string CONSENT_SEVEN_PARAGRAPH => "CONSENT_SEVEN_PARAGRAPH".Translate();
-
-		public static string CONSENT_SEVEN_BUTTON_TEXT => "CONSENT_SEVEN_BUTTON_TEXT".Translate();
-
-		public static string CONSENT_SEVEN_BUTTON_URL => "CONSENT_SEVEN_BUTTON_URL".Translate();
-
-		public static string CONSENT_EIGHT_TITLE => "CONSENT_EIGHT_TITLE".Translate();
-
-		public static string CONSENT_EIGHT_PARAGRAPH => "CONSENT_EIGHT_PARAGRAPH".Translate();
-
-		public static string CONSENT_NINE_TITLE => "CONSENT_NINE_TITLE".Translate();
-
-		public static string CONSENT_NINE_PARAGRAPH => "CONSENT_NINE_PARAGRAPH".Translate();
-
-		public static string CONSENT_REMOVE_TITLE => "CONSENT_REMOVE_TITLE".Translate();
-
-		public static string CONSENT_REMOVE_MESSAGE => "CONSENT_REMOVE_MESSAGE".Translate();
-
-		public static string CONSENT_OK_BUTTON_TEXT => "CONSENT_OK_BUTTON_TEXT".Translate();
-
-		public static string CONSENT_NO_BUTTON_TEXT => "CONSENT_NO_BUTTON_TEXT".Translate();
-
-		public static string GIVE_CONSENT_TEXT => "CONSENT_GIVE_CONSENT".Translate();
-
-		public static string WITHDRAW_CONSENT_BUTTON_TEXT => "CONSENT_WITHDRAW_BUTTON_TEXT".Translate();
-
-		public static string WITHDRAW_CONSENT_SUCCESS_TITLE => "CONSENT_WITHDRAW_SUCCES_TITLE".Translate();
-
-		public static string WITHDRAW_CONSENT_SUCCESS_TEXT => "CONSENT_WITHDRAW_SUCCES_BODY".Translate();
-
-		public static string SWITCH_ACCESSIBILITY_CONSENT_SWITCH_DESCRIPTOR => "WELCOME_PAGE_FIVE_ACCESSIBILITY_CONSENT_SWITCH".Translate();
-
-		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_GIVEN".Translate();
-
-		public static string SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN => "WELCOME_PAGE_FIVE_SWITCH_ACCESSIBILITY_ANNOUNCEMENT_CONSENT_NOT_GIVEN".Translate();
-
-		public static string CONSENT_THREE_PARAGRAPH_ACCESSIBILITY => "CONSENT_THREE_PARAGRAPH_ACCESSIBILITY".Translate();
-
-		public static string CONSENT_REQUIRED => "CONSENT_REQUIRED".Translate();
-
-		public static void OpenPrivacyPolicyLink()
-		{
-			try
-			{
-				ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(CONSENT_SEVEN_BUTTON_URL);
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "Failed to open Privacy policy");
-			}
-		}
-
-		public List<ConsentSectionTexts> GetConsentSectionsTexts()
-		{
-			return new List<ConsentSectionTexts>
-			{
-				new ConsentSectionTexts(CONSENT_ONE_TITLE, CONSENT_ONE_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_TWO_TITLE, CONSENT_TWO_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_THREE_TITLE, CONSENT_THREE_PARAGRAPH, CONSENT_THREE_PARAGRAPH_ACCESSIBILITY),
-				new ConsentSectionTexts(CONSENT_FOUR_TITLE, CONSENT_FOUR_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_FIVE_TITLE, CONSENT_FIVE_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_SIX_TITLE, CONSENT_SIX_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_SEVEN_TITLE, CONSENT_SEVEN_PARAGRAPH, CONSENT_SEVEN_PARAGRAPH.Replace("|", "")),
-				new ConsentSectionTexts(CONSENT_EIGHT_TITLE, CONSENT_EIGHT_PARAGRAPH, null),
-				new ConsentSectionTexts(CONSENT_NINE_TITLE, CONSENT_NINE_PARAGRAPH, null)
-			};
-		}
-	}
-	public class CountryDetailsViewModel
-	{
-		public string Name
-		{
-			get;
-			set;
-		}
-
-		public string Code
-		{
-			get;
-			set;
-		}
-
-		public bool Checked
-		{
-			get;
-			set;
-		}
-	}
-	public class DialogViewModel
-	{
-		public string Title
-		{
-			get;
-			set;
-		}
-
-		public string Body
-		{
-			get;
-			set;
-		}
-
-		public string OkBtnTxt
-		{
-			get;
-			set;
-		}
-
-		public string CancelbtnTxt
-		{
-			get;
-			set;
-		}
-	}
-	public class DiseaseRateViewModel
-	{
-		private static readonly DiseaseRateOfTheDayWebService WebService;
-
-		public static string DISEASE_RATE_HEADER => "DISEASE_RATE_HEADER".Translate();
-
-		public static string DISEASE_RATE_SUBHEADER => "DISEASE_RATE_SUBHEADER".Translate();
-
-		public static string KEY_FEATURE_ONE_UPDATE_NEW => "KEY_FEATURE_ONE_UPDATE_NEW".Translate();
-
-		public static string KEY_FEATURE_ONE_UPDATE_ALL => "KEY_FEATURE_ONE_UPDATE_ALL".Translate();
-
-		public static string KEY_FEATURE_ONE_LABEL => "KEY_FEATURE_ONE_LABEL".Translate();
-
-		public static string KEY_FEATURE_TWO_UPDATE_NEW => "KEY_FEATURE_TWO_UPDATE_NEW".Translate();
-
-		public static string KEY_FEATURE_TWO_UPDATE_ALL => "KEY_FEATURE_TWO_UPDATE_ALL".Translate();
-
-		public static string KEY_FEATURE_TWO_LABEL => "KEY_FEATURE_TWO_LABEL".Translate();
-
-		public static string KEY_FEATURE_THREE_UPDATE_NEW => "KEY_FEATURE_THREE_UPDATE_NEW".Translate();
-
-		public static string KEY_FEATURE_THREE_UPDATE_ALL => "KEY_FEATURE_THREE_UPDATE_ALL".Translate();
-
-		public static string KEY_FEATURE_THREE_LABEL => "KEY_FEATURE_THREE_LABEL".Translate();
-
-		public static string KEY_FEATURE_FOUR_UPDATE_NEW => "KEY_FEATURE_FOUR_UPDATE_NEW".Translate();
-
-		public static string KEY_FEATURE_FOUR_LABEL => "KEY_FEATURE_FOUR_LABEL".Translate();
-
-		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL => "KEY_FEATURE_FOUR_FIRST_VACCINATION_LABEL".Translate();
-
-		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL => "KEY_FEATURE_FOUR_SECOND_VACCINATION_LABEL".Translate();
-
-		public static string KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER".Translate();
-
-		public static string KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER => "KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER".Translate();
-
-		public static string KEY_FEATURE_FIVE_UPDATE_NEW => "KEY_FEATURE_FIVE_UPDATE_NEW".Translate();
-
-		public static string KEY_FEATURE_FIVE_UPDATE_ALL => "KEY_FEATURE_FIVE_UPDATE_ALL".Translate();
-
-		public static string KEY_FEATURE_FIVE_LABEL => "KEY_FEATURE_FIVE_LABEL".Translate();
-
-		public static string KEY_FEATURE_SIX_UPDATE_ALL => "KEY_FEATURE_SIX_UPDATE_ALL".Translate();
-
-		public static string KEY_FEATURE_SIX_LABEL => "KEY_FEATURE_SIX_LABEL".Translate();
-
-		public static string DISEASE_RATE_SUBSUBHEADER => "DISEASE_RATE_SUBSUBHEADER".Translate();
-
-		public static string SMITTESPORING_DISEASE_RATE_HEADER => "SMITTESPORING_DISEASE_RATE_HEADER".Translate();
-
-		public static string SMITTESPORING_DISEASE_RATE_UPDATE => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
-
-		public static DateTime LastUpdateSSINumbersDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
-
-		public static DateTime LastUpdateDownloadsNumbersDateTime => LocalPreferencesHelper.APPDownloadNumberLastUpdateDateTime.ToLocalTime();
-
-		public static string LastUpdateStringSubHeader
-		{
-			get
-			{
-				DateTime lastUpdateSSINumbersDateTime = LastUpdateSSINumbersDateTime;
-				DateTime minValue = DateTime.MinValue;
-				if (!(lastUpdateSSINumbersDateTime != minValue.ToLocalTime()))
-				{
-					return "";
-				}
-				return string.Format(DISEASE_RATE_SUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateSSINumbersDateTime, "t") ?? "");
-			}
-		}
-
-		public static string LastUpdateStringSubSubHeader
-		{
-			get
-			{
-				DateTime lastUpdateDownloadsNumbersDateTime = LastUpdateDownloadsNumbersDateTime;
-				DateTime minValue = DateTime.MinValue;
-				if (!(lastUpdateDownloadsNumbersDateTime != minValue.ToLocalTime()))
-				{
-					return "";
-				}
-				return string.Format(DISEASE_RATE_SUBSUBHEADER, DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateDownloadsNumbersDateTime, "t") ?? "");
-			}
-		}
-
-		public static string ConfirmedCasesToday => string.Format(KEY_FEATURE_ONE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesToday:N0}");
-
-		public static string ConfirmedCasesTotal => string.Format(KEY_FEATURE_ONE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIConfirmedCasesTotal:N0}");
-
-		public static string DeathsToday => string.Format(KEY_FEATURE_TWO_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsToday:N0}");
-
-		public static string DeathsTotal => string.Format(KEY_FEATURE_TWO_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIDeathsTotal:N0}");
-
-		public static string TestsConductedToday => string.Format(KEY_FEATURE_THREE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedToday:N0}");
-
-		public static string TestsConductedTotal => string.Format(KEY_FEATURE_THREE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSITestsConductedTotal:N0}");
-
-		public static string VaccinatedFirst => string.Format(KEY_FEATURE_FOUR_FIRST_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedFirst:N1}");
-
-		public static string VaccinatedSecond => string.Format(KEY_FEATURE_FOUR_SECOND_VACCINATION_NUMBER, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIVaccinatedSecond:N1}");
-
-		public static string NumberOfPositiveTestsResultsLast7Days => string.Format(KEY_FEATURE_FIVE_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsLast7Days:N0}");
-
-		public static string NumberOfPositiveTestsResultsTotal => string.Format(KEY_FEATURE_FIVE_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPNumberOfPositiveTestsResultsTotal:N0}");
-
-		public static string SmittestopDownloadsTotal => string.Format(KEY_FEATURE_SIX_UPDATE_ALL, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.APPSmittestopDownloadsTotal:N0}");
-
-		[Obsolete]
-		public static string PatientsAdmittedToday => string.Format(KEY_FEATURE_FOUR_UPDATE_NEW, $"{LocalPreferencesHelper.DiseaseRateOfTheDay.SSIPatientsAdmittedToday:N0}");
-
-		static DiseaseRateViewModel()
-		{
-			WebService = new DiseaseRateOfTheDayWebService();
-		}
-
-		public static async Task<bool> UpdateSSIDataAsync()
-		{
-			try
-			{
-				DiseaseRateOfTheDayDTO diseaseRateOfTheDayDTO = await (WebService ?? new DiseaseRateOfTheDayWebService()).GetSSIData();
-				if (diseaseRateOfTheDayDTO?.SSIStatistics == null || diseaseRateOfTheDayDTO.AppStatistics == null || diseaseRateOfTheDayDTO.SSIStatisticsVaccination == null)
-				{
-					return false;
-				}
-				LocalPreferencesHelper.DiseaseRateOfTheDay.UpdateAll(diseaseRateOfTheDayDTO);
-				MessagingCenter.Send(new object(), MessagingCenterKeys.KEY_UPDATE_DISEASE_RATE);
-				return true;
-			}
-			catch (NullReferenceException e)
-			{
-				LogUtils.LogException(LogSeverity.WARNING, e, "DiseaseRateViewModel.UpdateSSIDataAsync: Failed to fetch the data.");
-			}
-			catch (Exception e2)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e2, "DiseaseRateViewModel.UpdateSSIDataAsync: Unidentified exception.");
-			}
-			return false;
-		}
-	}
-	public class ENDeveloperToolsViewModel
-	{
-		private string _logPrefix = "ENDeveloperToolsViewModel: ";
-
-		private static bool _longRetentionTime = true;
-
-		private DateTime _messageDateTime = DateTime.Now;
-
-		public static string PushKeysInfo = "";
-
-		public Action DevToolUpdateOutput;
-
-		public string DevToolsOutput
-		{
-			get;
-			set;
-		}
-
-		private static IDeveloperToolsService _devTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
-
-		private IClipboard _clipboard => ServiceLocator.Current.GetInstance<IClipboard>();
-
-		public void PullWithDelay(Func<Task<bool>> action)
-		{
-			Task.Run(async delegate
-			{
-				LocalPreferencesHelper.TermsNotificationWasShown = false;
-				await Task.Delay(10000);
-				if (action != null)
-				{
-					await action();
-				}
-			});
-		}
-
-		internal static void UpdatePushKeysInfo(ApiResponse response, SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings)
-		{
-			PushKeysInfo = string.Format("StatusCode: {0}, Time (UTC): {1}\n\n", response.StatusCode, DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss"));
-			ParseKeys(selfDiagnosisSubmissionDTO, settings, ENOperation.PUSH);
-			PutInPushKeyInfoInSharedPrefs();
-		}
-
-		private static void ParseKeys(SelfDiagnosisSubmissionDTO selfDiagnosisSubmissionDTO, JsonSerializerSettings settings, ENOperation varAssignCheck)
-		{
-			JObject jObject = JObject.Parse(JsonConvert.SerializeObject(selfDiagnosisSubmissionDTO, settings));
-			JArray jArray = (JArray)jObject["keys"];
-			JArray arg = (JArray)jObject["visitedCountries"];
-			JArray arg2 = (JArray)jObject["regions"];
-			PushKeysInfo += $"visitedCountries: {arg}\n";
-			PushKeysInfo += $"regions: {arg2}\n";
-			jArray?.ForEach(delegate(JToken key)
-			{
-				string text = "Key: " + EncodingUtils.ConvertByteArrayToString((byte[]?)key["key"]) + " ,\n" + string.Format("rollingStart: {0},\n", key["rollingStart"]) + string.Format("rollingDuration: {0},\n", key["rollingDuration"]) + string.Format("transmissionRiskLevel: {0},\n", key["transmissionRiskLevel"]) + string.Format("daysSinceOnsetOfSymptoms: {0}\n\n", key["daysSinceOnsetOfSymptoms"]);
-				PushKeysInfo += text;
-			});
-		}
-
-		private static void PutInPushKeyInfoInSharedPrefs()
-		{
-			ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastKeyUploadInfo = PushKeysInfo;
-		}
-
-		public async Task<string> GetPushKeyInfoFromSharedPrefs()
-		{
-			string res = "Empty";
-			PushKeysInfo = _devTools.LastKeyUploadInfo;
-			if (PushKeysInfo != "")
-			{
-				res = PushKeysInfo;
-			}
-			await _clipboard.SetTextAsync(res);
-			return res;
-		}
-
-		public async Task<string> GetFormattedPreferences()
-		{
-			int migrationCount = LocalPreferencesHelper.MigrationCount;
-			int lastPullKeysBatchNumberNotSubmitted = LocalPreferencesHelper.LastPullKeysBatchNumberNotSubmitted;
-			int lastPullKeysBatchNumberSuccessfullySubmitted = LocalPreferencesHelper.LastPullKeysBatchNumberSuccessfullySubmitted;
-			BatchType lastPulledBatchType = LocalPreferencesHelper.LastPulledBatchType;
-			bool isOnboardingCompleted = LocalPreferencesHelper.IsOnboardingCompleted;
-			bool isOnboardingCountriesCompleted = LocalPreferencesHelper.IsOnboardingCountriesCompleted;
-			bool isDownloadWithMobileDataEnabled = LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled();
-			DateTime updatedDateTime = LocalPreferencesHelper.GetUpdatedDateTime();
-			DateTime lastPullKeysSucceededDateTime = LocalPreferencesHelper.GetLastPullKeysSucceededDateTime();
-			string appLanguage = LocalPreferencesHelper.GetAppLanguage();
-			string formattedString = $"EXPOSURE_TIME_THRESHOLD: {LocalPreferencesHelper.ExposureTimeThreshold}\n" + $"LOW_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.LowAttenuationDurationMultiplier}\n" + $"MIDDLE_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.MiddleAttenuationDurationMultiplier}\n" + $"HIGH_ATTENUATION_DURATION_MULTIPLIER: {LocalPreferencesHelper.HighAttenuationDurationMultiplier}\n\n" + $"MIGRATION_COUNT: {migrationCount}\n " + $"LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED: {lastPullKeysBatchNumberNotSubmitted}\n " + $"LAST_PULLED_BATCH_NUMBER_SUBMITTED: {lastPullKeysBatchNumberSuccessfullySubmitted}\n " + $"LAST_PULLED_BATCH_TYPE: {lastPulledBatchType}\n " + $"IS_ONBOARDING_COMPLETED_PREF: {isOnboardingCompleted}\n " + $"IS_ONBOARDING_COUNTRIES_COMPLETED_PREF: {isOnboardingCountriesCompleted}\n" + $"USE_MOBILE_DATA_PREF: {isDownloadWithMobileDataEnabled}\n" + $"MESSAGES_LAST_UPDATED_PREF: {updatedDateTime}\n" + $"LAST_PULL_KEYS_SUCCEEDED_DATE_TIME: {lastPullKeysSucceededDateTime}\n" + $"TERMS_NOTIFICATION_WAS_SENT: {LocalPreferencesHelper.TermsNotificationWasShown}\n" + "APP_LANGUAGE: " + appLanguage + "\n\n";
-			await _clipboard.SetTextAsync(formattedString);
-			return formattedString;
-		}
-
-		public static string GetLastPullResult()
-		{
-			return _devTools.LastPullHistory;
-		}
-
-		public string LastUsedExposureConfigurationAsync()
-		{
-			string lastUsedConfiguration = _devTools.LastUsedConfiguration;
-			_clipboard.SetTextAsync(lastUsedConfiguration);
-			return lastUsedConfiguration;
-		}
-
-		public async Task<ApiResponse> FakeGateway(string region)
-		{
-			ApiResponse result = default(ApiResponse);
-			object obj;
-			int num;
-			try
-			{
-				if (string.IsNullOrEmpty(region))
-				{
-					region = "dk";
-				}
-				result = await FakeGatewayUtils.PostKeysToFakeGateway(region);
-				return result;
-			}
-			catch (Exception ex)
-			{
-				obj = ex;
-				num = 1;
-			}
-			if (num != 1)
-			{
-				return result;
-			}
-			Exception ex2 = (Exception)obj;
-			LogUtils.LogException(LogSeverity.ERROR, ex2, _logPrefix + "Fake gateway upload failed");
-			await _clipboard.SetTextAsync($"Push keys failed:\n{ex2}");
-			return null;
-		}
-
-		public async Task<bool> PullKeysFromServer()
-		{
-			DevToolsOutput = GetLastPullResult();
-			bool processedAnyFiles = false;
-			try
-			{
-				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
-			}
-			catch (Exception arg)
-			{
-				string error = $"Pull keys failed:\n{arg}";
-				await _clipboard.SetTextAsync(error);
-				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().AddToPullHistoryRecord(error);
-			}
-			return processedAnyFiles;
-		}
-
-		public async Task<bool> PullKeysFromServerAndGetExposureInfo()
-		{
-			DevToolsOutput = GetLastPullResult();
-			bool processedAnyFiles = false;
-			_devTools.ShouldSaveExposureInfo = true;
-			try
-			{
-				await Xamarin.ExposureNotifications.ExposureNotification.UpdateKeysFromServer();
-			}
-			catch (Exception arg)
-			{
-				string error = $"Pull keys failed:\n{arg}";
-				await _clipboard.SetTextAsync(error);
-				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().AddToPullHistoryRecord(error);
-			}
-			return processedAnyFiles;
-		}
-
-		public string GetExposureInfosFromLastPull()
-		{
-			string persistedExposureInfo = _devTools.PersistedExposureInfo;
-			string text = "";
-			if (persistedExposureInfo == "")
-			{
-				text = "We have not saved any ExposureInfos yet";
-			}
-			else
-			{
-				try
-				{
-					foreach (ExposureInfo item in ExposureInfoJsonHelper.ExposureInfosFromJsonCompatibleString(persistedExposureInfo))
-					{
-						string str = ((text == "") ? "" : "\n");
-						text += str;
-						text += "[ExposureInfo with ";
-						text += $"AttenuationValue: {item.AttenuationValue},";
-						text += $"Duration: {item.Duration},";
-						text += $"Timestamp: {item.Timestamp},";
-						text += $"TotalRiskScore: {item.TotalRiskScore},";
-						text += $"TransmissionRiskLevel: {item.TransmissionRiskLevel}";
-						text += "]";
-					}
-				}
-				catch (Exception e)
-				{
-					LogUtils.LogException(LogSeverity.WARNING, e, _logPrefix + "GetExposureInfosFromLastPull");
-					text = "Failed at deserializing the saved ExposureInfos";
-				}
-			}
-			string text2 = "These are the ExposureInfos we got the last time \"Pull keys and get exposure info\" was clicked:\n" + text;
-			_clipboard.SetTextAsync(text2);
-			return text2;
-		}
-
-		public async Task<string> FetchExposureConfigurationAsync()
-		{
-			Configuration configuration = await new ExposureNotificationHandler().GetConfigurationAsync();
-			string res = (DevToolsOutput = $" AttenuationWeight: {configuration.AttenuationWeight}, Values: {EnConfArrayString(configuration.AttenuationScores)} \n" + $" DaysSinceLastExposureWeight: {configuration.DaysSinceLastExposureWeight}, Values: {EnConfArrayString(configuration.DaysSinceLastExposureScores)} \n" + $" DurationWeight: {configuration.DurationWeight}, Values: {EnConfArrayString(configuration.DurationScores)} \n" + $" TransmissionWeight: {configuration.TransmissionWeight}, Values: {EnConfArrayString(configuration.TransmissionRiskScores)} \n" + $" MinimumRiskScore: {configuration.MinimumRiskScore}" + $" DurationAtAttenuationThresholds: [{configuration.DurationAtAttenuationThresholds[0]},{configuration.DurationAtAttenuationThresholds[1]}]");
-			DevToolUpdateOutput?.Invoke();
-			await _clipboard.SetTextAsync(res);
-			return res;
-		}
-
-		private string EnConfArrayString(int[] values)
-		{
-			string text = "";
-			for (int i = 0; i < 8; i++)
-			{
-				text = ((i == 7) ? (text + values[i]) : (text + values[i] + ", "));
-			}
-			return text;
-		}
-
-		public string ToggleMessageRetentionTime()
-		{
-			if (_longRetentionTime)
-			{
-				Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = Conf.MESSAGE_RETENTION_TIME_IN_MINUTES_SHORT;
-				_longRetentionTime = false;
-			}
-			else
-			{
-				Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = Conf.MESSAGE_RETENTION_TIME_IN_MINUTES_LONG;
-				_longRetentionTime = true;
-			}
-			return $"Message retention time minutes: \n{Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES}";
-		}
-
-		public string IncementExposureDate()
-		{
-			_messageDateTime = _messageDateTime.AddDays(1.0);
-			return "Incremented date for Send Message function: \n" + _messageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
-		}
-
-		public string DecrementExposureDate()
-		{
-			_messageDateTime = _messageDateTime.AddDays(-1.0);
-			return "Decremented date for Send Message function: \n" + _messageDateTime.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss");
-		}
-
-		public string PrintLastSymptomOnsetDate()
-		{
-			PersonalDataModel personalData = AuthenticationState.PersonalData;
-			return "Last Symptom Onset Date: " + QuestionnaireViewModel.DateLabel + ", " + $"Selection: {QuestionnaireViewModel.Selection}, " + "MiBaDate:" + personalData?.Covid19_smitte_start + ", " + $"Date used for risk calc:{personalData?.FinalMiBaDate}";
-		}
-
-		public string PrintLastPulledKeysAndTimestamp()
-		{
-			string text = _devTools.LastProvidedFilesPref;
-			if (text == "")
-			{
-				text = "We have not saved any downloaded keys yet";
-			}
-			string text2 = "These are the last TEK batch files provided to the EN API:\n" + text;
-			_clipboard.SetTextAsync(text2);
-			return text2;
-		}
-
-		public async Task SimulateExposureMessage(int notificationTriggerInSeconds = 0)
-		{
-			await Task.Delay(notificationTriggerInSeconds * 1000);
-			await MessageUtils.CreateMessage(this, _messageDateTime);
-		}
-
-		public async Task SimulateExposureMessageAfter10Sec()
-		{
-			await SimulateExposureMessage(10);
-		}
-
-		public string GetLastExposureSummary()
-		{
-			string text = ((!ServiceLocator.Current.GetInstance<SecureStorageService>().KeyExists(SecureStorageKeys.LAST_SUMMARY_KEY)) ? "No summary yet" : ("Last exposure summary: " + ServiceLocator.Current.GetInstance<SecureStorageService>().GetValue(SecureStorageKeys.LAST_SUMMARY_KEY)));
-			_clipboard.SetTextAsync(text);
-			return text;
-		}
-
-		public string GetPullHistory()
-		{
-			string allPullHistory = _devTools.AllPullHistory;
-			if (allPullHistory == "")
-			{
-				return "No pull history";
-			}
-			_clipboard.SetTextAsync(allPullHistory);
-			return allPullHistory;
-		}
-	}
-	public static class ErrorViewModel
-	{
-		public static string REGISTER_ERROR_NOMATCH_HEADER => "REGISTER_ERROR_NOMATCH_HEADER".Translate();
-
-		public static string REGISTER_ERROR_NOMATCH_DESCRIPTION => "REGISTER_ERROR_NOMATCH_DESCRIPTION".Translate();
-
-		public static string REGISTER_ERROR_TOOMANYTRIES_HEADER => "REGISTER_ERROR_TOOMANYTRIES_HEADER".Translate();
-
-		public static string REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION => "REGISTER_ERROR_TOOMANYTRIES_DESCRIPTION".Translate();
-
-		public static string REGISTER_ERROR_HEADER => "REGISTER_ERROR_HEADER".Translate();
-
-		public static string REGISTER_ERROR_DESCRIPTION => "REGISTER_ERROR_DESCRIPTION".Translate();
-
-		public static string REGISTER_ERROR_DISMISS => "REGISTER_ERROR_DISMISS".Translate();
-
-		public static string REGISTER_LEAVE_HEADER => "REGISTER_LEAVE_HEADER".Translate();
-
-		public static string REGISTER_LEAVE_DESCRIPTION => "REGISTER_LEAVE_DESCRIPTION".Translate();
-
-		public static string REGISTER_LEAVE_CANCEL => "REGISTER_LEAVE_CANCEL".Translate();
-
-		public static string REGISTER_LEAVE_CONFIRM => "REGISTER_LEAVE_CONFIRM".Translate();
-
-		public static string REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT => "REGISTER_ERROR_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
-
-		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_HEADER".Translate();
-
-		public static string REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION => "REGISTER_ERROR_ACCESSIBILITY_TOOMANYTRIES_DESCRIPTION".Translate();
-
-		public static string REGISTER_ERROR_FETCH_SSI_DATA_HEADER => "REGISTER_ERROR_FETCH_SSI_DATA_HEADER".Translate();
-
-		public static string REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION => "REGISTER_ERROR_FETCH_SSI_DATA_DESCRIPTION".Translate();
-	}
-	public class ForceUpdateViewModel
-	{
-		public static string FORCE_UPDATE_MESSAGE => "FORCE_UPDATE_MESSAGE".Translate();
-
-		public static string FORCE_UPDATE_BUTTON_GOOGLE_ANDROID => "FORCE_UPDATE_BUTTON_GOOGLE_ANDROID".Translate();
-
-		public static string FORCE_UPDATE_BUTTON_HUAWEI_ANDROID => "FORCE_UPDATE_BUTTON_HUAWEI_ANDROID".Translate();
-
-		public static string FORCE_UPDATE_BUTTON_APPSTORE_IOS => "FORCE_UPDATE_BUTTON_APPSTORE_IOS".Translate();
-	}
-	public class InfectionStatusViewModel
-	{
-		public static bool IsScrollDownShown = LocalPreferencesHelper.IsScrollDownShown;
-
-		private DateTime _latestMessageDateTime = DateTime.Today;
-
-		public static string INFECTION_STATUS_PAGE_TITLE => "SMITTESPORING_PAGE_TITLE".Translate();
-
-		public static string INFECTION_STATUS_ACTIVE_TEXT => "SMITTESPORING_ACTIVE_HEADER".Translate();
-
-		public static string INFECTION_STATUS_INACTIVE_TEXT => "SMITTESPORING_INACTIVE_HEADER".Translate();
-
-		public static string INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT => "SMITTESPORING_ACTIVE_DESCRIPTION".Translate();
-
-		public static string SMITTESPORING_INACTIVE_DESCRIPTION => "SMITTESPORING_INACTIVE_DESCRIPTION".Translate();
-
-		public static string INFECTION_STATUS_MESSAGE_HEADER_TEXT => "SMITTESPORING_MESSAGE_HEADER".Translate();
-
-		public static string INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT => "SMITTESPORING_MESSAGE_HEADER_ACCESSIBILITY".Translate();
-
-		public static string INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_MESSAGE_DESCRIPTION".Translate();
-
-		public static string INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT => "SMITTESPORING_NO_NEW_MESSAGE_DESCRIPTION".Translate();
-
-		public static string INFECTION_STATUS_REGISTRATION_HEADER_TEXT => "SMITTESPORING_REGISTER_HEADER".Translate();
-
-		public static string INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT => "SMITTESPORING_REGISTER_DESCRIPTION".Translate();
-
-		public static string SCROLL_DOWN_HEADER_TEXT => "SMITTESPORING_SCROLL".Translate();
-
-		public static string INFECTION_STATUS_MENU_ACCESSIBILITY_TEXT => "MENU_TEXT".Translate();
-
-		public static string INFECTION_STATUS_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY_TEXT => "SMITTESPORING_NEW_MESSAGE_NOTIFICATION_DOT_ACCESSIBILITY".Translate();
-
-		public static string INFECTION_STATUS_START_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_START_BUTTON_ACCESSIBILITY".Translate();
-
-		public static string INFECTION_STATUS_STOP_BUTTON_ACCESSIBILITY_TEXT => "SMITTESPORING_STOP_BUTTON_ACCESSIBILITY".Translate();
-
-		public static string INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT => "SMITTESPORING_DISEASE_RATE_HEADER".Translate();
-
-		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE".Translate();
-
-		public static string INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT => "SMITTESPORING_DISEASE_RATE_UPDATE_ACCESSIBILITY".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_TITLE => "INFECTION_STATUS_SPINNER_DIALOG_TITLE".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_MESSAGE => "INFECTION_STATUS_SPINNER_DIALOG_MESSAGE".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_NO_REMINDER".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_ONE_HOUR".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWO_HOURS".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_FOUR_HOURS".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_EIGHT_HOURS".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS => "INFECTION_STATUS_SPINNER_DIALOG_OPTION_TWELVE_HOURS".Translate();
-
-		public static string INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON => "INFECTION_STATUS_SPINNER_DIALOG_OK_BUTTON".Translate();
-
-		public static DateTime DiseaseRateUpdatedDateTime => LocalPreferencesHelper.SSILastUpdateDateTime.ToLocalTime();
-
-		public static string LastUpdateString
-		{
-			get
-			{
-				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
-				DateTime minValue = DateTime.MinValue;
-				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
-				{
-					return "";
-				}
-				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
-			}
-		}
-
-		public static string LastUpdateAccessibilityString
-		{
-			get
-			{
-				DateTime diseaseRateUpdatedDateTime = DiseaseRateUpdatedDateTime;
-				DateTime minValue = DateTime.MinValue;
-				if (!(diseaseRateUpdatedDateTime != minValue.ToLocalTime()))
-				{
-					return "";
-				}
-				return string.Format(INFECTION_STATUS_DISEASE_RATE_LAST_UPDATED_ACCESSIBILITY_TEXT, DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(DiseaseRateUpdatedDateTime, "t") ?? "");
-			}
-		}
-
-		public bool ShowNewMessageIcon
-		{
-			get;
-			private set;
-		}
-
-		public EventHandler NewMessagesIconVisibilityChanged
-		{
-			get;
-			set;
-		}
-
-		public bool IsAppRestricted
-		{
-			get;
-			set;
-		}
-
-		public string NewMessageSubheaderTxt
-		{
-			get
-			{
-				if (!ShowNewMessageIcon)
-				{
-					return INFECTION_STATUS_NO_NEW_MESSAGE_SUBHEADER_TEXT;
-				}
-				return INFECTION_STATUS_MESSAGE_SUBHEADER_TEXT + " " + DateUtils.GetDateFromDateTime(_latestMessageDateTime, "d. MMMMM");
-			}
-		}
-
-		public string NewMessageAccessibilityText => INFECTION_STATUS_MESSAGE_ACCESSIBILITY_TEXT + ". " + NewMessageSubheaderTxt;
-
-		public string NewRegistrationAccessibilityText => INFECTION_STATUS_REGISTRATION_HEADER_TEXT + ". " + INFECTION_STATUS_REGISTRATION_SUBHEADER_TEXT;
-
-		public string NewDiseaseRateAccessibilityText => INFECTION_STATUS_DISEASE_RATE_HEADER_TEXT + ". " + LastUpdateAccessibilityString;
-
-		public DialogViewModel OffDialogViewModel => new DialogViewModel
-		{
-			Title = "SMITTESPORING_TOGGLE_OFF_HEADER".Translate(),
-			Body = "SMITTESPORING_TOGGLE_OFF_DESCRIPTION".Translate(),
-			OkBtnTxt = "SMITTESPORING_TOGGLE_OFF_CONFIRM".Translate(),
-			CancelbtnTxt = "SMITTESPORING_TOGGLE_OFF_CANCEL".Translate()
-		};
-
-		public DialogViewModel OnDialogViewModel => new DialogViewModel
-		{
-			Title = "SMITTESPORING_TOGGLE_ON_HEADER".Translate(),
-			Body = "SMITTESPORING_TOGGLE_ON_DESCRIPTION".Translate(),
-			OkBtnTxt = "SMITTESPORING_TOGGLE_ON_CONFIRM".Translate(),
-			CancelbtnTxt = "SMITTESPORING_TOGGLE_ON_CANCEL".Translate()
-		};
-
-		public DialogViewModel PermissionViewModel => new DialogViewModel
-		{
-			Title = "SMITTESPORING_EN_PERMISSION_DENIED_HEADER".Translate(),
-			Body = "SMITTESPORING_EN_PERMISSION_DENIED_BODY".Translate(),
-			OkBtnTxt = "SMITTESPORING_EN_PERMISSION_DENIED_OK_BTN".Translate()
-		};
-
-		public DialogViewModel ReportingIllDialogViewModel => new DialogViewModel
-		{
-			Title = "SMITTESPORING_REPORTING_ILL_DIALOG_HEADER".Translate(),
-			Body = "SMITTESPORING_REPORTING_ILL_DIALOG_BODY".Translate(),
-			OkBtnTxt = "SMITTESPORING_REPORTING_ILL_DIALOG_OK_BTN".Translate()
-		};
-
-		public static void RequestSSIUpdate()
-		{
-			if (DiseaseRateUpdatedDateTime.Date != SystemTime.Now().ToLocalTime().Date)
-			{
-				DiseaseRateViewModel.UpdateSSIDataAsync();
-			}
-		}
-
-		public async Task<string> StatusTxt()
-		{
-			return (await IsRunning()) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
-		}
-
-		public async Task<string> StatusTxt(bool isLocationEnabled)
-		{
-			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVE_TEXT : INFECTION_STATUS_INACTIVE_TEXT;
-		}
-
-		public async Task<string> StatusTxtDescription()
-		{
-			return (await IsRunning()) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
-		}
-
-		public async Task<string> StatusTxtDescription(bool isLocationEnabled)
-		{
-			return (await IsRunning() && isLocationEnabled) ? INFECTION_STATUS_ACTIVITY_STATUS_DESCRIPTION_TEXT : SMITTESPORING_INACTIVE_DESCRIPTION;
-		}
-
-		public InfectionStatusViewModel()
-		{
-			SubscribeMessages();
-			Connectivity.ConnectivityChanged += delegate(object sender, ConnectivityChangedEventArgs args)
-			{
-				if (args.NetworkAccess == NetworkAccess.Internet)
-				{
-					RequestSSIUpdate();
-				}
-			};
-		}
-
-		public async Task<bool> IsRunning()
-		{
-			if (IsAppRestricted)
-			{
-				return false;
-			}
-			try
-			{
-				return await Xamarin.ExposureNotifications.ExposureNotification.GetStatusAsync() == Status.Active;
-			}
-			catch (Exception ex)
-			{
-				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "IsRunning"))
-				{
-					throw ex;
-				}
-				return false;
-			}
-		}
-
-		public async Task<bool> IsRunning(bool isLocationEnabled)
-		{
-			return await IsRunning() && isLocationEnabled;
-		}
-
-		public async Task<bool> IsEnabled()
-		{
-			try
-			{
-				return await Xamarin.ExposureNotifications.ExposureNotification.IsEnabledAsync();
-			}
-			catch (Exception ex)
-			{
-				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "IsEnabled"))
-				{
-					throw ex;
-				}
-				return false;
-			}
-		}
-
-		public async Task<bool> StartENService()
-		{
-			if (IsAppRestricted)
-			{
-				return false;
-			}
-			try
-			{
-				await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-			}
-			catch (Exception ex)
-			{
-				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "StartENService"))
-				{
-					throw ex;
-				}
-			}
-			return await IsRunning();
-		}
-
-		public async Task<bool> StopENService()
-		{
-			if (IsAppRestricted)
-			{
-				return false;
-			}
-			try
-			{
-				await Xamarin.ExposureNotifications.ExposureNotification.StopAsync();
-			}
-			catch (Exception ex)
-			{
-				if (!ex.HandleExposureNotificationException("InfectionStatusViewModel", "StopENService"))
-				{
-					throw ex;
-				}
-			}
-			return await IsRunning();
-		}
-
-		public async void CheckIfAppIsRestricted(Action action = null)
-		{
-			_ = 2;
-			try
-			{
-				bool flag = await IsEnabled();
-				if (flag)
-				{
-					flag = await IsRunning();
-				}
-				if (flag)
-				{
-					await Xamarin.ExposureNotifications.ExposureNotification.StartAsync();
-				}
-				IsAppRestricted = false;
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.WARNING, e, "InfectionStatusViewModel:CheckIfAppIsRestricted - Could not start EN Api. Assuming EN api is restricted");
-				IsAppRestricted = true;
-			}
-			action?.Invoke();
-		}
-
-		private async Task NewMessagesFetched()
-		{
-			List<MessageItemViewModel> list = MessageUtils.ToMessageItemViewModelList((await MessageUtils.GetMessages()).OrderByDescending((MessageSQLiteModel message) => message.TimeStamp).ToList());
-			if (list.Any())
-			{
-				_latestMessageDateTime = list[0].TimeStamp;
-			}
-			ShowNewMessageIcon = (await MessageUtils.GetAllUnreadMessages()).Any();
-			NewMessagesIconVisibilityChanged?.Invoke(this, null);
-		}
-
-		public void SubscribeMessages()
-		{
-			MessagingCenter.Subscribe<object>(this, MessagingCenterKeys.KEY_MESSAGE_RECEIVED, async delegate
-			{
-				await NewMessagesFetched();
-			});
-		}
-
-		public async void UpdateNotificationDot()
-		{
-			await NewMessagesFetched();
-		}
-	}
-	public class InformationAndConsentViewModel
-	{
-		private NDB.Covid19.OAuth2.AuthenticationManager _authManager;
-
-		private EventHandler _onSuccess;
-
-		private EventHandler<AuthErrorType> _onError;
-
-		public static string INFORMATION_CONSENT_HEADER_TEXT => "INFOCONSENT_HEADER".Translate();
-
-		public static string INFORMATION_CONSENT_CONTENT_TEXT => "INFOCONSENT_DESCRIPTION".Translate();
-
-		public static string INFORMATION_CONSENT_NEMID_BUTTON_TEXT => "INFOCONSENT_LOGIN".Translate();
-
-		public static string CLOSE_BUTTON_ACCESSIBILITY_LABEL => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
-
-		public static string INFOCONSENT_TITLE => "INFOCONSENT_TITLE".Translate();
-
-		public static string INFOCONSENT_BODY_ONE => "INFOCONSENT_BODY_ONE".Translate();
-
-		public static string INFOCONSENT_BODY_TWO => "INFOCONSENT_BODY_TWO".Translate();
-
-		public static string INFOCONSENT_DESCRIPTION_ONE => "INFOCONSENT_DESCRIPTION_ONE".Translate();
-
-		public event EventHandler<AuthErrorType> OnError;
-
-		public event EventHandler OnSuccess;
-
-		public InformationAndConsentViewModel(EventHandler onSuccess, EventHandler<AuthErrorType> onError)
-		{
-			_onSuccess = onSuccess;
-			_onError = onError;
-			_authManager = new NDB.Covid19.OAuth2.AuthenticationManager();
-		}
-
-		public void Init()
-		{
-			OnError += _onError;
-			OnSuccess += _onSuccess;
-			_authManager.Setup(OnAuthCompleted, OnAuthError);
-		}
-
-		public void Cleanup()
-		{
-			if (this.OnError != null)
-			{
-				OnError -= _onError;
-			}
-			if (this.OnSuccess != null)
-			{
-				OnSuccess -= _onSuccess;
-			}
-			_onError = null;
-			_onSuccess = null;
-			if (_authManager != null)
-			{
-				_authManager.Cleanup();
-			}
-		}
-
-		private void Unsubscribe()
-		{
-			if (this.OnError != null)
-			{
-				OnError -= _onError;
-			}
-			if (this.OnSuccess != null)
-			{
-				OnSuccess -= _onSuccess;
-			}
-		}
-
-		private void OnAuthError(object sender, AuthenticatorErrorEventArgs e)
-		{
-			this.OnError?.Invoke(this, AuthErrorType.Unknown);
-		}
-
-		private void OnAuthCompleted(object sender, AuthenticatorCompletedEventArgs e)
-		{
-			string str = "InformationAndConsentViewModel.OnAuthCompleted: ";
-			if (e != null && e.IsAuthenticated && e.Account?.Properties != null && e.Account.Properties.ContainsKey("access_token"))
-			{
-				LogUtils.LogMessage(LogSeverity.INFO, str + "User returned from NemID after authentication and access_token exists.");
-				string accessToken = e.Account?.Properties["access_token"];
-				PersonalDataModel payloadValidateJWTToken = _authManager.GetPayloadValidateJWTToken(accessToken);
-				if (payloadValidateJWTToken == null)
-				{
-					this.OnError?.Invoke(this, AuthErrorType.Unknown);
-					return;
-				}
-				if (e.Account.Properties.TryGetValue("expires_in", out var value))
-				{
-					int.TryParse(value, out var result);
-					if (result > 0)
-					{
-						payloadValidateJWTToken.TokenExpiration = DateTime.Now.AddSeconds(result);
-						LogUtils.LogMessage(LogSeverity.INFO, str + "Access-token expires timestamp", payloadValidateJWTToken.TokenExpiration.ToString());
-					}
-				}
-				else
-				{
-					LogUtils.LogMessage(LogSeverity.ERROR, str + "'expires_in' value does not exist");
-				}
-				SaveCovidRelatedAttributes(payloadValidateJWTToken);
-				if (AuthenticationState.PersonalData.IsBlocked)
-				{
-					this.OnError?.Invoke(this, AuthErrorType.MaxTriesExceeded);
-				}
-				else if (AuthenticationState.PersonalData.IsNotInfected)
-				{
-					this.OnError?.Invoke(this, AuthErrorType.NotInfected);
-				}
-				else if (!payloadValidateJWTToken.Validate() || AuthenticationState.PersonalData.UnknownStatus)
-				{
-					if (AuthenticationState.PersonalData.UnknownStatus)
-					{
-						LogUtils.LogMessage(LogSeverity.ERROR, str + "Value Covid19_status = ukendt");
-					}
-					this.OnError?.Invoke(this, AuthErrorType.Unknown);
-				}
-				else
-				{
-					this.OnSuccess?.Invoke(this, null);
-				}
-			}
-			else
-			{
-				Restart();
-			}
-		}
-
-		private void Restart()
-		{
-			Unsubscribe();
-			if (_authManager != null)
-			{
-				_authManager.Cleanup();
-			}
-			_authManager = new NDB.Covid19.OAuth2.AuthenticationManager();
-			Init();
-		}
-
-		private void SaveCovidRelatedAttributes(PersonalDataModel payload)
-		{
-			AuthenticationState.PersonalData = payload;
-		}
-	}
-	public class InitializerViewModel
-	{
-		public static string LAUNCHER_PAGE_START_BTN => "LAUNCHER_PAGE_START_BTN".Translate();
-
-		public static string LAUNCHER_PAGE_CONTINUE_IN_ENG => "LAUNCHER_PAGE_CONTINUE_IN_ENG".Translate();
-	}
-	public static class LoadingPageViewModel
-	{
-		private static System.Timers.Timer _timer;
-
-		private static int _textChangeSeconds = 4;
-
-		private static Action _onFinished;
-
-		public static string LOADING_PAGE_TEXT_NORMAL => "LOADING_PAGE_TEXT_NORMAL".Translate();
-
-		public static string LOADING_PAGE_TEXT_TIME_EXTENDED => "LOADING_PAGE_TEXT_TIME_EXTENDED".Translate();
-
-		public static void StartTimer(Action onFinished)
-		{
-			_timer = new System.Timers.Timer
-			{
-				Interval = 1000.0,
-				Enabled = true
-			};
-			_timer.Elapsed += TimerOnElapsed;
-			_onFinished = onFinished;
-			_textChangeSeconds = 4;
-			_timer.Start();
-		}
-
-		private static void TimerOnElapsed(object sender, ElapsedEventArgs e)
-		{
-			if (--_textChangeSeconds == 0)
-			{
-				_onFinished?.Invoke();
-				_timer?.Stop();
-				_timer = null;
-			}
-		}
-
-		public static void ValidateData(Action onSuccess, Action onFail)
-		{
-			if (AuthenticationState.PersonalData.Validate())
-			{
-				onSuccess?.Invoke();
-				return;
-			}
-			LogUtils.LogMessage(LogSeverity.INFO, "Loading Page - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-			onFail?.Invoke();
-		}
-	}
-	public class MessageItemViewModel
-	{
-		public static readonly string MESSAGES_RECOMMENDATIONS = "MESSAGES_RECOMMENDATIONS_".Translate();
-
-		public static readonly string MESSAGES_MESSAGE_HEADER = "MESSAGES_MESSAGE_HEADER".Translate();
-
-		private bool _isRead;
-
-		public int ID
-		{
-			get;
-		}
-
-		public string Title
-		{
-			get;
-		}
-
-		public DateTime TimeStamp
-		{
-			get;
-		}
-
-		public string MessageLink
-		{
-			get;
-		}
-
-		public string DayAndMonthString => DateUtils.GetDateFromDateTime(TimeStamp, "d. MMMMM") ?? "";
-
-		public bool IsRead
-		{
-			get
-			{
-				return _isRead;
-			}
-			set
-			{
-				MessageUtils.MarkAsRead(this, value);
-				_isRead = value;
-			}
-		}
-
-		public MessageItemViewModel(MessageSQLiteModel model)
-		{
-			ID = model.ID;
-			Title = model.Title;
-			TimeStamp = model.TimeStamp;
-			MessageLink = model.MessageLink;
-			IsRead = model.IsRead;
-		}
-
-		public MessageItemViewModel()
-		{
-		}
-	}
-	public class MessagesViewModel
-	{
-		private static readonly object Subscriber = new object();
-
-		public static string MESSAGES_HEADER => "MESSAGES_HEADER".Translate();
-
-		public static string MESSAGES_NO_ITEMS_TITLE => "MESSAGES_NOMESSAGES_HEADER".Translate();
-
-		public static string MESSAGES_NO_ITEMS_DESCRIPTION => "MESSAGES_NOMESSAGES_LABEL".Translate();
-
-		public static string MESSAGES_LAST_UPDATED_LABEL => "MESSAGES_LAST_UPDATED_LABEL".Translate();
-
-		public static string MESSAGES_ACCESSIBILITY_CLOSE_BUTTON => "MESSAGES_ACCESSIBILITY_CLOSE_BUTTON".Translate();
-
-		public static DateTime LastUpdateDateTime => LocalPreferencesHelper.GetUpdatedDateTime().ToLocalTime();
-
-		public static string LastUpdateString
-		{
-			get
-			{
-				DateTime lastUpdateDateTime = LastUpdateDateTime;
-				DateTime minValue = DateTime.MinValue;
-				if (!(lastUpdateDateTime != minValue.ToLocalTime()))
-				{
-					return "";
-				}
-				return string.Format(MESSAGES_LAST_UPDATED_LABEL, DateUtils.GetDateFromDateTime(LastUpdateDateTime, "m") ?? "", DateUtils.GetDateFromDateTime(LastUpdateDateTime, "t") ?? "");
-			}
-		}
-
-		public static void SubscribeMessages(object subscriber, Action<List<MessageItemViewModel>> action)
-		{
-			MessagingCenter.Subscribe<object>(subscriber, MessagingCenterKeys.KEY_MESSAGE_RECEIVED, async delegate
-			{
-				action?.Invoke(await GetMessages());
-				MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
-			});
-		}
-
-		public static void UnsubscribeMessages(object subscriber)
-		{
-			MessagingCenter.Unsubscribe<object>(subscriber, MessagingCenterKeys.KEY_MESSAGE_RECEIVED);
-		}
-
-		public static async Task<List<MessageItemViewModel>> GetMessages()
-		{
-			return MessageUtils.ToMessageItemViewModelList(await MessageUtils.GetMessages());
-		}
-
-		public static void MarkAllMessagesAsRead()
-		{
-			MessageUtils.MarkAllAsRead();
-			MessagingCenter.Send(Subscriber, MessagingCenterKeys.KEY_MESSAGE_STATUS_UPDATED);
-		}
-	}
-	public static class NotificationChannelsViewModel
-	{
-		public static string NOTIFICATION_CHANNEL_EXPOSURE_NAME => "NOTIFICATION_CHANNEL_EXPOSURE_NAME".Translate();
-
-		public static string NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION => "NOTIFICATION_CHANNEL_EXPOSURE_DESCRIPTION".Translate();
-
-		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_NAME".Translate();
-
-		public static string NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION => "NOTIFICATION_CHANNEL_BACKGROUND_FETCH_DESCRIPTION".Translate();
-
-		public static string NOTIFICATION_CHANNEL_PERMISSIONS_NAME => "NOTIFICATION_CHANNEL_PERMISSIONS_NAME".Translate();
-
-		public static string NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION => "NOTIFICATION_CHANNEL_PERMISSIONS_DESCRIPTION".Translate();
-
-		public static string NOTIFICATION_CHANNEL_REMINDER_NAME => "NOTIFICATION_CHANNEL_REMINDER_NAME".Translate();
-
-		public static string NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION => "NOTIFICATION_CHANNEL_REMINDER_DESCRIPTION".Translate();
-
-		public static string NOTIFICATION_CHANNEL_COUNTDOWN_NAME => "NOTIFICATION_CHANNEL_COUNTDOWN_NAME".Translate();
-
-		public static string NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION => "NOTIFICATION_CHANNEL_COUNTDOWN_DESCRIPTION".Translate();
-	}
-	public class NotificationViewModel
-	{
-		public NotificationsEnum Type
-		{
-			get;
-			set;
-		}
-
-		public string Title
-		{
-			get;
-			set;
-		}
-
-		public string Body
-		{
-			get;
-			set;
-		}
-	}
-	public static class QuestionnaireConfirmLeaveViewModel
-	{
-		public static string QUESTIONNAIRE_CONFIRM_LEAVE_TITLE => "QUESTIONNAIRE_CONFIRM_LEAVE_TITLE".Translate();
-
-		public static string QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION => "QUESTIONNAIRE_CONFIRM_LEAVE_DESCRIPTION".Translate();
-
-		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_OK".Translate();
-
-		public static string QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL => "QUESTIONNAIRE_CONFIRM_LEAVE_BUTTON_CANCEL".Translate();
-
-		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
-		{
-			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
-			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
-			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
-			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
-		};
-
-		public static void ValidateData(Action onSuccess, Action onFail)
-		{
-			if (AuthenticationState.PersonalData.Validate())
-			{
-				onSuccess?.Invoke();
-				return;
-			}
-			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Confirm Leave - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-			onFail?.Invoke();
-		}
-	}
-	public class QuestionnaireCountriesViewModel
-	{
-		public static QuestionnaireCountriesVisitedEnum Selection = QuestionnaireCountriesVisitedEnum.No;
-
-		public static string COUNTRY_QUESTIONAIRE_HEADER_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_HEADER_TEXT".Translate();
-
-		public static string COUNTRY_QUESTIONAIRE_INFORMATION_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_INFORMATION_TEXT".Translate();
-
-		public static string COUNTRY_QUESTIONAIRE_BUTTON_TEXT => "REGISTER_COUNTRY_QUESTIONAIRE_BUTTON_TEXT".Translate();
-
-		public static string COUNTRY_QUESTIONAIRE_FOOTER => "REGISTER_COUNTRY_QUESTIONAIRE_FOOTER".Translate();
-
-		public static string COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_YES_RADIO_BUTTON".Translate();
-
-		public static string COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON => "COUNTRY_QUESTIONAIRE_NO_RADIO_BUTTON".Translate();
-
-		public DialogViewModel CloseDialogViewModel => new DialogViewModel
-		{
-			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
-			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
-			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
-			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
-		};
-
-		public async Task<List<CountryDetailsViewModel>> GetListOfCountriesAsync()
-		{
-			return (from model in (await new CountryListService().GetCountryList())?.CountryCollection?.Select((CountryDetailsDTO x) => new CountryDetailsViewModel
-				{
-					Name = x.GetName(),
-					Code = x.Code
-				})
-				orderby model.Name
-				select model).ToList() ?? new List<CountryDetailsViewModel>();
-		}
-
-		public void InvokeNextButtonClick(Action onSuccess, Action onFail, List<CountryDetailsViewModel> selectedCountriesList)
-		{
-			if (AuthenticationState.PersonalData != null && AuthenticationState.PersonalData.Validate())
-			{
-				AuthenticationState.PersonalData.VisitedCountries = (from x in selectedCountriesList
-					where x.Checked
-					select x.Code).ToList();
-				onSuccess?.Invoke();
-			}
-			else
-			{
-				LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Countries - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-				onFail?.Invoke();
-			}
-		}
-	}
-	public static class QuestionnairePreShareViewModel
-	{
-		public static string QUESTIONNAIRE_PRE_SHARE_TITLE => "QUESTIONNAIRE_PRE_SHARE_TITLE".Translate();
-
-		public static string QUESTIONNAIRE_PRE_SHARE_DESCRIPTION => "QUESTIONNAIRE_PRE_SHARE_DESCRIPTION".Translate();
-
-		public static string QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON => "QUESTIONNAIRE_PRE_SHARE_NEXT_BUTTON".Translate();
-
-		public static DialogViewModel CloseDialogViewModel => new DialogViewModel
-		{
-			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
-			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
-			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
-			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
-		};
-
-		public static void InvokeNextButtonClick(Action onSuccess, Action onFail)
-		{
-			if (AuthenticationState.PersonalData.Validate())
-			{
-				onSuccess?.Invoke();
-				return;
-			}
-			LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire Pre Share - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-			onFail?.Invoke();
-		}
-	}
-	public class QuestionnaireViewModel
-	{
-		public static bool DateHasBeenSet;
-
-		public static string REGISTER_QUESTIONAIRE_HEADER => "REGISTER_QUESTIONAIRE_HEADER".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP => "REGISTER_QUESTIONAIRE_SYMPTOMONSET_HELP".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_NEXT => "REGISTER_QUESTIONAIRE_NEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SHARING_TEXT => "REGISTER_QUESTIONAIRE_SHARING_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES => "REGISTER_QUESTIONAIRE_SHARING_ANSWER_YES".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO => "REGISTER_QUESTIONAIRE_SHARING_ANSWER_NO".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP => "REGISTER_QUESTIONAIRE_SHARING_ANSWER_SKIP".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_SUBMIT => "REGISTER_QUESTIONAIRE_SUBMIT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_HEADER => "REGISTER_QUESTIONAIRE_RECEIPT_HEADER".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_TEXT => "REGISTER_QUESTIONAIRE_RECEIPT_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION => "REGISTER_QUESTIONAIRE_RECEIPT_DESCRIPTION".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_DISMISS => "REGISTER_QUESTIONAIRE_RECEIPT_DISMISS".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER => "REGISTER_QUESTIONAIRE_RECEIPT_INNER_HEADER".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE => "REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_RECEIPT_LINK => "REGISTER_QUESTIONAIRE_RECEIPT_LINK".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_CLOSE_BUTTON_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATE_INFO_BUTTON".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_LOADING_PAGE_TITLE".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_DATEPICKER => "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_HEADER".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER => "REGISTER_QUESTIONAIRE_ACCESSIBILITY_RECEIPT_HEADER".Translate();
-
-		public static string REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT => "REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT".Translate();
-
-		public DialogViewModel CloseDialogViewModel => new DialogViewModel
-		{
-			Title = ErrorViewModel.REGISTER_LEAVE_HEADER,
-			Body = ErrorViewModel.REGISTER_LEAVE_DESCRIPTION,
-			OkBtnTxt = ErrorViewModel.REGISTER_LEAVE_CONFIRM,
-			CancelbtnTxt = ErrorViewModel.REGISTER_LEAVE_CANCEL
-		};
-
-		public static string DateLabel
-		{
-			get
-			{
-				if (!(_selectedDateUTC == DateTime.MinValue))
-				{
-					return DateUtils.GetDateFromDateTime(_localSelectedDate, "d");
-				}
-				return REGISTER_QUESTIONAIRE_DATE_LABEL_FORMAT;
-			}
-		}
-
-		private static DateTime _selectedDateUTC
-		{
-			get;
-			set;
-		}
-
-		private static DateTime _localSelectedDate => DateTime.SpecifyKind(_selectedDateUTC, DateTimeKind.Utc).ToLocalTime();
-
-		public static QuestionaireSelection Selection
-		{
-			get;
-			private set;
-		} = QuestionaireSelection.Skip;
-
-
-		public DateTime MinimumDate
-		{
-			get;
-			private set;
-		} = new DateTime(2020, 1, 1, 0, 0, 0).ToUniversalTime();
-
-
-		public DateTime MaximumDate
-		{
-			get;
-			private set;
-		} = DateTime.Today.ToUniversalTime();
-
-
-		public string RadioButtonAccessibilityDatepicker => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YES + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_DATEPICKER_TEXT + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_1_TEXT;
-
-		public string RadioButtonAccessibilityYesDontRemember => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_YESBUT + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_2_TEXT;
-
-		public string RadioButtonAccessibilityNo => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_NO + "\n " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_3_TEXT;
-
-		public string RadioButtonAccessibilitySkip => REGISTER_QUESTIONAIRE_SYMPTOMONSET_ANSWER_SKIP + ". " + REGISTER_QUESTIONAIRE_ACCESSIBILITY_RADIO_BUTTON_4_TEXT;
-
-		public string ReceipetPageReadMoreButtonAccessibility => REGISTER_QUESTIONAIRE_RECEIPT_INNER_READ_MORE;
-
-		public void SetSelectedDateUTC(DateTime newDate)
-		{
-			_selectedDateUTC = newDate;
-			DateHasBeenSet = true;
-		}
-
-		public static DateTime GetLocalSelectedDate()
-		{
-			return _localSelectedDate;
-		}
-
-		public void SetSelection(QuestionaireSelection selection)
-		{
-			Selection = selection;
-		}
-
-		public void InvokeNextButtonClick(Action onSuccess, Action onFail, Action onValidationFail, PlatformDialogServiceArguments platformDialogServiceArguments = null)
-		{
-			if (Selection == QuestionaireSelection.YesSince)
-			{
-				if (_selectedDateUTC == DateTime.MinValue)
-				{
-					ServiceLocator.Current.GetInstance<IDialogService>().ShowMessageDialog(null, "REGISTER_QUESTIONAIRE_CHOOSE_DATE_POP_UP".Translate(), "ERROR_OK_BTN".Translate(), platformDialogServiceArguments);
-					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - data validation failed", null, LocalPreferencesHelper.GetCorrelationId());
-					onValidationFail?.Invoke();
-					return;
-				}
-				AuthenticationState.PersonalData.FinalMiBaDate = _localSelectedDate;
-			}
-			else
-			{
-				if (!AuthenticationState.PersonalData.Validate())
-				{
-					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-					onFail?.Invoke();
-					LogUtils.LogMessage(LogSeverity.ERROR, "Validation of personaldata failed because of miba data was null or accesstoken expired");
-					return;
-				}
-				try
-				{
-					AuthenticationState.PersonalData.FinalMiBaDate = Convert.ToDateTime(AuthenticationState.PersonalData.Covid19_smitte_start);
-				}
-				catch
-				{
-					LogUtils.LogMessage(LogSeverity.INFO, "Questionnaire - no miba data or token expired", null, LocalPreferencesHelper.GetCorrelationId());
-					onFail?.Invoke();
-					LogUtils.LogMessage(LogSeverity.ERROR, "Miba data can't be parsed into datetime");
-					return;
-				}
-			}
-			onSuccess?.Invoke();
-		}
-	}
-	public class SettingsGeneralViewModel
-	{
-		public static string SETTINGS_GENERAL_TITLE = "SETTINGS_GENERAL_TITLE".Translate();
-
-		public static string SETTINGS_GENERAL_EXPLANATION_ONE = "SETTINGS_GENERAL_EXPLANATION_ONE".Translate();
-
-		public static string SETTINGS_GENERAL_EXPLANATION_TWO = "SETTINGS_GENERAL_EXPLANATION_TWO".Translate();
-
-		public static string SETTINGS_GENERAL_MOBILE_DATA_HEADER = "SETTINGS_GENERAL_MOBILE_DATA_HEADER".Translate();
-
-		public static string SETTINGS_GENERAL_MOBILE_DATA_DESC = "SETTINGS_GENERAL_MOBILE_DATA_DESC".Translate();
-
-		public static string SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER = "SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER".Translate();
-
-		public static string SETTINGS_GENERAL_RESTART_REQUIRED_TEXT = "SETTINGS_GENERAL_RESTART_REQUIRED_TEXT".Translate();
-
-		public static string SETTINGS_GENERAL_MORE_INFO_LINK = "SETTINGS_GENERAL_MORE_INFO_LINK".Translate();
-
-		public static string SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT = "SETTINGS_GENERAL_MORE_INFO_BUTTON_TEXT".Translate();
-
-		public static string SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT = "SETTINGS_GENERAL_ACCESSIBILITY_MORE_INFO_BUTTON_TEXT".Translate();
-
-		public static string SETTINGS_GENERAL_DA = "SETTINGS_GENERAL_DA".Translate();
-
-		public static string SETTINGS_GENERAL_EN = "SETTINGS_GENERAL_EN".Translate();
-
-		public static DialogViewModel AreYouSureDialogViewModel = new DialogViewModel
-		{
-			Body = "SETTINGS_GENERAL_DIALOG_BODY".Translate(),
-			CancelbtnTxt = "SETTINGS_GENERAL_DIALOG_CANCEL".Translate(),
-			OkBtnTxt = "SETTINGS_GENERAL_DIALOG_OK".Translate(),
-			Title = "SETTINGS_GENERAL_DIALOG_TITLE".Translate()
-		};
-
-		public static string SETTINGS_GENERAL_EXPLANATION => SETTINGS_GENERAL_EXPLANATION_ONE + "\n\n" + SETTINGS_GENERAL_EXPLANATION_TWO;
-
-		public static SettingsLanguageSelection Selection
-		{
-			get;
-			private set;
-		}
-
-		public static DialogViewModel GetChangeLanguageViewModel => new DialogViewModel
-		{
-			Title = "SETTINGS_GENERAL_CHOOSE_LANGUAGE_HEADER".Translate(),
-			Body = "SETTINGS_GENERAL_RESTART_REQUIRED_TEXT".Translate(),
-			OkBtnTxt = "SETTINGS_GENERAL_DIALOG_OK".Translate()
-		};
-
-		public bool GetStoredCheckedState()
-		{
-			return LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled();
-		}
-
-		public void OnCheckedChange(bool isChecked)
-		{
-			LocalPreferencesHelper.SetIsDownloadWithMobileDataEnabled(isChecked);
-		}
-
-		public static void OpenSmitteStopLink()
-		{
-			try
-			{
-				ServiceLocator.Current.GetInstance<IBrowser>().OpenAsync(SETTINGS_GENERAL_MORE_INFO_LINK);
-			}
-			catch (Exception e)
-			{
-				LogUtils.LogException(LogSeverity.ERROR, e, "Failed to open smittestop.dk link on general settings page");
-			}
-		}
-
-		public void SetSelection(SettingsLanguageSelection selection)
-		{
-			Selection = selection;
-		}
-	}
-	public class SettingsPage2ViewModel
-	{
-		public static string SETTINGS_PAGE_2_HEADER => "SETTINGS_PAGE_2_HEADER_TEXT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_INTRO => "SETTINGS_PAGE_2_CONTENT_TEXT_INTRO".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_TITLE".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_1_CONTENT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_TITLE".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_2_CONTENT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_TITLE".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_3_CONTENT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_TITLE => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_TITLE".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_CONTENT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_CONTENT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK_TEXT".Translate();
-
-		public static string SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK => "SETTINGS_PAGE_2_CONTENT_TEXT_PARAGRAPH_4_LINK".Translate();
-	}
-	public class SettingsPage4ViewModel
-	{
-		public static string HEADER => "SETTINGS_PAGE_4_HEADER_TEXT".Translate();
-
-		public static string CONTENT_TEXT_BEFORE_SUPPORT_LINK => "SETTINGS_PAGE_4_CONTENT_TEXT_BEFORE_SUPPORT_LINK".Translate();
-
-		public static string SUPPORT_LINK_SHOWN_TEXT => "SETTINGS_PAGE_4_SUPPORT_LINK_SHOWN_TEXT".Translate();
-
-		public static string SUPPORT_LINK => "SETTINGS_PAGE_4_SUPPORT_LINK".Translate();
-
-		public static string EMAIL_TEXT => "SETTINGS_PAGE_4_EMAIL_TEXT".Translate();
-
-		public static string EMAIL => "SETTINGS_PAGE_4_EMAIL".Translate();
-
-		public static string PHONE_NUM_Text => "SETTINGS_PAGE_4_PHONE_NUM_TEXT".Translate();
-
-		public static string PHONE_NUM => "SETTINGS_PAGE_4_PHONE_NUM".Translate();
-
-		public static string SUPPORT_TEXT => "SETTINGS_PAGE_4_SUPPORT_TEXT".Translate();
-
-		public static string PHONE_NUM_ACCESSIBILITY => "SETTINGS_PAGE_4_ACCESSIBILITY_PHONE_NUM".Translate();
-
-		public static string ACCESSIBILITY_SUPPORT_TEXT => "SETTINGS_PAGE_4_ACCESSIBILITY_SUPPORT_TEXT".Translate();
-	}
-	public class SettingsPage5ViewModel
-	{
-		public static string SETTINGS_PAGE_5_HEADER => "SETTINGS_PAGE_5_HEADER_TEXT".Translate();
-
-		public static string SETTINGS_PAGE_5_CONTENT => "SETTINGS_PAGE_5_CONTENT_TEXT".Translate();
-
-		public static string SETTINGS_PAGE_5_LINK => "SETTINGS_PAGE_5_LINK".Translate();
-
-		public static string GetVersionInfo()
-		{
-			IAppInfo instance = ServiceLocator.Current.GetInstance<IAppInfo>();
-			return $"V{instance.VersionString} B{instance.BuildString} A{Conf.APIVersion} {GetPartialUrlFromConf()} ";
-		}
-
-		public static string GetPartialUrlFromConf()
-		{
-			try
-			{
-				string uRL_PREFIX = Conf.URL_PREFIX;
-				int length = "Https://".Length;
-				int length2 = uRL_PREFIX.IndexOf(".smittestop") - length;
-				return uRL_PREFIX.Substring(length, length2);
-			}
-			catch
-			{
-				return "u";
-			}
-		}
-	}
-	public class SettingsViewModel
-	{
-		public static string SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON => "SETTINGS_ITEM_ACCESSIBILITY_CLOSE_BUTTON".Translate();
-
-		public static string SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON => "SETTINGS_CHILD_PAGE_ACCESSIBILITY_BACK_BUTTON".Translate();
-
-		public bool ShowDebugItem => Conf.UseDeveloperTools;
-
-		public List<SettingItem> SettingItemList
-		{
-			get;
-			private set;
-		}
-
-		public SettingsViewModel()
-		{
-			SettingItemList = new List<SettingItem>
-			{
-				new SettingItem(SettingItemType.Intro),
-				new SettingItem(SettingItemType.HowItWorks),
-				new SettingItem(SettingItemType.Consent),
-				new SettingItem(SettingItemType.Help),
-				new SettingItem(SettingItemType.About),
-				new SettingItem(SettingItemType.Settings)
-			};
-			if (Conf.UseDeveloperTools)
-			{
-				SettingItemList.Add(new SettingItem(SettingItemType.Debug));
-			}
-		}
-	}
-	public class WelcomePageWhatIsNewViewModel
-	{
-		public static string WELCOME_PAGE_WHATS_NEW_TITLE => "WELCOME_PAGE_WHATS_NEW_TITLE".Translate();
-
-		public static string WELCOME_PAGE_WHATS_NEW_BULLET_ONE => "WELCOME_PAGE_WHATS_NEW_BULLET_ONE".Translate();
-
-		public static string WELCOME_PAGE_WHATS_NEW_BULLET_TWO => "WELCOME_PAGE_WHATS_NEW_BULLET_TWO".Translate();
-
-		public static string WELCOME_PAGE_WHATS_NEW_BULLET_THREE => "WELCOME_PAGE_WHATS_NEW_BULLET_THREE".Translate();
-
-		public static string WELCOME_PAGE_WHATS_NEW_BUTTON => "WELCOME_PAGE_WHATS_NEW_BUTTON".Translate();
-
-		public static string WELCOME_PAGE_WHATS_NEW_FOOTER => "WELCOME_PAGE_WHATS_NEW_FOOTER".Translate();
-	}
-	public class WelcomeViewModel
-	{
-		public static string NEXT_PAGE_BUTTON_TEXT => "WELCOME_PAGE_NEXT_BUTTON_TEXT".Translate();
-
-		public static string PREVIOUS_PAGE_BUTTON_TEXT => "WELCOME_PAGE_PREVIOUS_BUTTON_TEXT".Translate();
-
-		public static string WELCOME_PAGE_ONE_TITLE => "WELCOME_PAGE_ONE_TITLE".Translate();
-
-		public static string WELCOME_PAGE_ONE_BODY_ONE => "WELCOME_PAGE_ONE_BODY_ONE".Translate();
-
-		public static string WELCOME_PAGE_ONE_BODY_TWO => "WELCOME_PAGE_ONE_BODY_TWO".Translate();
-
-		public static string WELCOME_PAGE_TWO_TITLE => "WELCOME_PAGE_TWO_TITLE".Translate();
-
-		public static string WELCOME_PAGE_TWO_BODY_ONE => "WELCOME_PAGE_TWO_BODY_ONE".Translate();
-
-		public static string WELCOME_PAGE_TWO_BODY_TWO => "WELCOME_PAGE_TWO_BODY_TWO".Translate();
-
-		public static string WELCOME_PAGE_THREE_TITLE => "WELCOME_PAGE_THREE_TITLE".Translate();
-
-		public static string WELCOME_PAGE_THREE_BODY_ONE => "WELCOME_PAGE_THREE_BODY_ONE".Translate();
-
-		public static string WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY => "WELCOME_PAGE_THREE_BODY_ONE_ACCESSIBILITY".Translate();
-
-		public static string WELCOME_PAGE_THREE_BODY_TWO => "WELCOME_PAGE_THREE_BODY_TWO".Translate();
-
-		public static string WELCOME_PAGE_THREE_INFOBOX_BODY => "WELCOME_PAGE_THREE_INFOBOX_BODY".Translate();
-
-		public static string WELCOME_PAGE_FOUR_TITLE => "WELCOME_PAGE_FOUR_TITLE".Translate();
-
-		public static string WELCOME_PAGE_FOUR_BODY_ONE => "WELCOME_PAGE_FOUR_BODY_ONE".Translate();
-
-		public static string WELCOME_PAGE_FOUR_BODY_TWO => "WELCOME_PAGE_FOUR_BODY_TWO".Translate();
-
-		public static string WELCOME_PAGE_FOUR_BODY_THREE => "WELCOME_PAGE_FOUR_BODY_THREE".Translate();
-
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_TITLE".Translate();
-
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_ONE".Translate();
-
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_BODY_TWO".Translate();
-
-		public static string WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON => "WELCOME_PAGE_BACKGROUND_LIMITATIONS_NEXT_BUTTON".Translate();
-
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_ONE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_ONE".Translate();
-
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_TWO => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_TWO".Translate();
-
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_THREE => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_THREE".Translate();
-
-		public static string ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR => "WELCOME_PAGE_ACCESSIBILITY_ANNOUNCEMENT_PAGE_CHANGED_TO_FOUR".Translate();
-
-		public static string TRANSMISSION_ERROR_MSG => "TRANSMISSION_ERROR_MSG".Translate();
-
-		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE => "WELCOME_PAGE_TWO_ACCESSIBILITY_TITLE".Translate();
-
-		public static string WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE => "WELCOME_PAGE_TWO_ACCESSIBILITY_BODY_ONE".Translate();
-	}
-}
 namespace NDB.Covid19.Models
 {
 	public class ApiResponse
 	{
-		public HttpMethod HttpMethod
-		{
-			get;
-			set;
-		}
+		public HttpMethod HttpMethod { get; set; }
 
-		public string Endpoint
-		{
-			get;
-			set;
-		}
+		public string Endpoint { get; set; }
 
-		public string ResponseText
-		{
-			get;
-			set;
-		}
+		public string ResponseText { get; set; }
 
-		public int StatusCode
-		{
-			get;
-			set;
-		}
+		public int StatusCode { get; set; }
 
-		public Exception Exception
-		{
-			get;
-			set;
-		}
+		public Exception Exception { get; set; }
 
-		public HttpHeaders Headers
-		{
-			get;
-			set;
-		}
+		public HttpHeaders Headers { get; set; }
 
 		public bool IsSuccessfull
 		{
@@ -5270,10 +5060,7 @@ namespace NDB.Covid19.Models
 				string text = Endpoint;
 				if (text.EndsWith(".zip"))
 				{
-					int num = text.IndexOf(text.Split(new char[1]
-					{
-						'/'
-					}).Last());
+					int num = text.IndexOf(text.Split(new char[1] { '/' }).Last());
 					if (num > 1)
 					{
 						text = text.Remove(num - 1);
@@ -5297,10 +5084,7 @@ namespace NDB.Covid19.Models
 			HttpMethod = method;
 			try
 			{
-				Endpoint = url.Split(new string[1]
-				{
-					Conf.BaseUrl
-				}, StringSplitOptions.None).Last();
+				Endpoint = url.Split(new string[1] { Conf.BaseUrl }, StringSplitOptions.None).Last();
 			}
 			catch
 			{
@@ -5309,11 +5093,7 @@ namespace NDB.Covid19.Models
 	}
 	public class ApiResponse<T> : ApiResponse
 	{
-		public T Data
-		{
-			get;
-			set;
-		}
+		public T Data { get; set; }
 
 		public ApiResponse(string url, HttpMethod method)
 			: base(url, method)
@@ -5323,51 +5103,41 @@ namespace NDB.Covid19.Models
 	}
 	public class AttenuationBucketsConfigurationDTO
 	{
-		public Configuration Configuration
-		{
-			get;
-			set;
-		}
+		public Xamarin.ExposureNotifications.Configuration Configuration { get; set; }
 
-		public AttenuationBucketsParametersDTO AttenuationBucketsParams
-		{
-			get;
-			set;
-		}
+		public AttenuationBucketsParametersDTO AttenuationBucketsParams { get; set; }
 	}
 	public class AttenuationBucketsParametersDTO
 	{
-		public double ExposureTimeThreshold
-		{
-			get;
-			set;
-		}
+		public double ExposureTimeThreshold { get; set; }
 
-		public double LowAttenuationBucketMultiplier
-		{
-			get;
-			set;
-		}
+		public double LowAttenuationBucketMultiplier { get; set; }
 
-		public double MiddleAttenuationBucketMultiplier
-		{
-			get;
-			set;
-		}
+		public double MiddleAttenuationBucketMultiplier { get; set; }
 
-		public double HighAttenuationBucketMultiplier
+		public double HighAttenuationBucketMultiplier { get; set; }
+	}
+	public class ConsentViewModel
+	{
+		public class ConsentSectionTexts
 		{
-			get;
-			set;
+			public string Title { get; }
+
+			public string Paragraph { get; }
+
+			public string ParagraphAccessibilityText { get; }
+
+			public ConsentSectionTexts(string title, string paragraph, string paragraphAccessibilityText)
+			{
+				Title = title;
+				Paragraph = paragraph;
+				ParagraphAccessibilityText = paragraphAccessibilityText;
+			}
 		}
 	}
 	public class ExposureKeyModel : Xamarin.ExposureNotifications.TemporaryExposureKey
 	{
-		public int DaysSinceOnsetOfSymptoms
-		{
-			get;
-			set;
-		}
+		public int DaysSinceOnsetOfSymptoms { get; set; }
 
 		public ExposureKeyModel(Xamarin.ExposureNotifications.TemporaryExposureKey tek)
 			: base(tek.Key, tek.RollingStart, tek.RollingDuration, tek.TransmissionRiskLevel)
@@ -5387,57 +5157,25 @@ namespace NDB.Covid19.Models
 	}
 	public class PersonalDataModel
 	{
-		public string Covid19_smitte_start
-		{
-			get;
-			set;
-		}
+		public string Covid19_smitte_start { get; set; }
 
-		public string Covid19_blokeret
-		{
-			get;
-			set;
-		}
+		public string Covid19_blokeret { get; set; }
 
-		public string Covid19_smitte_stop
-		{
-			get;
-			set;
-		}
+		public string Covid19_smitte_stop { get; set; }
 
-		public string Covid19_status
-		{
-			get;
-			set;
-		}
+		public string Covid19_status { get; set; }
 
 		[JsonIgnore]
-		public string Access_token
-		{
-			get;
-			set;
-		}
+		public string Access_token { get; set; }
 
 		[JsonIgnore]
-		public DateTime? TokenExpiration
-		{
-			get;
-			set;
-		}
+		public DateTime? TokenExpiration { get; set; }
 
 		[JsonIgnore]
-		public DateTime? FinalMiBaDate
-		{
-			get;
-			set;
-		}
+		public DateTime? FinalMiBaDate { get; set; }
 
 		[JsonIgnore]
-		public List<string> VisitedCountries
-		{
-			get;
-			set;
-		} = new List<string>();
+		public List<string> VisitedCountries { get; set; } = new List<string>();
 
 
 		[JsonIgnore]
@@ -5451,58 +5189,34 @@ namespace NDB.Covid19.Models
 
 		public bool Validate()
 		{
-			string str = "PersonalDataModel.Validate: ";
+			string text = "PersonalDataModel.Validate: ";
 			bool num = !string.IsNullOrEmpty(Covid19_smitte_start);
 			if (!num)
 			{
-				LogUtils.LogMessage(LogSeverity.ERROR, str + "Covid19_smitte_start value was null or empty");
+				LogUtils.LogMessage(LogSeverity.ERROR, text + "Covid19_smitte_start value was null or empty");
 			}
 			bool flag = TokenExpiration.HasValue && TokenExpiration > DateTime.Now;
 			if (!flag)
 			{
-				LogUtils.LogMessage(LogSeverity.ERROR, str + "Access token was expired");
+				LogUtils.LogMessage(LogSeverity.ERROR, text + "Access token was expired");
 			}
 			return num && flag;
 		}
 	}
 	public class SelfDiagnosisSubmissionDTO
 	{
-		public IEnumerable<ExposureKeyModel> Keys
-		{
-			get;
-			set;
-		}
+		public IEnumerable<ExposureKeyModel> Keys { get; set; }
 
-		public List<string> Regions
-		{
-			get;
-			set;
-		}
+		public List<string> Regions { get; set; }
 
-		public List<string> VisitedCountries
-		{
-			get;
-			set;
-		} = new List<string>();
+		public List<string> VisitedCountries { get; set; } = new List<string>();
 
 
-		public string AppPackageName
-		{
-			get;
-			set;
-		}
+		public string AppPackageName { get; set; }
 
-		public string Platform
-		{
-			get;
-			set;
-		}
+		public string Platform { get; set; }
 
-		public string Padding
-		{
-			get;
-			set;
-		}
+		public string Padding { get; set; }
 
 		public SelfDiagnosisSubmissionDTO()
 		{
@@ -5537,11 +5251,7 @@ namespace NDB.Covid19.Models
 	}
 	public class SettingItem
 	{
-		public SettingItemType Type
-		{
-			get;
-			private set;
-		}
+		public SettingItemType Type { get; }
 
 		public string Text => GetFriendlyTextFromSettingItemType();
 
@@ -5678,119 +5388,43 @@ namespace NDB.Covid19.Models.SQLite
 	{
 		[PrimaryKey]
 		[AutoIncrement]
-		public int ID
-		{
-			get;
-			set;
-		}
+		public int ID { get; set; }
 
-		public DateTime ReportedTime
-		{
-			get;
-			set;
-		}
+		public DateTime ReportedTime { get; set; }
 
-		public string Severity
-		{
-			get;
-			set;
-		}
+		public string Severity { get; set; }
 
-		public string Description
-		{
-			get;
-			set;
-		}
+		public string Description { get; set; }
 
-		public int ApiVersion
-		{
-			get;
-			set;
-		}
+		public int ApiVersion { get; set; }
 
-		public string BuildVersion
-		{
-			get;
-			set;
-		}
+		public string BuildVersion { get; set; }
 
-		public string BuildNumber
-		{
-			get;
-			set;
-		}
+		public string BuildNumber { get; set; }
 
-		public string DeviceOSVersion
-		{
-			get;
-			set;
-		}
+		public string DeviceOSVersion { get; set; }
 
-		public string ExceptionType
-		{
-			get;
-			set;
-		}
+		public string ExceptionType { get; set; }
 
-		public string ExceptionMessage
-		{
-			get;
-			set;
-		}
+		public string ExceptionMessage { get; set; }
 
-		public string ExceptionStackTrace
-		{
-			get;
-			set;
-		}
+		public string ExceptionStackTrace { get; set; }
 
-		public string InnerExceptionType
-		{
-			get;
-			set;
-		}
+		public string InnerExceptionType { get; set; }
 
-		public string InnerExceptionMessage
-		{
-			get;
-			set;
-		}
+		public string InnerExceptionMessage { get; set; }
 
-		public string InnerExceptionStackTrace
-		{
-			get;
-			set;
-		}
+		public string InnerExceptionStackTrace { get; set; }
 
-		public string CorrelationId
-		{
-			get;
-			set;
-		}
+		public string CorrelationId { get; set; }
 
-		public string Api
-		{
-			get;
-			set;
-		}
+		public string Api { get; set; }
 
-		public int? ApiErrorCode
-		{
-			get;
-			set;
-		}
+		public int? ApiErrorCode { get; set; }
 
-		public string ApiErrorMessage
-		{
-			get;
-			set;
-		}
+		public string ApiErrorMessage { get; set; }
 
-		public string AdditionalInfo
-		{
-			get;
-			set;
-		}
+		public string AdditionalInfo { get; set; }
 
 		public LogSQLiteModel()
 		{
@@ -5836,35 +5470,15 @@ namespace NDB.Covid19.Models.SQLite
 	{
 		[PrimaryKey]
 		[AutoIncrement]
-		public int ID
-		{
-			get;
-			set;
-		}
+		public int ID { get; set; }
 
-		public string Title
-		{
-			get;
-			set;
-		}
+		public string Title { get; set; }
 
-		public DateTime TimeStamp
-		{
-			get;
-			set;
-		}
+		public DateTime TimeStamp { get; set; }
 
-		public string MessageLink
-		{
-			get;
-			set;
-		}
+		public string MessageLink { get; set; }
 
-		public bool IsRead
-		{
-			get;
-			set;
-		}
+		public bool IsRead { get; set; }
 
 		public MessageSQLiteModel()
 		{
@@ -5884,84 +5498,36 @@ namespace NDB.Covid19.Models.Logging
 {
 	public class LogApiDetails
 	{
-		public string Api
-		{
-			get;
-			private set;
-		}
+		public string Api { get; }
 
-		public int? ApiErrorCode
-		{
-			get;
-			private set;
-		}
+		public int? ApiErrorCode { get; }
 
-		public string ApiErrorMessage
-		{
-			get;
-			private set;
-		}
+		public string ApiErrorMessage { get; }
 
 		public LogApiDetails(ApiResponse apiResponse)
 		{
 			Api = "/" + apiResponse.Endpoint;
 			ApiErrorCode = ((apiResponse.StatusCode > 0) ? new int?(apiResponse.StatusCode) : null);
-			ApiErrorMessage = (new int?[2]
-			{
-				200,
-				201
-			}.Contains(ApiErrorCode) ? null : Anonymizer.RedactText(apiResponse.ResponseText));
+			ApiErrorMessage = (new int?[2] { 200, 201 }.Contains(ApiErrorCode) ? null : Anonymizer.RedactText(apiResponse.ResponseText));
 		}
 	}
 	public class LogDeviceDetails
 	{
-		public LogSeverity Severity
-		{
-			get;
-			private set;
-		}
+		public LogSeverity Severity { get; }
 
-		public string Description
-		{
-			get;
-			private set;
-		}
+		public string Description { get; }
 
-		public DateTime ReportedTime
-		{
-			get;
-			private set;
-		}
+		public DateTime ReportedTime { get; }
 
-		public int ApiVersion
-		{
-			get;
-			private set;
-		}
+		public int ApiVersion { get; }
 
-		public string BuildVersion
-		{
-			get;
-			private set;
-		}
+		public string BuildVersion { get; }
 
-		public string BuildNumber
-		{
-			get;
-			private set;
-		}
+		public string BuildNumber { get; }
 
-		public string DeviceOSVersion
-		{
-			get;
-			private set;
-		}
+		public string DeviceOSVersion { get; }
 
-		public string AdditionalInfo
-		{
-			get;
-			set;
-		}
+		public string AdditionalInfo { get; set; }
 
 		public LogDeviceDetails(LogSeverity severity, string logMessage, string additionalInfo = "")
 		{
@@ -5982,41 +5548,17 @@ namespace NDB.Covid19.Models.Logging
 	{
 		private readonly int _maxLengthOfStacktrace = 1000;
 
-		public string ExceptionType
-		{
-			get;
-			private set;
-		}
+		public string ExceptionType { get; }
 
-		public string ExceptionMessage
-		{
-			get;
-			private set;
-		}
+		public string ExceptionMessage { get; }
 
-		public string ExceptionStackTrace
-		{
-			get;
-			private set;
-		}
+		public string ExceptionStackTrace { get; }
 
-		public string InnerExceptionType
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionType { get; }
 
-		public string InnerExceptionMessage
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionMessage { get; }
 
-		public string InnerExceptionStackTrace
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionStackTrace { get; }
 
 		public LogExceptionDetails(Exception e)
 		{
@@ -6052,49 +5594,21 @@ namespace NDB.Covid19.Models.DTOsForServer
 {
 	public class AppStatisticsDTO
 	{
-		public DateTime EntryDate
-		{
-			get;
-			set;
-		}
+		public DateTime EntryDate { get; set; }
 
-		public int NumberOfPositiveTestsResultsLast7Days
-		{
-			get;
-			set;
-		}
+		public int NumberOfPositiveTestsResultsLast7Days { get; set; }
 
-		public int NumberOfPositiveTestsResultsTotal
-		{
-			get;
-			set;
-		}
+		public int NumberOfPositiveTestsResultsTotal { get; set; }
 
-		public int SmittestopDownloadsTotal
-		{
-			get;
-			set;
-		}
+		public int SmittestopDownloadsTotal { get; set; }
 	}
 	public class CountryDetailsDTO
 	{
-		public string Name_DA
-		{
-			get;
-			set;
-		}
+		public string Name_DA { get; set; }
 
-		public string Name_EN
-		{
-			get;
-			set;
-		}
+		public string Name_EN { get; set; }
 
-		public string Code
-		{
-			get;
-			set;
-		}
+		public string Code { get; set; }
 
 		public string GetName()
 		{
@@ -6112,159 +5626,59 @@ namespace NDB.Covid19.Models.DTOsForServer
 	}
 	public class CountryListDTO
 	{
-		public List<CountryDetailsDTO> CountryCollection
-		{
-			get;
-			set;
-		}
+		public List<CountryDetailsDTO> CountryCollection { get; set; }
 	}
 	public class DiseaseRateOfTheDayDTO
 	{
-		public SSIStatisticsDTO SSIStatistics
-		{
-			get;
-			set;
-		}
+		public SSIStatisticsDTO SSIStatistics { get; set; }
 
-		public AppStatisticsDTO AppStatistics
-		{
-			get;
-			set;
-		}
+		public AppStatisticsDTO AppStatistics { get; set; }
 
-		public SSIStatisticsVaccinationDTO SSIStatisticsVaccination
-		{
-			get;
-			set;
-		}
+		public SSIStatisticsVaccinationDTO SSIStatisticsVaccination { get; set; }
 	}
 	public class LogDTO
 	{
-		public DateTime ReportedTime
-		{
-			get;
-			private set;
-		}
+		public DateTime ReportedTime { get; }
 
-		public string Severity
-		{
-			get;
-			private set;
-		}
+		public string Severity { get; }
 
-		public string Description
-		{
-			get;
-			private set;
-		}
+		public string Description { get; }
 
-		public int ApiVersion
-		{
-			get;
-			private set;
-		}
+		public int ApiVersion { get; }
 
-		public string BuildVersion
-		{
-			get;
-			private set;
-		}
+		public string BuildVersion { get; }
 
-		public string BuildNumber
-		{
-			get;
-			private set;
-		}
+		public string BuildNumber { get; }
 
-		public string DeviceOSVersion
-		{
-			get;
-			private set;
-		}
+		public string DeviceOSVersion { get; }
 
-		public string DeviceCorrelationId
-		{
-			get;
-			private set;
-		}
+		public string DeviceCorrelationId { get; }
 
-		public string DeviceType
-		{
-			get;
-			private set;
-		}
+		public string DeviceType { get; }
 
-		public string DeviceDescription
-		{
-			get;
-			private set;
-		}
+		public string DeviceDescription { get; }
 
-		public string ExceptionType
-		{
-			get;
-			private set;
-		}
+		public string ExceptionType { get; }
 
-		public string ExceptionMessage
-		{
-			get;
-			private set;
-		}
+		public string ExceptionMessage { get; }
 
-		public string ExceptionStackTrace
-		{
-			get;
-			private set;
-		}
+		public string ExceptionStackTrace { get; }
 
-		public string InnerExceptionType
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionType { get; }
 
-		public string InnerExceptionMessage
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionMessage { get; }
 
-		public string InnerExceptionStackTrace
-		{
-			get;
-			private set;
-		}
+		public string InnerExceptionStackTrace { get; }
 
-		public string Api
-		{
-			get;
-			set;
-		}
+		public string Api { get; set; }
 
-		public int? ApiErrorCode
-		{
-			get;
-			private set;
-		}
+		public int? ApiErrorCode { get; }
 
-		public string ApiErrorMessage
-		{
-			get;
-			private set;
-		}
+		public string ApiErrorMessage { get; }
 
-		public string AdditionalInfo
-		{
-			get;
-			private set;
-		}
+		public string AdditionalInfo { get; }
 
-		public string CorrelationId
-		{
-			get;
-			private set;
-		}
+		public string CorrelationId { get; }
 
 		public LogDTO(LogSQLiteModel log)
 		{
@@ -6298,78 +5712,475 @@ namespace NDB.Covid19.Models.DTOsForServer
 	}
 	public class SSIStatisticsDTO
 	{
-		public DateTime EntryDate
-		{
-			get;
-			set;
-		}
+		public DateTime EntryDate { get; set; }
 
-		public int ConfirmedCasesToday
-		{
-			get;
-			set;
-		}
+		public int ConfirmedCasesToday { get; set; }
 
-		public int ConfirmedCasesTotal
-		{
-			get;
-			set;
-		}
+		public int ConfirmedCasesTotal { get; set; }
 
-		public int DeathsToday
-		{
-			get;
-			set;
-		}
+		public int DeathsToday { get; set; }
 
-		public int DeathsTotal
-		{
-			get;
-			set;
-		}
+		public int DeathsTotal { get; set; }
 
-		public int TestsConductedToday
-		{
-			get;
-			set;
-		}
+		public int TestsConductedToday { get; set; }
 
-		public int TestsConductedTotal
-		{
-			get;
-			set;
-		}
+		public int TestsConductedTotal { get; set; }
 
 		[Obsolete]
-		public int patientsAdmittedToday
-		{
-			get;
-			set;
-		}
+		public int patientsAdmittedToday { get; set; }
 	}
 	public class SSIStatisticsVaccinationDTO
 	{
-		public DateTime EntryDate
-		{
-			get;
-			set;
-		}
+		public DateTime EntryDate { get; set; }
 
-		public decimal VaccinationFirst
-		{
-			get;
-			set;
-		}
+		public decimal VaccinationFirst { get; set; }
 
-		public decimal VaccinationSecond
-		{
-			get;
-			set;
-		}
+		public decimal VaccinationSecond { get; set; }
 	}
 }
-namespace NDB.Covid19.Implementation
+namespace NDB.Covid19.Interfaces
 {
+	public interface IApiDataHelper
+	{
+		bool IsGoogleServiceEnabled();
+
+		string GetBackGroundServicVersionLogString();
+	}
+	public interface ILocalNotificationsManager
+	{
+		void GenerateLocalNotification(NotificationViewModel notificationViewModel, long triggerInSeconds);
+
+		void GenerateLocalNotificationOnlyIfInBackground(NotificationViewModel viewModel);
+
+		void GenerateLocalPermissionsNotification(NotificationViewModel viewModel);
+
+		void GenerateDelayedNotification(NotificationViewModel viewModel, long ticks);
+	}
+	public interface IMessagingCenter
+	{
+		void Send<TSender, TArgs>(TSender sender, string message, TArgs args) where TSender : class;
+
+		void Send<TSender>(TSender sender, string message) where TSender : class;
+
+		void Subscribe<TSender, TArgs>(object subscriber, string message, Action<TSender, TArgs> callback, TSender source = null) where TSender : class;
+
+		void Subscribe<TSender>(object subscriber, string message, Action<TSender> callback, TSender source = null) where TSender : class;
+
+		void Unsubscribe<TSender, TArgs>(object subscriber, string message) where TSender : class;
+
+		void Unsubscribe<TSender>(object subscriber, string message) where TSender : class;
+	}
+	public interface IPermissionsHelper
+	{
+		Task<bool> IsBluetoothEnabled();
+
+		Task<bool> IsLocationEnabled();
+
+		Task<bool> AreAllPermissionsGranted();
+	}
+	public interface ISecureStorageService
+	{
+		Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage { get; }
+	}
+	public interface IEssentialsImplementation
+	{
+	}
+	public interface IAccelerometer
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<AccelerometerChangedEventArgs> ReadingChanged;
+
+		event EventHandler ShakeDetected;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IAppInfo
+	{
+		string PackageName { get; }
+
+		string Name { get; }
+
+		string VersionString { get; }
+
+		Version Version { get; }
+
+		string BuildString { get; }
+
+		AppTheme RequestedTheme { get; }
+
+		void ShowSettingsUI();
+	}
+	public interface IBarometer
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<BarometerChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IBattery
+	{
+		double ChargeLevel { get; }
+
+		BatteryState State { get; }
+
+		BatteryPowerSource PowerSource { get; }
+
+		EnergySaverStatus EnergySaverStatus { get; }
+
+		event EventHandler<BatteryInfoChangedEventArgs> BatteryInfoChanged;
+
+		event EventHandler<EnergySaverStatusChangedEventArgs> EnergySaverStatusChanged;
+	}
+	public interface IBrowser
+	{
+		Task OpenAsync(string uri);
+
+		Task OpenAsync(string uri, BrowserLaunchMode launchMode);
+
+		Task OpenAsync(string uri, BrowserLaunchOptions options);
+
+		Task OpenAsync(Uri uri);
+
+		Task OpenAsync(Uri uri, BrowserLaunchMode launchMode);
+
+		Task<bool> OpenAsync(Uri uri, BrowserLaunchOptions options);
+	}
+	public interface IClipboard
+	{
+		bool HasText { get; }
+
+		event EventHandler<EventArgs> ClipboardContentChanged;
+
+		Task SetTextAsync(string text);
+
+		Task<string> GetTextAsync();
+	}
+	public interface ICompass
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<CompassChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Start(SensorSpeed sensorSpeed, bool applyLowPassFilter);
+
+		void Stop();
+	}
+	public interface IConnectivity
+	{
+		NetworkAccess NetworkAccess { get; }
+
+		IEnumerable<ConnectionProfile> ConnectionProfiles { get; }
+
+		event EventHandler<ConnectivityChangedEventArgs> ConnectivityChanged;
+	}
+	public interface IDeviceDisplay
+	{
+		bool KeepScreenOn { get; set; }
+
+		DisplayInfo MainDisplayInfo { get; }
+
+		event EventHandler<DisplayInfoChangedEventArgs> MainDisplayInfoChanged;
+	}
+	public interface IDeviceInfo
+	{
+		string Model { get; }
+
+		string Manufacturer { get; }
+
+		string Name { get; }
+
+		string VersionString { get; }
+
+		Version Version { get; }
+
+		DevicePlatform Platform { get; }
+
+		DeviceIdiom Idiom { get; }
+
+		DeviceType DeviceType { get; }
+	}
+	public interface IEmail
+	{
+		Task ComposeAsync();
+
+		Task ComposeAsync(string subject, string body, params string[] to);
+
+		Task ComposeAsync(EmailMessage message);
+	}
+	public interface IFileSystem
+	{
+		string CacheDirectory { get; }
+
+		string AppDataDirectory { get; }
+
+		Task<Stream> OpenAppPackageFileAsync(string filename);
+	}
+	public interface IFlashlight
+	{
+		Task TurnOnAsync();
+
+		Task TurnOffAsync();
+	}
+	public interface IGeocoding
+	{
+		Task<IEnumerable<Placemark>> GetPlacemarksAsync(Location location);
+
+		Task<IEnumerable<Placemark>> GetPlacemarksAsync(double latitude, double longitude);
+
+		Task<IEnumerable<Location>> GetLocationsAsync(string address);
+	}
+	public interface IGeolocation
+	{
+		Task<Location> GetLastKnownLocationAsync();
+
+		Task<Location> GetLocationAsync();
+
+		Task<Location> GetLocationAsync(GeolocationRequest request);
+
+		Task<Location> GetLocationAsync(GeolocationRequest request, CancellationToken cancelToken);
+	}
+	public interface IGyroscope
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<GyroscopeChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface ILauncher
+	{
+		Task<bool> CanOpenAsync(string uri);
+
+		Task<bool> CanOpenAsync(Uri uri);
+
+		Task OpenAsync(string uri);
+
+		Task OpenAsync(Uri uri);
+
+		Task OpenAsync(OpenFileRequest request);
+
+		Task<bool> TryOpenAsync(string uri);
+
+		Task<bool> TryOpenAsync(Uri uri);
+	}
+	public interface IMagnetometer
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<MagnetometerChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IMainThread
+	{
+		bool IsMainThread { get; }
+
+		void BeginInvokeOnMainThread(Action action);
+
+		Task InvokeOnMainThreadAsync(Action action);
+
+		Task<T> InvokeOnMainThreadAsync<T>(Func<T> func);
+
+		Task InvokeOnMainThreadAsync(Func<Task> funcTask);
+
+		Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> funcTask);
+
+		Task<SynchronizationContext> GetMainThreadSynchronizationContextAsync();
+	}
+	public interface IMap
+	{
+		Task OpenAsync(Location location);
+
+		Task OpenAsync(Location location, MapLaunchOptions options);
+
+		Task OpenAsync(double latitude, double longitude);
+
+		Task OpenAsync(double latitude, double longitude, MapLaunchOptions options);
+
+		Task OpenAsync(Placemark placemark);
+
+		Task OpenAsync(Placemark placemark, MapLaunchOptions options);
+	}
+	public interface IOrientationSensor
+	{
+		bool IsMonitoring { get; }
+
+		event EventHandler<OrientationSensorChangedEventArgs> ReadingChanged;
+
+		void Start(SensorSpeed sensorSpeed);
+
+		void Stop();
+	}
+	public interface IPermissions
+	{
+		Task<PermissionStatus> CheckStatusAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
+
+		Task<PermissionStatus> RequestAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
+	}
+	public interface IPhoneDialer
+	{
+		void Open(string number);
+	}
+	public interface IPreferences
+	{
+		bool ContainsKey(string key);
+
+		void Remove(string key);
+
+		void Clear();
+
+		string Get(string key, string defaultValue);
+
+		bool Get(string key, bool defaultValue);
+
+		int Get(string key, int defaultValue);
+
+		double Get(string key, double defaultValue);
+
+		float Get(string key, float defaultValue);
+
+		long Get(string key, long defaultValue);
+
+		void Set(string key, string value);
+
+		void Set(string key, bool value);
+
+		void Set(string key, int value);
+
+		void Set(string key, double value);
+
+		void Set(string key, float value);
+
+		void Set(string key, long value);
+
+		bool ContainsKey(string key, string sharedName);
+
+		void Remove(string key, string sharedName);
+
+		void Clear(string sharedName);
+
+		string Get(string key, string defaultValue, string sharedName);
+
+		bool Get(string key, bool defaultValue, string sharedName);
+
+		int Get(string key, int defaultValue, string sharedName);
+
+		double Get(string key, double defaultValue, string sharedName);
+
+		float Get(string key, float defaultValue, string sharedName);
+
+		long Get(string key, long defaultValue, string sharedName);
+
+		void Set(string key, string value, string sharedName);
+
+		void Set(string key, bool value, string sharedName);
+
+		void Set(string key, int value, string sharedName);
+
+		void Set(string key, double value, string sharedName);
+
+		void Set(string key, float value, string sharedName);
+
+		void Set(string key, long value, string sharedName);
+
+		DateTime Get(string key, DateTime defaultValue);
+
+		void Set(string key, DateTime value);
+
+		DateTime Get(string key, DateTime defaultValue, string sharedName);
+
+		void Set(string key, DateTime value, string sharedName);
+	}
+	public interface ISecureStorage
+	{
+		Task<string> GetAsync(string key);
+
+		Task SetAsync(string key, string value);
+
+		bool Remove(string key);
+
+		void RemoveAll();
+	}
+	public interface IShare
+	{
+		Task RequestAsync(string text);
+
+		Task RequestAsync(string text, string title);
+
+		Task RequestAsync(ShareTextRequest request);
+
+		Task RequestAsync(ShareFileRequest request);
+	}
+	public interface ISms
+	{
+		Task ComposeAsync();
+
+		Task ComposeAsync(SmsMessage message);
+	}
+	public interface ITextToSpeech
+	{
+		Task<IEnumerable<Xamarin.Essentials.Locale>> GetLocalesAsync();
+
+		Task SpeakAsync(string text, CancellationToken cancelToken = default(CancellationToken));
+
+		Task SpeakAsync(string text, SpeechOptions options, CancellationToken cancelToken = default(CancellationToken));
+	}
+	public interface IVersionTracking
+	{
+		bool IsFirstLaunchEver { get; }
+
+		bool IsFirstLaunchForCurrentVersion { get; }
+
+		bool IsFirstLaunchForCurrentBuild { get; }
+
+		string CurrentVersion { get; }
+
+		string CurrentBuild { get; }
+
+		string PreviousVersion { get; }
+
+		string PreviousBuild { get; }
+
+		string FirstInstalledVersion { get; }
+
+		string FirstInstalledBuild { get; }
+
+		IEnumerable<string> VersionHistory { get; }
+
+		IEnumerable<string> BuildHistory { get; }
+
+		void Track();
+
+		bool IsFirstLaunchForVersion(string version);
+
+		bool IsFirstLaunchForBuild(string build);
+	}
+	public interface IVibration
+	{
+		void Vibrate();
+
+		void Vibrate(double duration);
+
+		void Vibrate(TimeSpan duration);
+
+		void Cancel();
+	}
+	public interface IWebAuthenticator
+	{
+		Task<WebAuthenticatorResult> AuthenticateAsync(Uri url, Uri callbackUrl);
+	}
 	public class AccelerometerImplementation : IEssentialsImplementation, IAccelerometer
 	{
 		bool IAccelerometer.IsMonitoring => Accelerometer.IsMonitoring;
@@ -7211,31 +7022,31 @@ namespace NDB.Covid19.Implementation
 			Preferences.Set(key, value, sharedName);
 		}
 	}
-	public class SecureStorageImplementation : IEssentialsImplementation, NDB.Covid19.Interfaces.ISecureStorage
+	public class SecureStorageImplementation : IEssentialsImplementation, ISecureStorage
 	{
 		[Preserve(Conditional = true)]
 		public SecureStorageImplementation()
 		{
 		}
 
-		Task<string> NDB.Covid19.Interfaces.ISecureStorage.GetAsync(string key)
+		Task<string> ISecureStorage.GetAsync(string key)
 		{
-			return Xamarin.Essentials.SecureStorage.GetAsync(key);
+			return SecureStorage.GetAsync(key);
 		}
 
-		Task NDB.Covid19.Interfaces.ISecureStorage.SetAsync(string key, string value)
+		Task ISecureStorage.SetAsync(string key, string value)
 		{
-			return Xamarin.Essentials.SecureStorage.SetAsync(key, value);
+			return SecureStorage.SetAsync(key, value);
 		}
 
-		bool NDB.Covid19.Interfaces.ISecureStorage.Remove(string key)
+		bool ISecureStorage.Remove(string key)
 		{
-			return Xamarin.Essentials.SecureStorage.Remove(key);
+			return SecureStorage.Remove(key);
 		}
 
-		void NDB.Covid19.Interfaces.ISecureStorage.RemoveAll()
+		void ISecureStorage.RemoveAll()
 		{
-			Xamarin.Essentials.SecureStorage.RemoveAll();
+			SecureStorage.RemoveAll();
 		}
 	}
 	public class ShareImplementation : IEssentialsImplementation, IShare
@@ -7388,583 +7199,6 @@ namespace NDB.Covid19.Implementation
 		}
 	}
 }
-namespace NDB.Covid19.Interfaces
-{
-	public interface IApiDataHelper
-	{
-		bool IsGoogleServiceEnabled();
-
-		string GetBackGroundServicVersionLogString();
-	}
-	public interface ILocalNotificationsManager
-	{
-		void GenerateLocalNotification(NotificationViewModel notificationViewModel, long triggerInSeconds);
-
-		void GenerateLocalNotificationOnlyIfInBackground(NotificationViewModel viewModel);
-
-		void GenerateLocalPermissionsNotification(NotificationViewModel viewModel);
-
-		void GenerateDelayedNotification(NotificationViewModel viewModel, long ticks);
-	}
-	public interface IMessagingCenter
-	{
-		void Send<TSender, TArgs>(TSender sender, string message, TArgs args) where TSender : class;
-
-		void Send<TSender>(TSender sender, string message) where TSender : class;
-
-		void Subscribe<TSender, TArgs>(object subscriber, string message, Action<TSender, TArgs> callback, TSender source = null) where TSender : class;
-
-		void Subscribe<TSender>(object subscriber, string message, Action<TSender> callback, TSender source = null) where TSender : class;
-
-		void Unsubscribe<TSender, TArgs>(object subscriber, string message) where TSender : class;
-
-		void Unsubscribe<TSender>(object subscriber, string message) where TSender : class;
-	}
-	public interface IPermissionsHelper
-	{
-		Task<bool> IsBluetoothEnabled();
-
-		Task<bool> IsLocationEnabled();
-
-		Task<bool> AreAllPermissionsGranted();
-	}
-	public interface ISecureStorageService
-	{
-		Plugin.SecureStorage.Abstractions.ISecureStorage SecureStorage
-		{
-			get;
-		}
-	}
-	public interface IEssentialsImplementation
-	{
-	}
-	public interface IAccelerometer
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<AccelerometerChangedEventArgs> ReadingChanged;
-
-		event EventHandler ShakeDetected;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Stop();
-	}
-	public interface IAppInfo
-	{
-		string PackageName
-		{
-			get;
-		}
-
-		string Name
-		{
-			get;
-		}
-
-		string VersionString
-		{
-			get;
-		}
-
-		Version Version
-		{
-			get;
-		}
-
-		string BuildString
-		{
-			get;
-		}
-
-		AppTheme RequestedTheme
-		{
-			get;
-		}
-
-		void ShowSettingsUI();
-	}
-	public interface IBarometer
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<BarometerChangedEventArgs> ReadingChanged;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Stop();
-	}
-	public interface IBattery
-	{
-		double ChargeLevel
-		{
-			get;
-		}
-
-		BatteryState State
-		{
-			get;
-		}
-
-		BatteryPowerSource PowerSource
-		{
-			get;
-		}
-
-		EnergySaverStatus EnergySaverStatus
-		{
-			get;
-		}
-
-		event EventHandler<BatteryInfoChangedEventArgs> BatteryInfoChanged;
-
-		event EventHandler<EnergySaverStatusChangedEventArgs> EnergySaverStatusChanged;
-	}
-	public interface IBrowser
-	{
-		Task OpenAsync(string uri);
-
-		Task OpenAsync(string uri, BrowserLaunchMode launchMode);
-
-		Task OpenAsync(string uri, BrowserLaunchOptions options);
-
-		Task OpenAsync(Uri uri);
-
-		Task OpenAsync(Uri uri, BrowserLaunchMode launchMode);
-
-		Task<bool> OpenAsync(Uri uri, BrowserLaunchOptions options);
-	}
-	public interface IClipboard
-	{
-		bool HasText
-		{
-			get;
-		}
-
-		event EventHandler<EventArgs> ClipboardContentChanged;
-
-		Task SetTextAsync(string text);
-
-		Task<string> GetTextAsync();
-	}
-	public interface ICompass
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<CompassChangedEventArgs> ReadingChanged;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Start(SensorSpeed sensorSpeed, bool applyLowPassFilter);
-
-		void Stop();
-	}
-	public interface IConnectivity
-	{
-		NetworkAccess NetworkAccess
-		{
-			get;
-		}
-
-		IEnumerable<ConnectionProfile> ConnectionProfiles
-		{
-			get;
-		}
-
-		event EventHandler<ConnectivityChangedEventArgs> ConnectivityChanged;
-	}
-	public interface IDeviceDisplay
-	{
-		bool KeepScreenOn
-		{
-			get;
-			set;
-		}
-
-		DisplayInfo MainDisplayInfo
-		{
-			get;
-		}
-
-		event EventHandler<DisplayInfoChangedEventArgs> MainDisplayInfoChanged;
-	}
-	public interface IDeviceInfo
-	{
-		string Model
-		{
-			get;
-		}
-
-		string Manufacturer
-		{
-			get;
-		}
-
-		string Name
-		{
-			get;
-		}
-
-		string VersionString
-		{
-			get;
-		}
-
-		Version Version
-		{
-			get;
-		}
-
-		DevicePlatform Platform
-		{
-			get;
-		}
-
-		DeviceIdiom Idiom
-		{
-			get;
-		}
-
-		DeviceType DeviceType
-		{
-			get;
-		}
-	}
-	public interface IEmail
-	{
-		Task ComposeAsync();
-
-		Task ComposeAsync(string subject, string body, params string[] to);
-
-		Task ComposeAsync(EmailMessage message);
-	}
-	public interface IFileSystem
-	{
-		string CacheDirectory
-		{
-			get;
-		}
-
-		string AppDataDirectory
-		{
-			get;
-		}
-
-		Task<Stream> OpenAppPackageFileAsync(string filename);
-	}
-	public interface IFlashlight
-	{
-		Task TurnOnAsync();
-
-		Task TurnOffAsync();
-	}
-	public interface IGeocoding
-	{
-		Task<IEnumerable<Placemark>> GetPlacemarksAsync(Location location);
-
-		Task<IEnumerable<Placemark>> GetPlacemarksAsync(double latitude, double longitude);
-
-		Task<IEnumerable<Location>> GetLocationsAsync(string address);
-	}
-	public interface IGeolocation
-	{
-		Task<Location> GetLastKnownLocationAsync();
-
-		Task<Location> GetLocationAsync();
-
-		Task<Location> GetLocationAsync(GeolocationRequest request);
-
-		Task<Location> GetLocationAsync(GeolocationRequest request, CancellationToken cancelToken);
-	}
-	public interface IGyroscope
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<GyroscopeChangedEventArgs> ReadingChanged;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Stop();
-	}
-	public interface ILauncher
-	{
-		Task<bool> CanOpenAsync(string uri);
-
-		Task<bool> CanOpenAsync(Uri uri);
-
-		Task OpenAsync(string uri);
-
-		Task OpenAsync(Uri uri);
-
-		Task OpenAsync(OpenFileRequest request);
-
-		Task<bool> TryOpenAsync(string uri);
-
-		Task<bool> TryOpenAsync(Uri uri);
-	}
-	public interface IMagnetometer
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<MagnetometerChangedEventArgs> ReadingChanged;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Stop();
-	}
-	public interface IMainThread
-	{
-		bool IsMainThread
-		{
-			get;
-		}
-
-		void BeginInvokeOnMainThread(Action action);
-
-		Task InvokeOnMainThreadAsync(Action action);
-
-		Task<T> InvokeOnMainThreadAsync<T>(Func<T> func);
-
-		Task InvokeOnMainThreadAsync(Func<Task> funcTask);
-
-		Task<T> InvokeOnMainThreadAsync<T>(Func<Task<T>> funcTask);
-
-		Task<SynchronizationContext> GetMainThreadSynchronizationContextAsync();
-	}
-	public interface IMap
-	{
-		Task OpenAsync(Location location);
-
-		Task OpenAsync(Location location, MapLaunchOptions options);
-
-		Task OpenAsync(double latitude, double longitude);
-
-		Task OpenAsync(double latitude, double longitude, MapLaunchOptions options);
-
-		Task OpenAsync(Placemark placemark);
-
-		Task OpenAsync(Placemark placemark, MapLaunchOptions options);
-	}
-	public interface IOrientationSensor
-	{
-		bool IsMonitoring
-		{
-			get;
-		}
-
-		event EventHandler<OrientationSensorChangedEventArgs> ReadingChanged;
-
-		void Start(SensorSpeed sensorSpeed);
-
-		void Stop();
-	}
-	public interface IPermissions
-	{
-		Task<PermissionStatus> CheckStatusAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
-
-		Task<PermissionStatus> RequestAsync<TPermission>() where TPermission : Permissions.BasePermission, new();
-	}
-	public interface IPhoneDialer
-	{
-		void Open(string number);
-	}
-	public interface IPreferences
-	{
-		bool ContainsKey(string key);
-
-		void Remove(string key);
-
-		void Clear();
-
-		string Get(string key, string defaultValue);
-
-		bool Get(string key, bool defaultValue);
-
-		int Get(string key, int defaultValue);
-
-		double Get(string key, double defaultValue);
-
-		float Get(string key, float defaultValue);
-
-		long Get(string key, long defaultValue);
-
-		void Set(string key, string value);
-
-		void Set(string key, bool value);
-
-		void Set(string key, int value);
-
-		void Set(string key, double value);
-
-		void Set(string key, float value);
-
-		void Set(string key, long value);
-
-		bool ContainsKey(string key, string sharedName);
-
-		void Remove(string key, string sharedName);
-
-		void Clear(string sharedName);
-
-		string Get(string key, string defaultValue, string sharedName);
-
-		bool Get(string key, bool defaultValue, string sharedName);
-
-		int Get(string key, int defaultValue, string sharedName);
-
-		double Get(string key, double defaultValue, string sharedName);
-
-		float Get(string key, float defaultValue, string sharedName);
-
-		long Get(string key, long defaultValue, string sharedName);
-
-		void Set(string key, string value, string sharedName);
-
-		void Set(string key, bool value, string sharedName);
-
-		void Set(string key, int value, string sharedName);
-
-		void Set(string key, double value, string sharedName);
-
-		void Set(string key, float value, string sharedName);
-
-		void Set(string key, long value, string sharedName);
-
-		DateTime Get(string key, DateTime defaultValue);
-
-		void Set(string key, DateTime value);
-
-		DateTime Get(string key, DateTime defaultValue, string sharedName);
-
-		void Set(string key, DateTime value, string sharedName);
-	}
-	public interface ISecureStorage
-	{
-		Task<string> GetAsync(string key);
-
-		Task SetAsync(string key, string value);
-
-		bool Remove(string key);
-
-		void RemoveAll();
-	}
-	public interface IShare
-	{
-		Task RequestAsync(string text);
-
-		Task RequestAsync(string text, string title);
-
-		Task RequestAsync(ShareTextRequest request);
-
-		Task RequestAsync(ShareFileRequest request);
-	}
-	public interface ISms
-	{
-		Task ComposeAsync();
-
-		Task ComposeAsync(SmsMessage message);
-	}
-	public interface ITextToSpeech
-	{
-		Task<IEnumerable<Xamarin.Essentials.Locale>> GetLocalesAsync();
-
-		Task SpeakAsync(string text, CancellationToken cancelToken = default(CancellationToken));
-
-		Task SpeakAsync(string text, SpeechOptions options, CancellationToken cancelToken = default(CancellationToken));
-	}
-	public interface IVersionTracking
-	{
-		bool IsFirstLaunchEver
-		{
-			get;
-		}
-
-		bool IsFirstLaunchForCurrentVersion
-		{
-			get;
-		}
-
-		bool IsFirstLaunchForCurrentBuild
-		{
-			get;
-		}
-
-		string CurrentVersion
-		{
-			get;
-		}
-
-		string CurrentBuild
-		{
-			get;
-		}
-
-		string PreviousVersion
-		{
-			get;
-		}
-
-		string PreviousBuild
-		{
-			get;
-		}
-
-		string FirstInstalledVersion
-		{
-			get;
-		}
-
-		string FirstInstalledBuild
-		{
-			get;
-		}
-
-		IEnumerable<string> VersionHistory
-		{
-			get;
-		}
-
-		IEnumerable<string> BuildHistory
-		{
-			get;
-		}
-
-		void Track();
-
-		bool IsFirstLaunchForVersion(string version);
-
-		bool IsFirstLaunchForBuild(string build);
-	}
-	public interface IVibration
-	{
-		void Vibrate();
-
-		void Vibrate(double duration);
-
-		void Vibrate(TimeSpan duration);
-
-		void Cancel();
-	}
-	public interface IWebAuthenticator
-	{
-		Task<WebAuthenticatorResult> AuthenticateAsync(Uri url, Uri callbackUrl);
-	}
-}
 namespace NDB.Covid19.ProtoModels
 {
 	public static class TemporaryExposureKeyBatchReflection
@@ -7977,103 +7211,69 @@ namespace NDB.Covid19.ProtoModels
 		{
 			descriptor = FileDescriptor.FromGeneratedCode(Convert.FromBase64String("Ch9UZW1wb3JhcnlFeHBvc3VyZUtleUJhdGNoLnByb3RvItEBChpUZW1wb3Jh" + "cnlFeHBvc3VyZUtleUV4cG9ydBIXCg9zdGFydF90aW1lc3RhbXAYASABKAYS" + "FQoNZW5kX3RpbWVzdGFtcBgCIAEoBhIOCgZyZWdpb24YAyABKAkSEQoJYmF0" + "Y2hfbnVtGAQgASgFEhIKCmJhdGNoX3NpemUYBSABKAUSJwoPc2lnbmF0dXJl" + "X2luZm9zGAYgAygLMg4uU2lnbmF0dXJlSW5mbxIjCgRrZXlzGAcgAygLMhUu" + "VGVtcG9yYXJ5RXhwb3N1cmVLZXkimwEKDVNpZ25hdHVyZUluZm8SFQoNYXBw" + "X2J1bmRsZV9pZBgBIAEoCRIXCg9hbmRyb2lkX3BhY2thZ2UYAiABKAkSIAoY" + "dmVyaWZpY2F0aW9uX2tleV92ZXJzaW9uGAMgASgJEhsKE3ZlcmlmaWNhdGlv" + "bl9rZXlfaWQYBCABKAkSGwoTc2lnbmF0dXJlX2FsZ29yaXRobRgFIAEoCSKN" + "AQoUVGVtcG9yYXJ5RXhwb3N1cmVLZXkSEAoIa2V5X2RhdGEYASABKAwSHwoX" + "dHJhbnNtaXNzaW9uX3Jpc2tfbGV2ZWwYAiABKAUSJQodcm9sbGluZ19zdGFy" + "dF9pbnRlcnZhbF9udW1iZXIYAyABKAUSGwoOcm9sbGluZ19wZXJpb2QYBCAB" + "KAU6AzE0NCI1ChBURUtTaWduYXR1cmVMaXN0EiEKCnNpZ25hdHVyZXMYASAD" + "KAsyDS5URUtTaWduYXR1cmUicAoMVEVLU2lnbmF0dXJlEiYKDnNpZ25hdHVy" + "ZV9pbmZvGAEgASgLMg4uU2lnbmF0dXJlSW5mbxIRCgliYXRjaF9udW0YAiAB" + "KAUSEgoKYmF0Y2hfc2l6ZRgDIAEoBRIRCglzaWduYXR1cmUYBCABKAxCKaoC" + "JkV4cG9zdXJlTm90aWZpY2F0aW9uLkJhY2tlbmQuRnVuY3Rpb25z"), new FileDescriptor[0], new GeneratedClrTypeInfo(null, null, new GeneratedClrTypeInfo[5]
 			{
-				new GeneratedClrTypeInfo(typeof(TemporaryExposureKeyExport), TemporaryExposureKeyExport.Parser, new string[7]
-				{
-					"StartTimestamp",
-					"EndTimestamp",
-					"Region",
-					"BatchNum",
-					"BatchSize",
-					"SignatureInfos",
-					"Keys"
-				}, null, null, null, null),
-				new GeneratedClrTypeInfo(typeof(SignatureInfo), SignatureInfo.Parser, new string[5]
-				{
-					"AppBundleId",
-					"AndroidPackage",
-					"VerificationKeyVersion",
-					"VerificationKeyId",
-					"SignatureAlgorithm"
-				}, null, null, null, null),
-				new GeneratedClrTypeInfo(typeof(TemporaryExposureKey), TemporaryExposureKey.Parser, new string[4]
-				{
-					"KeyData",
-					"TransmissionRiskLevel",
-					"RollingStartIntervalNumber",
-					"RollingPeriod"
-				}, null, null, null, null),
-				new GeneratedClrTypeInfo(typeof(TEKSignatureList), TEKSignatureList.Parser, new string[1]
-				{
-					"Signatures"
-				}, null, null, null, null),
-				new GeneratedClrTypeInfo(typeof(TEKSignature), TEKSignature.Parser, new string[4]
-				{
-					"SignatureInfo",
-					"BatchNum",
-					"BatchSize",
-					"Signature"
-				}, null, null, null, null)
+				new GeneratedClrTypeInfo(typeof(TemporaryExposureKeyExport), TemporaryExposureKeyExport.Parser, new string[7] { "StartTimestamp", "EndTimestamp", "Region", "BatchNum", "BatchSize", "SignatureInfos", "Keys" }, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(SignatureInfo), SignatureInfo.Parser, new string[5] { "AppBundleId", "AndroidPackage", "VerificationKeyVersion", "VerificationKeyId", "SignatureAlgorithm" }, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TemporaryExposureKey), TemporaryExposureKey.Parser, new string[4] { "KeyData", "TransmissionRiskLevel", "RollingStartIntervalNumber", "RollingPeriod" }, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TEKSignatureList), TEKSignatureList.Parser, new string[1] { "Signatures" }, null, null, null, null),
+				new GeneratedClrTypeInfo(typeof(TEKSignature), TEKSignature.Parser, new string[4] { "SignatureInfo", "BatchNum", "BatchSize", "Signature" }, null, null, null, null)
 			}));
 		}
 	}
 	public sealed class TemporaryExposureKeyExport : IMessage<TemporaryExposureKeyExport>, IMessage, IEquatable<TemporaryExposureKeyExport>, IDeepCloneable<TemporaryExposureKeyExport>
 	{
-		private static readonly MessageParser<TemporaryExposureKeyExport> _parser = new MessageParser<TemporaryExposureKeyExport>(() => new TemporaryExposureKeyExport());
-
-		private UnknownFieldSet _unknownFields;
-
-		private int _hasBits0;
-
 		public const int StartTimestampFieldNumber = 1;
-
-		private static readonly ulong StartTimestampDefaultValue = 0uL;
-
-		private ulong startTimestamp_;
 
 		public const int EndTimestampFieldNumber = 2;
 
-		private static readonly ulong EndTimestampDefaultValue = 0uL;
-
-		private ulong endTimestamp_;
-
 		public const int RegionFieldNumber = 3;
-
-		private static readonly string RegionDefaultValue = "";
-
-		private string region_;
 
 		public const int BatchNumFieldNumber = 4;
 
-		private static readonly int BatchNumDefaultValue = 0;
-
-		private int batchNum_;
-
 		public const int BatchSizeFieldNumber = 5;
-
-		private static readonly int BatchSizeDefaultValue = 0;
-
-		private int batchSize_;
 
 		public const int SignatureInfosFieldNumber = 6;
 
-		private static readonly FieldCodec<SignatureInfo> _repeated_signatureInfos_codec = FieldCodec.ForMessage(50u, SignatureInfo.Parser);
-
-		private readonly RepeatedField<SignatureInfo> signatureInfos_ = new RepeatedField<SignatureInfo>();
-
 		public const int KeysFieldNumber = 7;
+
+		private static readonly MessageParser<TemporaryExposureKeyExport> _parser = new MessageParser<TemporaryExposureKeyExport>(() => new TemporaryExposureKeyExport());
+
+		private static readonly ulong StartTimestampDefaultValue = 0uL;
+
+		private static readonly ulong EndTimestampDefaultValue = 0uL;
+
+		private static readonly string RegionDefaultValue = "";
+
+		private static readonly int BatchNumDefaultValue = 0;
+
+		private static readonly int BatchSizeDefaultValue = 0;
+
+		private static readonly FieldCodec<SignatureInfo> _repeated_signatureInfos_codec = FieldCodec.ForMessage(50u, SignatureInfo.Parser);
 
 		private static readonly FieldCodec<TemporaryExposureKey> _repeated_keys_codec = FieldCodec.ForMessage(58u, TemporaryExposureKey.Parser);
 
 		private readonly RepeatedField<TemporaryExposureKey> keys_ = new RepeatedField<TemporaryExposureKey>();
+
+		private readonly RepeatedField<SignatureInfo> signatureInfos_ = new RepeatedField<SignatureInfo>();
+
+		private int _hasBits0;
+
+		private UnknownFieldSet _unknownFields;
+
+		private int batchNum_;
+
+		private int batchSize_;
+
+		private ulong endTimestamp_;
+
+		private string region_;
+
+		private ulong startTimestamp_;
 
 		[DebuggerNonUserCode]
 		public static MessageParser<TemporaryExposureKeyExport> Parser => _parser;
 
 		[DebuggerNonUserCode]
 		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[0];
-
-		[DebuggerNonUserCode]
-		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public ulong StartTimestamp
@@ -8182,6 +7382,9 @@ namespace NDB.Covid19.ProtoModels
 		public RepeatedField<TemporaryExposureKey> Keys => keys_;
 
 		[DebuggerNonUserCode]
+		MessageDescriptor IMessage.Descriptor => Descriptor;
+
+		[DebuggerNonUserCode]
 		public TemporaryExposureKeyExport()
 		{
 		}
@@ -8205,42 +7408,6 @@ namespace NDB.Covid19.ProtoModels
 		public TemporaryExposureKeyExport Clone()
 		{
 			return new TemporaryExposureKeyExport(this);
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearStartTimestamp()
-		{
-			_hasBits0 &= -2;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearEndTimestamp()
-		{
-			_hasBits0 &= -3;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearRegion()
-		{
-			region_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearBatchNum()
-		{
-			_hasBits0 &= -5;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearBatchSize()
-		{
-			_hasBits0 &= -9;
-		}
-
-		[DebuggerNonUserCode]
-		public override bool Equals(object other)
-		{
-			return Equals(other as TemporaryExposureKeyExport);
 		}
 
 		[DebuggerNonUserCode]
@@ -8283,45 +7450,6 @@ namespace NDB.Covid19.ProtoModels
 				return false;
 			}
 			return object.Equals(_unknownFields, other._unknownFields);
-		}
-
-		[DebuggerNonUserCode]
-		public override int GetHashCode()
-		{
-			int num = 1;
-			if (HasStartTimestamp)
-			{
-				num ^= StartTimestamp.GetHashCode();
-			}
-			if (HasEndTimestamp)
-			{
-				num ^= EndTimestamp.GetHashCode();
-			}
-			if (HasRegion)
-			{
-				num ^= Region.GetHashCode();
-			}
-			if (HasBatchNum)
-			{
-				num ^= BatchNum.GetHashCode();
-			}
-			if (HasBatchSize)
-			{
-				num ^= BatchSize.GetHashCode();
-			}
-			num ^= signatureInfos_.GetHashCode();
-			num ^= keys_.GetHashCode();
-			if (_unknownFields != null)
-			{
-				num ^= _unknownFields.GetHashCode();
-			}
-			return num;
-		}
-
-		[DebuggerNonUserCode]
-		public override string ToString()
-		{
-			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -8459,51 +7587,123 @@ namespace NDB.Covid19.ProtoModels
 				}
 			}
 		}
+
+		[DebuggerNonUserCode]
+		public void ClearStartTimestamp()
+		{
+			_hasBits0 &= -2;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearEndTimestamp()
+		{
+			_hasBits0 &= -3;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearRegion()
+		{
+			region_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearBatchNum()
+		{
+			_hasBits0 &= -5;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearBatchSize()
+		{
+			_hasBits0 &= -9;
+		}
+
+		[DebuggerNonUserCode]
+		public override bool Equals(object other)
+		{
+			return Equals(other as TemporaryExposureKeyExport);
+		}
+
+		[DebuggerNonUserCode]
+		public override int GetHashCode()
+		{
+			int num = 1;
+			if (HasStartTimestamp)
+			{
+				num ^= StartTimestamp.GetHashCode();
+			}
+			if (HasEndTimestamp)
+			{
+				num ^= EndTimestamp.GetHashCode();
+			}
+			if (HasRegion)
+			{
+				num ^= Region.GetHashCode();
+			}
+			if (HasBatchNum)
+			{
+				num ^= BatchNum.GetHashCode();
+			}
+			if (HasBatchSize)
+			{
+				num ^= BatchSize.GetHashCode();
+			}
+			num ^= signatureInfos_.GetHashCode();
+			num ^= keys_.GetHashCode();
+			if (_unknownFields != null)
+			{
+				num ^= _unknownFields.GetHashCode();
+			}
+			return num;
+		}
+
+		[DebuggerNonUserCode]
+		public override string ToString()
+		{
+			return JsonFormatter.ToDiagnosticString(this);
+		}
 	}
 	public sealed class SignatureInfo : IMessage<SignatureInfo>, IMessage, IEquatable<SignatureInfo>, IDeepCloneable<SignatureInfo>
 	{
-		private static readonly MessageParser<SignatureInfo> _parser = new MessageParser<SignatureInfo>(() => new SignatureInfo());
-
-		private UnknownFieldSet _unknownFields;
-
 		public const int AppBundleIdFieldNumber = 1;
-
-		private static readonly string AppBundleIdDefaultValue = "";
-
-		private string appBundleId_;
 
 		public const int AndroidPackageFieldNumber = 2;
 
-		private static readonly string AndroidPackageDefaultValue = "";
-
-		private string androidPackage_;
-
 		public const int VerificationKeyVersionFieldNumber = 3;
-
-		private static readonly string VerificationKeyVersionDefaultValue = "";
-
-		private string verificationKeyVersion_;
 
 		public const int VerificationKeyIdFieldNumber = 4;
 
-		private static readonly string VerificationKeyIdDefaultValue = "";
-
-		private string verificationKeyId_;
-
 		public const int SignatureAlgorithmFieldNumber = 5;
+
+		private static readonly MessageParser<SignatureInfo> _parser = new MessageParser<SignatureInfo>(() => new SignatureInfo());
+
+		private static readonly string AppBundleIdDefaultValue = "";
+
+		private static readonly string AndroidPackageDefaultValue = "";
+
+		private static readonly string VerificationKeyVersionDefaultValue = "";
+
+		private static readonly string VerificationKeyIdDefaultValue = "";
 
 		private static readonly string SignatureAlgorithmDefaultValue = "";
 
+		private UnknownFieldSet _unknownFields;
+
+		private string androidPackage_;
+
+		private string appBundleId_;
+
 		private string signatureAlgorithm_;
+
+		private string verificationKeyId_;
+
+		private string verificationKeyVersion_;
 
 		[DebuggerNonUserCode]
 		public static MessageParser<SignatureInfo> Parser => _parser;
 
 		[DebuggerNonUserCode]
 		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[1];
-
-		[DebuggerNonUserCode]
-		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public string AppBundleId
@@ -8586,6 +7786,9 @@ namespace NDB.Covid19.ProtoModels
 		public bool HasSignatureAlgorithm => signatureAlgorithm_ != null;
 
 		[DebuggerNonUserCode]
+		MessageDescriptor IMessage.Descriptor => Descriptor;
+
+		[DebuggerNonUserCode]
 		public SignatureInfo()
 		{
 		}
@@ -8606,42 +7809,6 @@ namespace NDB.Covid19.ProtoModels
 		public SignatureInfo Clone()
 		{
 			return new SignatureInfo(this);
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearAppBundleId()
-		{
-			appBundleId_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearAndroidPackage()
-		{
-			androidPackage_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearVerificationKeyVersion()
-		{
-			verificationKeyVersion_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearVerificationKeyId()
-		{
-			verificationKeyId_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearSignatureAlgorithm()
-		{
-			signatureAlgorithm_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public override bool Equals(object other)
-		{
-			return Equals(other as SignatureInfo);
 		}
 
 		[DebuggerNonUserCode]
@@ -8676,43 +7843,6 @@ namespace NDB.Covid19.ProtoModels
 				return false;
 			}
 			return object.Equals(_unknownFields, other._unknownFields);
-		}
-
-		[DebuggerNonUserCode]
-		public override int GetHashCode()
-		{
-			int num = 1;
-			if (HasAppBundleId)
-			{
-				num ^= AppBundleId.GetHashCode();
-			}
-			if (HasAndroidPackage)
-			{
-				num ^= AndroidPackage.GetHashCode();
-			}
-			if (HasVerificationKeyVersion)
-			{
-				num ^= VerificationKeyVersion.GetHashCode();
-			}
-			if (HasVerificationKeyId)
-			{
-				num ^= VerificationKeyId.GetHashCode();
-			}
-			if (HasSignatureAlgorithm)
-			{
-				num ^= SignatureAlgorithm.GetHashCode();
-			}
-			if (_unknownFields != null)
-			{
-				num ^= _unknownFields.GetHashCode();
-			}
-			return num;
-		}
-
-		[DebuggerNonUserCode]
-		public override string ToString()
-		{
-			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -8838,47 +7968,117 @@ namespace NDB.Covid19.ProtoModels
 				}
 			}
 		}
+
+		[DebuggerNonUserCode]
+		public void ClearAppBundleId()
+		{
+			appBundleId_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearAndroidPackage()
+		{
+			androidPackage_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearVerificationKeyVersion()
+		{
+			verificationKeyVersion_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearVerificationKeyId()
+		{
+			verificationKeyId_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearSignatureAlgorithm()
+		{
+			signatureAlgorithm_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public override bool Equals(object other)
+		{
+			return Equals(other as SignatureInfo);
+		}
+
+		[DebuggerNonUserCode]
+		public override int GetHashCode()
+		{
+			int num = 1;
+			if (HasAppBundleId)
+			{
+				num ^= AppBundleId.GetHashCode();
+			}
+			if (HasAndroidPackage)
+			{
+				num ^= AndroidPackage.GetHashCode();
+			}
+			if (HasVerificationKeyVersion)
+			{
+				num ^= VerificationKeyVersion.GetHashCode();
+			}
+			if (HasVerificationKeyId)
+			{
+				num ^= VerificationKeyId.GetHashCode();
+			}
+			if (HasSignatureAlgorithm)
+			{
+				num ^= SignatureAlgorithm.GetHashCode();
+			}
+			if (_unknownFields != null)
+			{
+				num ^= _unknownFields.GetHashCode();
+			}
+			return num;
+		}
+
+		[DebuggerNonUserCode]
+		public override string ToString()
+		{
+			return JsonFormatter.ToDiagnosticString(this);
+		}
 	}
 	public sealed class TemporaryExposureKey : IMessage<TemporaryExposureKey>, IMessage, IEquatable<TemporaryExposureKey>, IDeepCloneable<TemporaryExposureKey>
 	{
-		private static readonly MessageParser<TemporaryExposureKey> _parser = new MessageParser<TemporaryExposureKey>(() => new TemporaryExposureKey());
-
-		private UnknownFieldSet _unknownFields;
-
-		private int _hasBits0;
-
 		public const int KeyDataFieldNumber = 1;
-
-		private static readonly ByteString KeyDataDefaultValue = ByteString.Empty;
-
-		private ByteString keyData_;
 
 		public const int TransmissionRiskLevelFieldNumber = 2;
 
-		private static readonly int TransmissionRiskLevelDefaultValue = 0;
-
-		private int transmissionRiskLevel_;
-
 		public const int RollingStartIntervalNumberFieldNumber = 3;
-
-		private static readonly int RollingStartIntervalNumberDefaultValue = 0;
-
-		private int rollingStartIntervalNumber_;
 
 		public const int RollingPeriodFieldNumber = 4;
 
+		private static readonly MessageParser<TemporaryExposureKey> _parser = new MessageParser<TemporaryExposureKey>(() => new TemporaryExposureKey());
+
+		private static readonly ByteString KeyDataDefaultValue = ByteString.Empty;
+
+		private static readonly int TransmissionRiskLevelDefaultValue = 0;
+
+		private static readonly int RollingStartIntervalNumberDefaultValue = 0;
+
 		private static readonly int RollingPeriodDefaultValue = 144;
 
+		private int _hasBits0;
+
+		private UnknownFieldSet _unknownFields;
+
+		private ByteString keyData_;
+
 		private int rollingPeriod_;
+
+		private int rollingStartIntervalNumber_;
+
+		private int transmissionRiskLevel_;
 
 		[DebuggerNonUserCode]
 		public static MessageParser<TemporaryExposureKey> Parser => _parser;
 
 		[DebuggerNonUserCode]
 		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[2];
-
-		[DebuggerNonUserCode]
-		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public ByteString KeyData
@@ -8960,6 +8160,9 @@ namespace NDB.Covid19.ProtoModels
 		public bool HasRollingPeriod => (_hasBits0 & 4) != 0;
 
 		[DebuggerNonUserCode]
+		MessageDescriptor IMessage.Descriptor => Descriptor;
+
+		[DebuggerNonUserCode]
 		public TemporaryExposureKey()
 		{
 		}
@@ -8980,36 +8183,6 @@ namespace NDB.Covid19.ProtoModels
 		public TemporaryExposureKey Clone()
 		{
 			return new TemporaryExposureKey(this);
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearKeyData()
-		{
-			keyData_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearTransmissionRiskLevel()
-		{
-			_hasBits0 &= -2;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearRollingStartIntervalNumber()
-		{
-			_hasBits0 &= -3;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearRollingPeriod()
-		{
-			_hasBits0 &= -5;
-		}
-
-		[DebuggerNonUserCode]
-		public override bool Equals(object other)
-		{
-			return Equals(other as TemporaryExposureKey);
 		}
 
 		[DebuggerNonUserCode]
@@ -9040,39 +8213,6 @@ namespace NDB.Covid19.ProtoModels
 				return false;
 			}
 			return object.Equals(_unknownFields, other._unknownFields);
-		}
-
-		[DebuggerNonUserCode]
-		public override int GetHashCode()
-		{
-			int num = 1;
-			if (HasKeyData)
-			{
-				num ^= KeyData.GetHashCode();
-			}
-			if (HasTransmissionRiskLevel)
-			{
-				num ^= TransmissionRiskLevel.GetHashCode();
-			}
-			if (HasRollingStartIntervalNumber)
-			{
-				num ^= RollingStartIntervalNumber.GetHashCode();
-			}
-			if (HasRollingPeriod)
-			{
-				num ^= RollingPeriod.GetHashCode();
-			}
-			if (_unknownFields != null)
-			{
-				num ^= _unknownFields.GetHashCode();
-			}
-			return num;
-		}
-
-		[DebuggerNonUserCode]
-		public override string ToString()
-		{
-			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -9182,18 +8322,81 @@ namespace NDB.Covid19.ProtoModels
 				}
 			}
 		}
+
+		[DebuggerNonUserCode]
+		public void ClearKeyData()
+		{
+			keyData_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearTransmissionRiskLevel()
+		{
+			_hasBits0 &= -2;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearRollingStartIntervalNumber()
+		{
+			_hasBits0 &= -3;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearRollingPeriod()
+		{
+			_hasBits0 &= -5;
+		}
+
+		[DebuggerNonUserCode]
+		public override bool Equals(object other)
+		{
+			return Equals(other as TemporaryExposureKey);
+		}
+
+		[DebuggerNonUserCode]
+		public override int GetHashCode()
+		{
+			int num = 1;
+			if (HasKeyData)
+			{
+				num ^= KeyData.GetHashCode();
+			}
+			if (HasTransmissionRiskLevel)
+			{
+				num ^= TransmissionRiskLevel.GetHashCode();
+			}
+			if (HasRollingStartIntervalNumber)
+			{
+				num ^= RollingStartIntervalNumber.GetHashCode();
+			}
+			if (HasRollingPeriod)
+			{
+				num ^= RollingPeriod.GetHashCode();
+			}
+			if (_unknownFields != null)
+			{
+				num ^= _unknownFields.GetHashCode();
+			}
+			return num;
+		}
+
+		[DebuggerNonUserCode]
+		public override string ToString()
+		{
+			return JsonFormatter.ToDiagnosticString(this);
+		}
 	}
 	public sealed class TEKSignatureList : IMessage<TEKSignatureList>, IMessage, IEquatable<TEKSignatureList>, IDeepCloneable<TEKSignatureList>
 	{
-		private static readonly MessageParser<TEKSignatureList> _parser = new MessageParser<TEKSignatureList>(() => new TEKSignatureList());
-
-		private UnknownFieldSet _unknownFields;
-
 		public const int SignaturesFieldNumber = 1;
+
+		private static readonly MessageParser<TEKSignatureList> _parser = new MessageParser<TEKSignatureList>(() => new TEKSignatureList());
 
 		private static readonly FieldCodec<TEKSignature> _repeated_signatures_codec = FieldCodec.ForMessage(10u, TEKSignature.Parser);
 
 		private readonly RepeatedField<TEKSignature> signatures_ = new RepeatedField<TEKSignature>();
+
+		private UnknownFieldSet _unknownFields;
 
 		[DebuggerNonUserCode]
 		public static MessageParser<TEKSignatureList> Parser => _parser;
@@ -9202,10 +8405,10 @@ namespace NDB.Covid19.ProtoModels
 		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[3];
 
 		[DebuggerNonUserCode]
-		MessageDescriptor IMessage.Descriptor => Descriptor;
+		public RepeatedField<TEKSignature> Signatures => signatures_;
 
 		[DebuggerNonUserCode]
-		public RepeatedField<TEKSignature> Signatures => signatures_;
+		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public TEKSignatureList()
@@ -9227,12 +8430,6 @@ namespace NDB.Covid19.ProtoModels
 		}
 
 		[DebuggerNonUserCode]
-		public override bool Equals(object other)
-		{
-			return Equals(other as TEKSignatureList);
-		}
-
-		[DebuggerNonUserCode]
 		public bool Equals(TEKSignatureList other)
 		{
 			if (other == null)
@@ -9248,24 +8445,6 @@ namespace NDB.Covid19.ProtoModels
 				return false;
 			}
 			return object.Equals(_unknownFields, other._unknownFields);
-		}
-
-		[DebuggerNonUserCode]
-		public override int GetHashCode()
-		{
-			int num = 1;
-			num ^= signatures_.GetHashCode();
-			if (_unknownFields != null)
-			{
-				num ^= _unknownFields.GetHashCode();
-			}
-			return num;
-		}
-
-		[DebuggerNonUserCode]
-		public override string ToString()
-		{
-			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -9316,45 +8495,66 @@ namespace NDB.Covid19.ProtoModels
 				}
 			}
 		}
+
+		[DebuggerNonUserCode]
+		public override bool Equals(object other)
+		{
+			return Equals(other as TEKSignatureList);
+		}
+
+		[DebuggerNonUserCode]
+		public override int GetHashCode()
+		{
+			int num = 1;
+			num ^= signatures_.GetHashCode();
+			if (_unknownFields != null)
+			{
+				num ^= _unknownFields.GetHashCode();
+			}
+			return num;
+		}
+
+		[DebuggerNonUserCode]
+		public override string ToString()
+		{
+			return JsonFormatter.ToDiagnosticString(this);
+		}
 	}
 	public sealed class TEKSignature : IMessage<TEKSignature>, IMessage, IEquatable<TEKSignature>, IDeepCloneable<TEKSignature>
 	{
-		private static readonly MessageParser<TEKSignature> _parser = new MessageParser<TEKSignature>(() => new TEKSignature());
-
-		private UnknownFieldSet _unknownFields;
-
-		private int _hasBits0;
-
 		public const int SignatureInfoFieldNumber = 1;
-
-		private SignatureInfo signatureInfo_;
 
 		public const int BatchNumFieldNumber = 2;
 
-		private static readonly int BatchNumDefaultValue = 0;
-
-		private int batchNum_;
-
 		public const int BatchSizeFieldNumber = 3;
-
-		private static readonly int BatchSizeDefaultValue = 0;
-
-		private int batchSize_;
 
 		public const int SignatureFieldNumber = 4;
 
+		private static readonly MessageParser<TEKSignature> _parser = new MessageParser<TEKSignature>(() => new TEKSignature());
+
+		private static readonly int BatchNumDefaultValue = 0;
+
+		private static readonly int BatchSizeDefaultValue = 0;
+
 		private static readonly ByteString SignatureDefaultValue = ByteString.Empty;
 
+		private int _hasBits0;
+
+		private UnknownFieldSet _unknownFields;
+
+		private int batchNum_;
+
+		private int batchSize_;
+
 		private ByteString signature_;
+
+		private SignatureInfo signatureInfo_;
 
 		[DebuggerNonUserCode]
 		public static MessageParser<TEKSignature> Parser => _parser;
 
 		[DebuggerNonUserCode]
 		public static MessageDescriptor Descriptor => TemporaryExposureKeyBatchReflection.Descriptor.MessageTypes[4];
-
-		[DebuggerNonUserCode]
-		MessageDescriptor IMessage.Descriptor => Descriptor;
 
 		[DebuggerNonUserCode]
 		public SignatureInfo SignatureInfo
@@ -9428,6 +8628,9 @@ namespace NDB.Covid19.ProtoModels
 		public bool HasSignature => signature_ != null;
 
 		[DebuggerNonUserCode]
+		MessageDescriptor IMessage.Descriptor => Descriptor;
+
+		[DebuggerNonUserCode]
 		public TEKSignature()
 		{
 		}
@@ -9448,30 +8651,6 @@ namespace NDB.Covid19.ProtoModels
 		public TEKSignature Clone()
 		{
 			return new TEKSignature(this);
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearBatchNum()
-		{
-			_hasBits0 &= -2;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearBatchSize()
-		{
-			_hasBits0 &= -3;
-		}
-
-		[DebuggerNonUserCode]
-		public void ClearSignature()
-		{
-			signature_ = null;
-		}
-
-		[DebuggerNonUserCode]
-		public override bool Equals(object other)
-		{
-			return Equals(other as TEKSignature);
 		}
 
 		[DebuggerNonUserCode]
@@ -9502,39 +8681,6 @@ namespace NDB.Covid19.ProtoModels
 				return false;
 			}
 			return object.Equals(_unknownFields, other._unknownFields);
-		}
-
-		[DebuggerNonUserCode]
-		public override int GetHashCode()
-		{
-			int num = 1;
-			if (signatureInfo_ != null)
-			{
-				num ^= SignatureInfo.GetHashCode();
-			}
-			if (HasBatchNum)
-			{
-				num ^= BatchNum.GetHashCode();
-			}
-			if (HasBatchSize)
-			{
-				num ^= BatchSize.GetHashCode();
-			}
-			if (HasSignature)
-			{
-				num ^= Signature.GetHashCode();
-			}
-			if (_unknownFields != null)
-			{
-				num ^= _unknownFields.GetHashCode();
-			}
-			return num;
-		}
-
-		[DebuggerNonUserCode]
-		public override string ToString()
-		{
-			return JsonFormatter.ToDiagnosticString(this);
 		}
 
 		[DebuggerNonUserCode]
@@ -9653,168 +8799,82 @@ namespace NDB.Covid19.ProtoModels
 				}
 			}
 		}
-	}
-}
-namespace NDB.Covid19.ExposureNotifications.Helpers.FetchExposureKeys
-{
-	public class PullRules
-	{
-		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
 
-		private IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
-
-		public bool ShouldAbortPull()
+		[DebuggerNonUserCode]
+		public void ClearBatchNum()
 		{
-			string logPrefix = "PullRules.ShouldAbortPull: ";
-			if (!LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled() && !ConnectivityHelper.ConnectionProfiles.Contains(ConnectionProfile.WiFi))
+			_hasBits0 &= -2;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearBatchSize()
+		{
+			_hasBits0 &= -3;
+		}
+
+		[DebuggerNonUserCode]
+		public void ClearSignature()
+		{
+			signature_ = null;
+		}
+
+		[DebuggerNonUserCode]
+		public override bool Equals(object other)
+		{
+			return Equals(other as TEKSignature);
+		}
+
+		[DebuggerNonUserCode]
+		public override int GetHashCode()
+		{
+			int num = 1;
+			if (signatureInfo_ != null)
 			{
-				return PrepareAbortMessage(logPrefix, "Pull aborted. Mobile connectivity has been disabled in general settings and WiFi connection is not available. ", $"Last pull: {LocalPreferencesHelper.GetLastPullKeysSucceededDateTime()}");
+				num ^= SignatureInfo.GetHashCode();
 			}
-			if (LastDownloadZipsTooRecent())
+			if (HasBatchNum)
 			{
-				return PrepareAbortMessage(logPrefix, "Pull aborted. The last time we ran DownloadZips was too recent. ", $"Last pull: {LocalPreferencesHelper.GetLastPullKeysSucceededDateTime()}");
+				num ^= BatchNum.GetHashCode();
 			}
-			return false;
-		}
-
-		private bool PrepareAbortMessage(string logPrefix, string msg, string additionalData = null)
-		{
-			string text = logPrefix + msg;
-			if (additionalData != null)
+			if (HasBatchSize)
 			{
-				text += additionalData;
+				num ^= BatchSize.GetHashCode();
 			}
-			_developerTools.AddToPullHistoryRecord(text);
-			LogUtils.LogMessage(LogSeverity.WARNING, text);
-			return true;
-		}
-
-		public bool LastDownloadZipsTooRecent()
-		{
-			DateTime dateTime = LocalPreferencesHelper.GetLastPullKeysSucceededDateTime();
-			if (dateTime.Equals(DateTime.MinValue))
+			if (HasSignature)
 			{
-				dateTime = DateTime.UtcNow.AddDays(-14.0).Date;
+				num ^= Signature.GetHashCode();
 			}
-			TimeSpan t = DateTime.UtcNow - dateTime;
-			if (dateTime > DateTime.UtcNow)
+			if (_unknownFields != null)
 			{
-				return false;
+				num ^= _unknownFields.GetHashCode();
 			}
-			return t < Conf.FETCH_MIN_HOURS_BETWEEN_PULL;
-		}
-	}
-}
-namespace NDB.Covid19.ExposureNotifications.Helpers.ExposureDetected
-{
-	public class JsonCompatibleExposureDetectionSummary
-	{
-		public int DaysSinceLastExposure
-		{
-			get;
-			set;
+			return num;
 		}
 
-		public ulong MatchedKeyCount
+		[DebuggerNonUserCode]
+		public override string ToString()
 		{
-			get;
-			set;
-		}
-
-		public int HighestRiskScore
-		{
-			get;
-			set;
-		}
-
-		public TimeSpan[] AttenuationDurations
-		{
-			get;
-			set;
-		}
-
-		public int SummationRiskScore
-		{
-			get;
-			set;
-		}
-
-		public JsonCompatibleExposureDetectionSummary()
-		{
-		}
-
-		public JsonCompatibleExposureDetectionSummary(ExposureDetectionSummary exposureDetectionSummary)
-		{
-			DaysSinceLastExposure = exposureDetectionSummary.DaysSinceLastExposure;
-			MatchedKeyCount = exposureDetectionSummary.MatchedKeyCount;
-			HighestRiskScore = exposureDetectionSummary.HighestRiskScore;
-			AttenuationDurations = exposureDetectionSummary.AttenuationDurations;
-			SummationRiskScore = exposureDetectionSummary.SummationRiskScore;
-		}
-	}
-	public class JsonCompatibleExposureInfo
-	{
-		public DateTime Timestamp
-		{
-			get;
-			set;
-		}
-
-		public TimeSpan Duration
-		{
-			get;
-			set;
-		}
-
-		public int AttenuationValue
-		{
-			get;
-			set;
-		}
-
-		public int TotalRiskScore
-		{
-			get;
-			set;
-		}
-
-		public RiskLevel TransmissionRiskLevel
-		{
-			get;
-			set;
-		}
-
-		public JsonCompatibleExposureInfo()
-		{
-		}
-
-		public JsonCompatibleExposureInfo(ExposureInfo exposureInfo)
-		{
-			Timestamp = exposureInfo.Timestamp;
-			Duration = exposureInfo.Duration;
-			AttenuationValue = exposureInfo.AttenuationValue;
-			TotalRiskScore = exposureInfo.TotalRiskScore;
-			TransmissionRiskLevel = exposureInfo.TransmissionRiskLevel;
+			return JsonFormatter.ToDiagnosticString(this);
 		}
 	}
 }
-namespace NDB.Covid19.ExposureNotification
+namespace NDB.Covid19.ExposureNotifications
 {
 	public class ExposureNotificationHandler : IExposureNotificationHandler
 	{
-		private ExposureNotificationWebService exposureNotificationWebService = new ExposureNotificationWebService();
+		private readonly ExposureNotificationWebService exposureNotificationWebService = new ExposureNotificationWebService();
 
 		private DateTime? MiBaDate => AuthenticationState.PersonalData?.FinalMiBaDate;
 
 		public string UserExplanation => "Saving ExposureInfos with \"Pull Keys and Save ExposureInfos\" causes the EN API to display this notification (not a bug)";
 
-		public Task<Configuration> GetConfigurationAsync()
+		public Task<Xamarin.ExposureNotifications.Configuration> GetConfigurationAsync()
 		{
 			return Task.Run(async delegate
 			{
-				Configuration obj = (await exposureNotificationWebService.GetExposureConfiguration()) ?? throw new FailedToFetchConfigurationException("Aborting pull because configuration was not fetched from server. See corresponding server error log");
-				string str = JsonConvert.SerializeObject(obj);
-				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastUsedConfiguration = "Time used (UTC): " + DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + "\n" + str;
+				Xamarin.ExposureNotifications.Configuration obj = (await exposureNotificationWebService.GetExposureConfiguration()) ?? throw new FailedToFetchConfigurationException("Aborting pull because configuration was not fetched from server. See corresponding server error log");
+				string text = JsonConvert.SerializeObject(obj);
+				ServiceLocator.Current.GetInstance<IDeveloperToolsService>().LastUsedConfiguration = "Time used (UTC): " + DateTime.UtcNow.ToGreGorianUtcString("yyyy-MM-dd HH:mm:ss") + "\n" + text;
 				return obj;
 			});
 		}
@@ -9862,7 +8922,7 @@ namespace NDB.Covid19.ExposureNotification
 		}
 	}
 }
-namespace NDB.Covid19.ExposureNotification.Helpers
+namespace NDB.Covid19.ExposureNotifications.Helpers
 {
 	public abstract class BatchFileHelper
 	{
@@ -9881,11 +8941,7 @@ namespace NDB.Covid19.ExposureNotification.Helpers
 			stream2.CopyTo(fileStream2);
 			fileStream.Close();
 			fileStream2.Close();
-			return new List<string>
-			{
-				text,
-				text2
-			};
+			return new List<string> { text, text2 };
 		}
 
 		public static ZipArchive UrlToZipArchive(string localFileUrl)
@@ -9998,10 +9054,10 @@ namespace NDB.Covid19.ExposureNotification.Helpers
 
 		public static List<ExposureKeyModel> SetTransmissionRiskLevel(List<ExposureKeyModel> keys, DateTime symptomsDate)
 		{
-			DateTimeOffset right = new DateTimeOffset(symptomsDate);
+			DateTimeOffset dateTimeOffset = new DateTimeOffset(symptomsDate);
 			foreach (ExposureKeyModel key in keys)
 			{
-				int num = (key.DaysSinceOnsetOfSymptoms = (key.RollingStart - right).Days);
+				int num = (key.DaysSinceOnsetOfSymptoms = (key.RollingStart - dateTimeOffset).Days);
 				for (int num2 = Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION.Length - 1; num2 >= 0; num2--)
 				{
 					if (num >= Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION[num2].Item1 && num <= Conf.DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION[num2].Item2)
@@ -10015,13 +9071,13 @@ namespace NDB.Covid19.ExposureNotification.Helpers
 		}
 	}
 }
-namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
+namespace NDB.Covid19.ExposureNotifications.Helpers.FetchExposureKeys
 {
 	public class FetchExposureKeysHelper
 	{
-		private static string _logPrefix = "FetchExposureKeysHelper";
+		private static readonly string _logPrefix = "FetchExposureKeysHelper";
 
-		private PullRules _pullRules = new PullRules();
+		private readonly PullRules _pullRules = new PullRules();
 
 		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
 
@@ -10057,15 +9113,15 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 
 		private async void ResendMessageIfNeeded()
 		{
-			DateTime t = TimeZoneInfo.ConvertTimeFromUtc(SystemTime.Now(), TimeZoneInfo.Local);
+			DateTime dateTime = TimeZoneInfo.ConvertTimeFromUtc(SystemTime.Now(), TimeZoneInfo.Local);
 			DateTime date = SystemTime.Now().Date;
 			DateTime dateTimeFromSecureStorageForKey = MessageUtils.GetDateTimeFromSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, "ResendMessageIfNeeded");
-			DateTime dateTime = dateTimeFromSecureStorageForKey.ToLocalTime();
-			if (dateTimeFromSecureStorageForKey < date && t.Date.Subtract(dateTime.Date).TotalHours >= (double)Conf.HOURS_UNTIL_RESEND_MESSAGES)
+			DateTime dateTime2 = dateTimeFromSecureStorageForKey.ToLocalTime();
+			if (dateTimeFromSecureStorageForKey < date && dateTime.Date.Subtract(dateTime2.Date).TotalHours >= (double)Conf.HOURS_UNTIL_RESEND_MESSAGES)
 			{
-				DateTime t2 = new DateTime(t.Year, t.Month, t.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_BEGIN, 0, 0);
-				DateTime t3 = new DateTime(t.Year, t.Month, t.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END, 0, 0);
-				if (t >= t2 && t <= t3 && (await MessageUtils.GetAllUnreadMessages()).FindAll((MessageSQLiteModel message) => SystemTime.Now().Subtract(message.TimeStamp).TotalMinutes < (double)Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES).ToList().Count > 0)
+				DateTime dateTime3 = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_BEGIN, 0, 0);
+				DateTime dateTime4 = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, Conf.HOUR_WHEN_MESSAGE_SHOULD_BE_RESEND_END, 0, 0);
+				if (dateTime >= dateTime3 && dateTime <= dateTime4 && (await MessageUtils.GetAllUnreadMessages()).FindAll((MessageSQLiteModel message) => SystemTime.Now().Subtract(message.TimeStamp).TotalMinutes < (double)Conf.MAX_MESSAGE_RETENTION_TIME_IN_MINUTES).ToList().Count > 0)
 				{
 					NotificationsHelper.CreateNotification(NotificationsEnum.NewMessageReceived, 0);
 					MessageUtils.SaveDateTimeToSecureStorageForKey(SecureStorageKeys.LAST_SENT_NOTIFICATION_UTC_KEY, SystemTime.Now(), "ResendMessageIfNeeded");
@@ -10133,19 +9189,62 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 			}
 		}
 	}
+	public class PullRules
+	{
+		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
+
+		public bool ShouldAbortPull()
+		{
+			string logPrefix = "PullRules.ShouldAbortPull: ";
+			if (!LocalPreferencesHelper.GetIsDownloadWithMobileDataEnabled() && !ConnectivityHelper.ConnectionProfiles.Contains(ConnectionProfile.WiFi))
+			{
+				return PrepareAbortMessage(logPrefix, "Pull aborted. Mobile connectivity has been disabled in general settings and WiFi connection is not available. ", $"Last pull: {LocalPreferencesHelper.GetLastPullKeysSucceededDateTime()}");
+			}
+			if (LastDownloadZipsTooRecent())
+			{
+				return PrepareAbortMessage(logPrefix, "Pull aborted. The last time we ran DownloadZips was too recent. ", $"Last pull: {LocalPreferencesHelper.GetLastPullKeysSucceededDateTime()}");
+			}
+			return false;
+		}
+
+		private bool PrepareAbortMessage(string logPrefix, string msg, string additionalData = null)
+		{
+			string text = logPrefix + msg;
+			if (additionalData != null)
+			{
+				text += additionalData;
+			}
+			_developerTools.AddToPullHistoryRecord(text);
+			LogUtils.LogMessage(LogSeverity.WARNING, text);
+			return true;
+		}
+
+		public bool LastDownloadZipsTooRecent()
+		{
+			DateTime dateTime = LocalPreferencesHelper.GetLastPullKeysSucceededDateTime();
+			if (dateTime.Equals(DateTime.MinValue))
+			{
+				dateTime = DateTime.UtcNow.AddDays(-14.0).Date;
+			}
+			TimeSpan timeSpan = DateTime.UtcNow - dateTime;
+			if (dateTime > DateTime.UtcNow)
+			{
+				return false;
+			}
+			return timeSpan < Conf.FETCH_MIN_HOURS_BETWEEN_PULL;
+		}
+	}
 	public class ZipDownloader
 	{
-		private readonly ExposureNotificationWebService _exposureNotificationWebService = new ExposureNotificationWebService();
-
-		private string _logPrefix = "ZipDownloader";
-
 		public static readonly string MoreBatchesExistHeader = "nextBatchExists";
 
 		public static readonly string LastBatchReturnedHeader = "lastBatchReturned";
 
-		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
+		private readonly ExposureNotificationWebService _exposureNotificationWebService = new ExposureNotificationWebService();
 
-		private static IPreferences _preferences => ServiceLocator.Current.GetInstance<IPreferences>();
+		private readonly string _logPrefix = "ZipDownloader";
+
+		private IDeveloperToolsService _developerTools => ServiceLocator.Current.GetInstance<IDeveloperToolsService>();
 
 		public async Task<IEnumerable<string>> DownloadZips(CancellationToken cancellationToken)
 		{
@@ -10193,8 +9292,8 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 					else
 					{
 						_developerTools.AddToPullHistoryRecord("204 No Content - No new keys", requestUrl);
-						string str = "API " + apiResponse.Endpoint + " returned 204 No Content - No new keys since last pull";
-						LogUtils.LogMessage(LogSeverity.WARNING, _logPrefix + ".DownloadZips: " + str);
+						string text2 = "API " + apiResponse.Endpoint + " returned 204 No Content - No new keys since last pull";
+						LogUtils.LogMessage(LogSeverity.WARNING, _logPrefix + ".DownloadZips: " + text2);
 						lastPull = true;
 					}
 				}
@@ -10264,11 +9363,11 @@ namespace NDB.Covid19.ExposureNotification.Helpers.FetchExposureKeys
 		}
 	}
 }
-namespace NDB.Covid19.ExposureNotification.Helpers.ExposureDetected
+namespace NDB.Covid19.ExposureNotifications.Helpers.ExposureDetected
 {
 	public abstract class ExposureDetectedHelper
 	{
-		private static string _logPrefix = "ExposureDetectedHelper";
+		private static readonly string _logPrefix = "ExposureDetectedHelper";
 
 		private static SecureStorageService _secureStorageService => ServiceLocator.Current.GetInstance<SecureStorageService>();
 
@@ -10328,15 +9427,51 @@ namespace NDB.Covid19.ExposureNotification.Helpers.ExposureDetected
 				select new ExposureInfo(jsonCompatibleExposureInfo.Timestamp, jsonCompatibleExposureInfo.Duration, jsonCompatibleExposureInfo.AttenuationValue, jsonCompatibleExposureInfo.TotalRiskScore, jsonCompatibleExposureInfo.TransmissionRiskLevel);
 		}
 	}
-}
-namespace NDB.Covid19.Droid.Utils
-{
-	public enum NotificationType
+	public class JsonCompatibleExposureDetectionSummary
 	{
-		Local,
-		InBackground,
-		Permissions,
-		ForegroundWithUpdates
+		public int DaysSinceLastExposure { get; set; }
+
+		public ulong MatchedKeyCount { get; set; }
+
+		public int HighestRiskScore { get; set; }
+
+		public TimeSpan[] AttenuationDurations { get; set; }
+
+		public int SummationRiskScore { get; set; }
+
+		public JsonCompatibleExposureDetectionSummary()
+		{
+		}
+
+		public JsonCompatibleExposureDetectionSummary(ExposureDetectionSummary exposureDetectionSummary)
+		{
+			DaysSinceLastExposure = exposureDetectionSummary.DaysSinceLastExposure;
+			MatchedKeyCount = exposureDetectionSummary.MatchedKeyCount;
+			HighestRiskScore = exposureDetectionSummary.HighestRiskScore;
+			AttenuationDurations = exposureDetectionSummary.AttenuationDurations;
+			SummationRiskScore = exposureDetectionSummary.SummationRiskScore;
+		}
+	}
+	public class JsonCompatibleExposureInfo
+	{
+		public DateTime Timestamp { get; set; }
+
+		public TimeSpan Duration { get; set; }
+
+		public int AttenuationValue { get; set; }
+
+		public int TotalRiskScore { get; set; }
+
+		public RiskLevel TransmissionRiskLevel { get; set; }
+
+		public JsonCompatibleExposureInfo(ExposureInfo exposureInfo)
+		{
+			Timestamp = exposureInfo.Timestamp;
+			Duration = exposureInfo.Duration;
+			AttenuationValue = exposureInfo.AttenuationValue;
+			TotalRiskScore = exposureInfo.TotalRiskScore;
+			TransmissionRiskLevel = exposureInfo.TransmissionRiskLevel;
+		}
 	}
 }
 namespace NDB.Covid19.Enums
@@ -10447,6 +9582,13 @@ namespace NDB.Covid19.Enums
 			};
 		}
 	}
+	public enum NotificationType
+	{
+		Local,
+		InBackground,
+		Permissions,
+		ForegroundWithUpdates
+	}
 	public enum OnboardingStatus
 	{
 		NoConsentsGiven,
@@ -10482,23 +9624,23 @@ namespace NDB.Covid19.Enums
 		English
 	}
 }
-namespace NDB.Covid19.Config
+namespace NDB.Covid19.Configuration
 {
 	public class Conf
 	{
-		public static readonly string BaseUrl = "https://app.smittestop.dk/API/";
+		private static readonly SecretsObj Secrets = SecretsInjection.GetSecrets();
 
-		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(240.0);
+		public static readonly string BaseUrl = Secrets.BaseUrl;
+
+		public static readonly bool UseDeveloperTools = Secrets.UseDevTools;
+
+		public static readonly TimeSpan FETCH_MIN_HOURS_BETWEEN_PULL = TimeSpan.FromMinutes(Secrets.FetchMinMinutes);
 
 		public static readonly int APIVersion = 2;
 
 		public static string DEFAULT_LANGUAGE = "da";
 
-		public static string[] SUPPORTED_LANGUAGES = new string[2]
-		{
-			"da",
-			"en"
-		};
+		public static string[] SUPPORTED_LANGUAGES = new string[2] { "da", "en" };
 
 		public static int MAX_MESSAGE_RETENTION_TIME_IN_MINUTES = MESSAGE_RETENTION_TIME_IN_MINUTES_LONG;
 
@@ -10514,8 +9656,6 @@ namespace NDB.Covid19.Config
 
 		public static readonly TimeSpan BACKGROUND_FETCH_REPEAT_INTERVAL_ANDROID = TimeSpan.FromHours(4.0);
 
-		public static readonly int FETCH_MAX_ATTEMPTS = 1;
-
 		public static readonly Tuple<int, int>[] DAYS_SINCE_ONSET_FOR_TRANSMISSION_RISK_CALCULATION = new Tuple<int, int>[8]
 		{
 			Tuple.Create(-2147483648, 2147483647),
@@ -10528,8 +9668,6 @@ namespace NDB.Covid19.Config
 			Tuple.Create(11, 12)
 		};
 
-		public static readonly int RISK_SCORE_THRESHOLD_FOR_HIGH_RISK = 512;
-
 		public static readonly double LOW_ATTENUATION_DURATION_MULTIPLIER = 1.0;
 
 		public static readonly double MIDDLE_ATTENUATION_DURATION_MULTIPLIER = 0.5;
@@ -10538,18 +9676,13 @@ namespace NDB.Covid19.Config
 
 		public static readonly double EXPOSURE_TIME_THRESHOLD = 15.0;
 
-		public static readonly string[] SUPPORTED_REGIONS = new string[1]
-		{
-			"dk"
-		};
+		public static readonly string[] SUPPORTED_REGIONS = new string[1] { "dk" };
 
 		public static string GooglePlayAppLink = "https://play.google.com/store/apps/details?id=com.netcompany.smittestop_exposure_notification";
 
 		public static string IOSAppstoreAppLink = "itms-apps://itunes.apple.com/app/1516581736";
 
-		public static string AuthorizationHeader => "68iXQyxZOy";
-
-		public static bool UseDeveloperTools => false;
+		public static string AuthorizationHeader => Secrets.AuthHeader;
 
 		public static int DEFAULT_TIMEOUT_SERVICECALLS_SECONDS => 40;
 
@@ -10577,115 +9710,67 @@ namespace NDB.Covid19.Config
 	}
 	public static class OAuthConf
 	{
-		public static string OAUTH2_CLIENT_ID = "smittestop";
+		private static readonly SecretsObj Secrets = SecretsInjection.GetSecrets();
 
-		public static string OAUTH2_SCOPE = "openid";
+		public static readonly string OAUTH2_CLIENT_ID = Secrets.Oauth2ClientId;
 
-		public static string OAUTH2_REDIRECT_URL = "com.netcompany.smittestop:/oauth2redirect";
+		public static readonly string OAUTH2_SCOPE = Secrets.Oauth2Scope;
 
-		public static string OAUTH2_AUTHORISE_URL = "https://smittestop.sundhedsdatastyrelsen.dk/auth/realms/smittestop/protocol/openid-connect/auth";
+		public static readonly string OAUTH2_REDIRECT_URL = Secrets.Oauth2RedirectUrl;
 
-		public static string OAUTH2_ACCESSTOKEN_URL = "https://smittestop.sundhedsdatastyrelsen.dk/auth/realms/smittestop/protocol/openid-connect/token";
+		public static readonly string OAUTH2_AUTHORISE_URL = Secrets.Oauth2AuthoriseUrl;
 
-		public static string OAUTH2_VERIFY_TOKEN_PUBLIC_KEY = "MIICozCCAYsCBgFyUF+KrzANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDDApzbWl0dGVzdG9wMB4XDTIwMDUyNjA5NDM1OFoXDTMwMDUyNjA5NDUzOFowFTETMBEGA1UEAwwKc21pdHRlc3RvcDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKfvyy3eqyn9A4s5cuyzNJyJQsrWkyN2aNzwq8s1Gd9WUsFe6RKwKHAMQqRzSVzDS6cgxN9MWbsyLZymxNxtDFvILxOTKvzxJsbDwcD2vAiLu7raRTP0e2WyST8UdSS+ZT69yIKqWXqjwtz/KMgFD9FaWhj/xLf34RiLP6qysEYNGaBnKONoajjvo5+WzXkvX5vkhx2dWajikk0wxbLhKskwr41yw2xa6fsBmhzigZjGkzAoXoLeYGx/EbnpRSoadFatagMemWUXe1Nw8AGYpamqAuvuHRUTAYtyJChZZuXbtm8hygj05oTOfPOlE3E7dL0MGhe91BgyKmEjGeHRNBcCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEANhvGRFjAyTewVu4/gy234d5qGadET5y4OR3uUPyySM2gMhkmrlUyOxWr82UunRLCVs+S0N1AEVt4/sAFn4q5zopyDMHhYUpi9L5X32Q8E1qHRFgwjfMIGq6kiU6qZld3zOvBlu9A4mgsxm23JhCx+kYoDN4FSsoyIiyQX9wxHj9VXA7exlK/nTlk4aPTPPH/ukY1isZmdPXfKUiLocikDReFffqy8gaG081Jqjpp04HmJWX+ryOYI1oKB88ZNkadpadA1z7nHBTF1k+KIhB+0vFCBjGVXeC7KSJQkJck8mfG/JKNFgnKGt4x2PzHGJYOQewJxhDXWXyRGtIwmUzH3w==";
+		public static readonly string OAUTH2_ACCESS_TOKEN_URL = Secrets.Oauth2AccessTokenUrl;
+
+		public static readonly string OAUTH2_VERIFY_TOKEN_PUBLIC_KEY = Secrets.Oauth2VerifyTokenPublicKey;
 	}
-	public class PreferencesKeys
+	public static class SecretsInjection
 	{
-		public static readonly string MIGRATION_COUNT = "MIGRATION_COUNT";
+		public static SecretsObj GetSecrets()
+		{
+			try
+			{
+				using StreamReader streamReader = new StreamReader(typeof(SecretsInjection).GetTypeInfo().Assembly.GetManifestResourceStream("NDB.Covid19.config.json"));
+				return JsonConvert.DeserializeObject<SecretsObj>(streamReader.ReadToEnd());
+			}
+			catch
+			{
+				return new SecretsObj
+				{
+					AuthHeader = "",
+					BaseUrl = "http://localhost:9095/",
+					FetchMinMinutes = 120,
+					Oauth2AccessTokenUrl = "",
+					Oauth2AuthoriseUrl = "",
+					Oauth2ClientId = "",
+					Oauth2RedirectUrl = "",
+					Oauth2Scope = "",
+					Oauth2VerifyTokenPublicKey = "",
+					UseDevTools = true
+				};
+			}
+		}
+	}
+	public class SecretsObj
+	{
+		public string BaseUrl { get; set; }
 
-		public static readonly string MESSAGES_LAST_UPDATED_PREF = "MESSAGES_LAST_UPDATED_PREF";
+		public string AuthHeader { get; set; }
 
-		public static readonly string SSI_DATA_HAS_NEVER_BEEN_CALLED = "SSI_DATA_HAS_NEVER_BEEN_CALLED";
+		public string Oauth2ClientId { get; set; }
 
-		public static readonly string SSI_DATA_LAST_UPDATED_PREF = "SSI_DATA_LAST_UPDATED_PREF";
+		public string Oauth2Scope { get; set; }
 
-		public static readonly string SSI_DATA_CONFIRMED_CASES_TODAY_PREF = "SSI_DATA_CONFIRMED_CASES_TODAY_PREF";
+		public string Oauth2RedirectUrl { get; set; }
 
-		public static readonly string SSI_DATA_CONFIRMED_CASES_TOTAL_PREF = "SSI_DATA_CONFIRMED_CASES_TOTAL_PREF";
+		public string Oauth2AuthoriseUrl { get; set; }
 
-		public static readonly string SSI_DATA_DEATHS_TODAY_PREF = "SSI_DATA_DEATHS_TODAY_PREF";
+		public string Oauth2AccessTokenUrl { get; set; }
 
-		public static readonly string SSI_DATA_DEATHS_TOTAL_PREF = "SSI_DATA_DEATHS_TOTAL_PREF";
+		public string Oauth2VerifyTokenPublicKey { get; set; }
 
-		public static readonly string SSI_DATA_TESTS_CONDUCTED_TODAY_PREF = "SSI_DATA_TESTS_CONDUCTED_TODAY_PREF";
+		public int FetchMinMinutes { get; set; }
 
-		public static readonly string SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF = "SSI_DATA_TESTS_CONDUCTED_TOTAL_PREF";
-
-		public static readonly string SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF = "SSI_DATA_PATIENTS_ADMITTED_TODAY_PREF";
-
-		public static readonly string SSI_DATA_VACCINATED_ENTRY_DATE_PREF = "SSI_DATA_VACCINATED_ENTRY_DATE_PREF";
-
-		public static readonly string SSI_DATA_VACCINATED_FIRST_PREF = "SSI_DATA_VACCINATED_FIRST_PREF";
-
-		public static readonly string SSI_DATA_VACCINATED_SECOND_PREF = "SSI_DATA_VACCINATED_SECOND_PREF";
-
-		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_LAST_7_DAYS_PREF";
-
-		public static readonly string APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF = "APP_DATA_NUMBER_OF_POSITIVE_TESTS_RESULTS_TOTAL_PREF";
-
-		public static readonly string APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF = "APP_DATA_SMITTESTOP_DOWNLOADS_TOTAL_PREF";
-
-		public static readonly string APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF = "APP_DOWNLOAD_NUMBERS_LAST_UPDATED_PREF";
-
-		public static readonly string DISEASE_RATE_OF_THE_DAY_DTO_PREF = "DISEASE_RATE_OF_THE_DAY_DTO_PREF";
-
-		public static readonly string IS_SCROLL_DOWN_SHOWN_PREF = "SCROLL_DOWN_SHOWN_PREF";
-
-		public static readonly string IS_ONBOARDING_COMPLETED_PREF = "isOnboardingCompleted";
-
-		public static readonly string IS_ONBOARDING_COUNTRIES_COMPLETED_PREF = "isOnboardingCountriesCompleted";
-
-		public static readonly string USE_MOBILE_DATA_PREF = "USE_MOBILE_DATA_PREF";
-
-		public static readonly string LAST_PULL_KEYS_SUCCEEDED_DATE_TIME = "LAST_PULL_KEYS_SUCCEEDED_DATE_TIME";
-
-		public static readonly string LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED = "LAST_PULLED_BATCH_NUMBER_NOT_SUBMITTED";
-
-		public static readonly string LAST_PULLED_BATCH_NUMBER_SUBMITTED = "LAST_PULLED_BATCH_NUMBER_SUBMITTED";
-
-		public static readonly string LAST_PULLED_BATCH_TYPE = "LAST_PULLED_BATCH_TYPE";
-
-		public static readonly string APP_LANGUAGE = "APP_LANGUAGE";
-
-		public static readonly string DEV_TOOLS_PULL_KEYS_HISTORY = "DEV_TOOLS_PULL_KEYS_HISTORY";
-
-		public static readonly string DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD = "DEV_TOOLS_PULL_KEYS_HISTORY_LAST_RECORD";
-
-		public static readonly string TERMS_NOTIFICATION_WAS_SENT = "TERMS_NOTIFICATION_WAS_SENT";
-
-		public static readonly string LAST_MESSAGE_DATE_TIME = "LAST_MESSAGE_DATE_TIME";
-
-		public static readonly string LAST_DISEASE_RATE_DATE_TIME = "LAST_DISEASE_RATE_DATE_TIME";
-
-		public static readonly string LAST_PERMISSIONS_NOTIFICATION_DATE_TIME = "LAST_PERMISSIONS_NOTIFICATION_DATE_TIME";
-
-		public static readonly string EXPOSURE_TIME_THRESHOLD = "EXPOSURE_TIME_THRESHOLD";
-
-		public static readonly string LOW_ATTENUATION_DURATION_MULTIPLIER = "LOW_ATTENUATION_DURATION_MULTIPLIER";
-
-		public static readonly string MIDDLE_ATTENUATION_DURATION_MULTIPLIER = "MIDDLE_ATTENUATION_DURATION_MULTIPLIER";
-
-		public static readonly string HIGH_ATTENUATION_DURATION_MULTIPLIER = "HIGH_ATTENUATION_DURATION_MULTIPLIER";
-
-		public static readonly string CORRELATION_ID = "CORRELATION_ID";
-
-		public static readonly string LAST_NTP_UTC_DATE_TIME = "LAST_NTP_DATE_TIME";
-
-		public static readonly string FETCHING_ACROSS_DATES_204_FIRST_BATCH = "FETCHING_ACROSS_DATES_204_FIRST_BATCH";
-
-		[Obsolete]
-		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_PREF";
-
-		[Obsolete]
-		public static readonly string LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF = "LAST_DOWNLOAD_ZIPS_CALL_UTC_DATETIME_PREF";
-
-		[Obsolete]
-		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_DATETIME_PREF";
-
-		[Obsolete]
-		public static readonly string CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF = "CURRENT_DAY_TO_DOWNLOAD_KEYS_FOR_UTC_PREF";
-
-		[Obsolete]
-		public static readonly string CURRENT_DOWNLOAD_DAY_BATCH_PREF = "CURRENT_DOWNLOAD_DAY_BATCH_PREF";
+		public bool UseDevTools { get; set; }
 	}
 }
